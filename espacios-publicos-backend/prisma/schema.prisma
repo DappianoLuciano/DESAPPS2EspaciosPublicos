@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+enum CommunityEventStatus {
+  ACTIVE
+  ACTIVE_FULL
+  CANCELLED
+}
+
+model PublicSpace {
+  id          String           @id @default(uuid())
+  name        String
+  description String
+  address     String
+  capacity    Int
+  imageUrl    String?
+  createdAt   DateTime         @default(now())
+  reservations Reservation[]
+  events      CommunityEvent[]
+
+  @@map("public_spaces")
+}
+
+model Reservation {
+  id            String            @id @default(uuid())
+  publicSpaceId String
+  requesterName String
+  requesterEmail String
+  estimatedAttendees Int
+  startDate     DateTime
+  endDate       DateTime
+  status        ReservationStatus @default(CONFIRMED)
+  createdAt     DateTime          @default(now())
+  publicSpace   PublicSpace       @relation(fields: [publicSpaceId], references: [id])
+
+  @@index([publicSpaceId, startDate, endDate])
+  @@map("reservations")
+}
+
+model CommunityEvent {
+  id            String      @id @default(uuid())
+  title         String
+  category      String
+  description   String
+  publicSpaceId String
+  organizerName String
+  capacity      Int
+  requiresRegistration Boolean @default(true)
+  startDate     DateTime
+  endDate       DateTime
+  status        CommunityEventStatus @default(ACTIVE)
+  imageUrl      String?
+  createdAt     DateTime    @default(now())
+  publicSpace   PublicSpace @relation(fields: [publicSpaceId], references: [id])
+
+  @@index([publicSpaceId, startDate, endDate])
+  @@map("community_events")
+}
+
+model EventOutbox {
+  id          String    @id
+  name        String
+  payload     Json
+  occurredAt  DateTime
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([name])
+  @@map("event_outbox")
+}
