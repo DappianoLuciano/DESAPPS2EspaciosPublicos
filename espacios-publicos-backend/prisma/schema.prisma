@@ -23,6 +23,7 @@ model PublicSpace {
   name        String
   description String
   address     String
+  zone        String           @default("Sin definir")
   capacity    Int
   imageUrl    String?
   createdAt   DateTime         @default(now())
@@ -63,9 +64,23 @@ model CommunityEvent {
   imageUrl      String?
   createdAt     DateTime    @default(now())
   publicSpace   PublicSpace @relation(fields: [publicSpaceId], references: [id])
+  registrations CommunityEventRegistration[]
 
   @@index([publicSpaceId, startDate, endDate])
   @@map("community_events")
+}
+
+model CommunityEventRegistration {
+  id               String         @id @default(uuid())
+  communityEventId String
+  citizenName      String
+  citizenEmail     String
+  createdAt        DateTime       @default(now())
+  communityEvent   CommunityEvent @relation(fields: [communityEventId], references: [id])
+
+  @@unique([communityEventId, citizenEmail])
+  @@index([communityEventId])
+  @@map("community_event_registrations")
 }
 
 model EventOutbox {

@@ -15,10 +15,27 @@ curl -X POST http://localhost:3000/api/public-spaces \
     "name": "Parque Centenario",
     "description": "Espacio verde para actividades culturales y comunitarias.",
     "address": "Av. Diaz Velez, CABA",
+    "zone": "Caballito",
     "capacity": 500,
     "imageUrl": "https://example.com/parque.jpg"
   }'
 ```
+
+## Consultar eventos comunitarios disponibles
+
+Sin filtros:
+
+```bash
+curl http://localhost:3000/api/community-events
+```
+
+Con filtros opcionales:
+
+```bash
+curl "http://localhost:3000/api/community-events?category=Cultura&zone=Caballito&date=2026-09-15&availableOnly=true"
+```
+
+La respuesta incluye `availableCapacity` para que el ciudadano pueda decidir si inscribirse.
 
 ## Solicitar reserva
 
@@ -46,10 +63,30 @@ curl -X POST http://localhost:3000/api/community-events \
     "description": "Encuentro comunitario con puestos culturales y talleres.",
     "publicSpaceId": "ID_DEL_ESPACIO",
     "organizerName": "Comuna 6",
+    "organizerProfileEnabled": true,
     "capacity": 300,
     "requiresRegistration": true,
     "startDate": "2026-09-15T13:00:00.000Z",
     "endDate": "2026-09-15T20:00:00.000Z",
     "imageUrl": "https://example.com/feria.jpg"
   }'
+```
+
+## Inscribirse a evento comunitario
+
+En una version con autenticacion real, el ciudadano saldria del usuario logueado. En este Sprint se envia en el body para poder probar el flujo sin login.
+
+```bash
+curl -X POST http://localhost:3000/api/community-events/ID_DEL_EVENTO/registrations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "citizenName": "Ana Gomez",
+    "citizenEmail": "ana.gomez@test.com"
+  }'
+```
+
+## Consultar inscriptos de un evento
+
+```bash
+curl http://localhost:3000/api/community-events/ID_DEL_EVENTO/registrations
 ```

@@ -1,9 +1,12 @@
 import { CreateCommunityEventUseCase } from "./application/use-cases/CreateCommunityEventUseCase";
 import { CreatePublicSpaceUseCase } from "./application/use-cases/CreatePublicSpaceUseCase";
 import { ListCommunityEventsUseCase } from "./application/use-cases/ListCommunityEventsUseCase";
+import { ListCommunityEventRegistrationsUseCase } from "./application/use-cases/ListCommunityEventRegistrationsUseCase";
 import { ListPublicSpacesUseCase } from "./application/use-cases/ListPublicSpacesUseCase";
 import { ListReservationsUseCase } from "./application/use-cases/ListReservationsUseCase";
+import { RegisterCitizenToCommunityEventUseCase } from "./application/use-cases/RegisterCitizenToCommunityEventUseCase";
 import { RequestReservationUseCase } from "./application/use-cases/RequestReservationUseCase";
+import { PrismaCommunityEventRegistrationRepository } from "./infrastructure/database/PrismaCommunityEventRegistrationRepository";
 import { PrismaCommunityEventRepository } from "./infrastructure/database/PrismaCommunityEventRepository";
 import { PrismaEventOutboxRepository } from "./infrastructure/database/PrismaEventOutboxRepository";
 import { PrismaPublicSpaceRepository } from "./infrastructure/database/PrismaPublicSpaceRepository";
@@ -18,6 +21,7 @@ export function createContainer() {
   const publicSpaceRepository = new PrismaPublicSpaceRepository();
   const reservationRepository = new PrismaReservationRepository();
   const communityEventRepository = new PrismaCommunityEventRepository();
+  const communityEventRegistrationRepository = new PrismaCommunityEventRegistrationRepository();
   const eventOutboxRepository = new PrismaEventOutboxRepository();
   const eventBus = new ConsoleEventBus();
 
@@ -41,6 +45,16 @@ export function createContainer() {
     eventBus
   );
   const listCommunityEventsUseCase = new ListCommunityEventsUseCase(communityEventRepository);
+  const registerCitizenToCommunityEventUseCase = new RegisterCitizenToCommunityEventUseCase(
+    communityEventRepository,
+    communityEventRegistrationRepository,
+    eventOutboxRepository,
+    eventBus
+  );
+  const listCommunityEventRegistrationsUseCase = new ListCommunityEventRegistrationsUseCase(
+    communityEventRepository,
+    communityEventRegistrationRepository
+  );
 
   return {
     publicSpaceController: new PublicSpaceController(
@@ -53,7 +67,9 @@ export function createContainer() {
     ),
     communityEventController: new CommunityEventController(
       createCommunityEventUseCase,
-      listCommunityEventsUseCase
+      listCommunityEventsUseCase,
+      registerCitizenToCommunityEventUseCase,
+      listCommunityEventRegistrationsUseCase
     )
   };
 }

@@ -4,8 +4,9 @@ export interface CreateCommunityEventInput {
   description: string;
   publicSpaceId: string;
   organizerName: string;
+  organizerProfileEnabled?: boolean;
   capacity: number;
-  requiresRegistration: boolean;
+  requiresRegistration?: boolean;
   startDate: string;
   endDate: string;
   imageUrl?: string | null;

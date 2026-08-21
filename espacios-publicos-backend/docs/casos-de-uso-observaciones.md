@@ -23,6 +23,23 @@ Fuente revisada: `CityPass - Casos de uso.docx`.
    - Se agregaron `category`, `organizerName`, `capacity`, `requiresRegistration` y `status`.
    - El estado inicial del evento es `ACTIVE`.
 
+5. **Inscripcion ciudadana a eventos**
+   - Se agrego el modelo `CommunityEventRegistration`.
+   - El ciudadano puede inscribirse a un evento activo que requiere inscripcion previa.
+   - El backend evita duplicados por email dentro del mismo evento.
+   - El backend valida cupo y cambia el evento a `ACTIVE_FULL` cuando se completa.
+
+6. **Consulta de eventos disponibles**
+   - `GET /api/community-events` devuelve solo eventos `ACTIVE` o `ACTIVE_FULL`.
+   - Acepta filtros opcionales por `category`, `zone`, `date` y `availableOnly`.
+   - La respuesta incluye `registeredCount` y `availableCapacity`.
+   - Si no hay resultados, devuelve `items: []` y un mensaje sugiriendo ajustar filtros.
+
+7. **Perfil habilitado del organizador**
+   - Como todavia no existe modulo real de autenticacion/autorizacion, se agrego `organizerProfileEnabled` como dato simulado de entrada.
+   - Si el valor no es verdadero, el backend rechaza la publicacion con error 403.
+   - Cuando se integre autenticacion, este dato deberia salir del token o perfil del usuario y no del body.
+
 ## Cosas raras o inconsistentes en el documento
 
 1. **Estado "Activo - Completo" referencia CU-01**
@@ -38,17 +55,17 @@ Fuente revisada: `CityPass - Casos de uso.docx`.
    - Los requisitos de rendimiento usan valores placeholder.
    - Recomendacion para Sprint 1: documentar objetivos simples, por ejemplo respuestas menores a 2 segundos en operaciones comunes y recordatorios generados dentro de una ventana configurable.
 
-4. **Autenticacion y perfiles aparecen como precondicion pero no estan definidos**
+4. **Autenticacion real todavia no esta definida**
    - Los casos de uso mencionan ciudadano autenticado, organizador habilitado y perfiles bloqueados.
-   - Para no sobredimensionar el Sprint 1, conviene dejar autenticacion como integracion futura o usar headers simulados mientras el modulo aprende dominio y persistencia.
+   - El backend valida `organizerProfileEnabled` como simulacion temporal y recibe datos del ciudadano por body en inscripciones, pero falta definir login, roles y permisos reales.
 
-5. **Inscripciones todavia requieren modelo propio**
-   - CU-03, CU-04, CU-05 y CU-08 necesitan una entidad `EventRegistration`.
-   - No conviene improvisarla sin definir antes datos minimos visibles, privacidad y reglas de duplicado.
+5. **Privacidad de inscriptos**
+   - CU-08 advierte que el listado debe limitar informacion visible.
+   - Por ahora se guardan nombre y email; cuando haya autenticacion real, conviene validar que solo el organizador o un administrador pueda consultar esos datos.
 
 ## Recomendacion de orden
 
-1. Cerrar bien CU-01, CU-02, CU-06 y CU-07.
-2. Agregar CU-03 con modelo `EventRegistration`.
-3. Agregar cancelaciones CU-04 y CU-09.
+1. Cerrar bien CU-01, CU-02, CU-03, CU-06 y CU-07.
+2. Agregar cancelaciones CU-04 y CU-09.
+3. Agregar permisos reales para organizador y administrador.
 4. Agregar recordatorios CU-05 como job programado que publica eventos para el modulo de notificaciones.

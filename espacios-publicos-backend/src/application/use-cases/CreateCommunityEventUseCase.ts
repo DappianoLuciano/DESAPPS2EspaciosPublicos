@@ -6,6 +6,7 @@ import { EventOutboxRepository } from "../../domain/repositories/EventOutboxRepo
 import { PublicSpaceRepository } from "../../domain/repositories/PublicSpaceRepository";
 import { ReservationRepository } from "../../domain/repositories/ReservationRepository";
 import { EventBus } from "../../domain/services/EventBus";
+import { ForbiddenError } from "../../shared/errors/ForbiddenError";
 import { NotFoundError } from "../../shared/errors/NotFoundError";
 import { ValidationError } from "../../shared/errors/ValidationError";
 import { CreateCommunityEventInput } from "../dtos/CreateCommunityEventInput";
@@ -31,8 +32,16 @@ export class CreateCommunityEventUseCase {
       throw new ValidationError("Categoria y organizador son obligatorios.");
     }
 
+    if (input.organizerProfileEnabled !== true) {
+      throw new ForbiddenError("El organizador no cuenta con perfil habilitado para publicar eventos.");
+    }
+
     if (!Number.isFinite(input.capacity) || input.capacity <= 0) {
       throw new ValidationError("El cupo del evento debe ser mayor a cero.");
+    }
+
+    if (typeof input.requiresRegistration !== "boolean") {
+      throw new ValidationError("Debe indicar si el evento requiere inscripcion previa.");
     }
 
     if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
@@ -95,6 +104,7 @@ export class CreateCommunityEventUseCase {
         title: communityEvent.title,
         category: communityEvent.category,
         organizerName: communityEvent.organizerName,
+        status: communityEvent.status,
         capacity: communityEvent.capacity,
         requiresRegistration: communityEvent.requiresRegistration,
         startDate: communityEvent.startDate.toISOString(),

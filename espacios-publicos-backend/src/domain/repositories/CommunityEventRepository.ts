@@ -1,7 +1,18 @@
-import { CommunityEvent, CreateCommunityEventData } from "../entities/CommunityEvent";
+import { CommunityEvent, CommunityEventStatus, CreateCommunityEventData } from "../entities/CommunityEvent";
+import { CommunityEventCatalogItem } from "../entities/CommunityEventCatalogItem";
+
+export interface CommunityEventCatalogFilters {
+  category?: string;
+  zone?: string;
+  date?: Date;
+  availableOnly?: boolean;
+}
 
 export interface CommunityEventRepository {
   create(data: CreateCommunityEventData): Promise<CommunityEvent>;
+  findById(id: string): Promise<CommunityEvent | null>;
   findAll(): Promise<CommunityEvent[]>;
+  findActiveCatalog(filters: CommunityEventCatalogFilters): Promise<CommunityEventCatalogItem[]>;
   findOverlapping(publicSpaceId: string, startDate: Date, endDate: Date): Promise<CommunityEvent[]>;
+  updateStatus(id: string, status: CommunityEventStatus): Promise<CommunityEvent>;
 }

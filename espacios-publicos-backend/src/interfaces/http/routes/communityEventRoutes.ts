@@ -7,6 +7,8 @@ export function createCommunityEventRoutes(controller: CommunityEventController)
 
   router.post("/", asyncHandler(controller.create));
   router.get("/", asyncHandler(controller.list));
+  router.post("/:id/registrations", asyncHandler(controller.registerCitizen));
+  router.get("/:id/registrations", asyncHandler(controller.listRegistrations));
 
   return router;
 }

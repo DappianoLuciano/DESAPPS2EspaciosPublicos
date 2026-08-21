@@ -27,6 +27,9 @@ La estrategia sigue el documento base: primero se construye el backend principal
 - Listar reservas.
 - Crear eventos comunitarios.
 - Listar agenda cultural.
+- Consultar eventos por categoria, zona, fecha y cupo disponible.
+- Inscribir ciudadanos a eventos comunitarios.
+- Consultar inscriptos de un evento.
 - Registrar eventos de dominio en `event_outbox`.
 
 ## Comandos
@@ -50,5 +53,6 @@ npm test
 
 - `espacios.reserva_confirmada`
 - `cultura.evento_comunitario_publicado`
+- `cultura.ciudadano_inscripto`
 
 Mas adelante, la interfaz `EventBus` permite cambiar la implementacion actual por RabbitMQ, Kafka u otro broker sin reescribir los casos de uso.

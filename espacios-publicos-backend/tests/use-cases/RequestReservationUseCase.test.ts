@@ -1,4 +1,9 @@
-import { CommunityEvent, CreateCommunityEventData } from "../../src/domain/entities/CommunityEvent";
+import {
+  CommunityEvent,
+  CommunityEventStatus,
+  CreateCommunityEventData
+} from "../../src/domain/entities/CommunityEvent";
+import { CommunityEventCatalogItem } from "../../src/domain/entities/CommunityEventCatalogItem";
 import { RequestReservationUseCase } from "../../src/application/use-cases/RequestReservationUseCase";
 import { DomainEvent } from "../../src/domain/entities/DomainEvent";
 import { PublicSpace } from "../../src/domain/entities/PublicSpace";
@@ -71,6 +76,14 @@ class FakeCommunityEventRepository implements CommunityEventRepository {
     return this.events;
   }
 
+  async findActiveCatalog(): Promise<CommunityEventCatalogItem[]> {
+    return [];
+  }
+
+  async findById(id: string): Promise<CommunityEvent | null> {
+    return this.events.find((event) => event.id === id) || null;
+  }
+
   async findOverlapping(publicSpaceId: string, startDate: Date, endDate: Date): Promise<CommunityEvent[]> {
     return this.events.filter((event) => {
       const sameSpace = event.publicSpaceId === publicSpaceId;
@@ -79,6 +92,17 @@ class FakeCommunityEventRepository implements CommunityEventRepository {
 
       return sameSpace && activeStatus && overlaps;
     });
+  }
+
+  async updateStatus(id: string, status: CommunityEventStatus): Promise<CommunityEvent> {
+    const event = await this.findById(id);
+
+    if (!event) {
+      throw new Error("Evento no encontrado.");
+    }
+
+    event.status = status;
+    return event;
   }
 }
 
