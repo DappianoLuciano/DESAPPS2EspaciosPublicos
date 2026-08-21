@@ -49,6 +49,24 @@ Para pruebas:
 npm test
 ```
 
+## Cambios en la base de datos
+
+Cuando agregamos o modificamos campos del modelo Prisma, cada maquina local debe aplicar las migraciones:
+
+```bash
+npm run prisma:migrate
+```
+
+Para revisar si faltan migraciones:
+
+```bash
+npm run prisma:status
+```
+
+Si la API responde que la base no esta sincronizada, normalmente falta correr `npm run prisma:migrate`.
+
+`npm run prisma:push` queda disponible solo para desarrollo rapido, pero para el proyecto conviene preferir migraciones versionadas.
+
 ## Eventos de dominio previstos
 
 - `espacios.reserva_confirmada`
