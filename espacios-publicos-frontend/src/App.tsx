@@ -1,0 +1,48 @@
+import '@mantine/core/styles.css';
+import { MantineProvider } from '@mantine/core';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { PrivateRoute } from './components/PrivateRoute';
+import Layout from './components/Layout';
+import Home from './pages/Home';
+import ProfileSettings from './pages/ProfileSettings';
+import EventDetail from './pages/EventDetail';
+import ReservationSuccess from './pages/ReservationSuccess';
+import AdminDashboard from './pages/AdminDashboard';
+import CreateEvent from './pages/CreateEvent';
+import Login from './pages/Login';
+import Register from './pages/Register';
+
+function App() {
+  return (
+    <MantineProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            
+            <Route element={<PrivateRoute />}>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<Home />} />
+                <Route path="event/:id" element={<EventDetail />} />
+                <Route path="reservation-success" element={<ReservationSuccess />} />
+                <Route path="profile" element={<ProfileSettings />} />
+                
+                {/* Admin Routes */}
+                <Route element={<PrivateRoute requireAdmin={true} />}>
+                  <Route path="admin" element={<AdminDashboard />} />
+                  <Route path="admin/create-event" element={<CreateEvent />} />
+                </Route>
+
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Route>
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </MantineProvider>
+  );
+}
+
+export default App;
