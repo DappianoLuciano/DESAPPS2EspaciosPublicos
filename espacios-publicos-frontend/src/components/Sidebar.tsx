@@ -32,7 +32,7 @@ export default function Sidebar() {
       </Flex>
 
       <Box style={{ flex: 1, padding: '16px 0' }}>
-        {mainLinks.map((link) => (
+        {user?.role !== 'admin' && mainLinks.map((link) => (
           <NavLink
             key={link.label}
             label={<Text fw={600} fz="sm">{link.label}</Text>}
