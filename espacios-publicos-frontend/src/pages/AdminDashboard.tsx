@@ -1,6 +1,6 @@
 import { Container, Title, Text, Card, SimpleGrid, Flex, Box, Table, Badge, ActionIcon, Button } from '@mantine/core';
 import { IconChartBar, IconUsers, IconEdit, IconTrash, IconEye } from '@tabler/icons-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -27,7 +27,7 @@ export default function AdminDashboard() {
           <Title order={1} fz={32}>Panel Admin</Title>
           <Text c="dimmed">Resumen de actividad e impacto en la ciudad.</Text>
         </Box>
-        <Button onClick={() => navigate('/admin/create-event')} color="blue">
+        <Button component={Link} to="/admin/create-event" color="blue">
           + Nuevo Evento
         </Button>
       </Flex>
@@ -83,10 +83,10 @@ export default function AdminDashboard() {
                 <Table.Td>{getStatusBadge(ev.status)}</Table.Td>
                 <Table.Td>
                   <Flex gap="xs">
-                    <ActionIcon variant="subtle" color="gray" onClick={() => navigate(`/admin/event/${ev.id}/attendees`)}>
+                    <ActionIcon component={Link} to={`/admin/event/${ev.id}/attendees`} variant="subtle" color="gray">
                       <IconEye size="1rem" />
                     </ActionIcon>
-                    <ActionIcon variant="subtle" color="blue" onClick={() => navigate(`/admin/event/${ev.id}/edit`)}>
+                    <ActionIcon component={Link} to={`/admin/event/${ev.id}/edit`} variant="subtle" color="blue">
                       <IconEdit size="1rem" />
                     </ActionIcon>
                     <ActionIcon variant="subtle" color="red">
