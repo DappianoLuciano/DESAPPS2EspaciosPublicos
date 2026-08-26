@@ -12,6 +12,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import CreateEvent from './pages/CreateEvent';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import MyReservations from './pages/MyReservations';
 
 const theme = {
   fontFamily: 'Open Sans, sans-serif',
@@ -32,6 +33,7 @@ function App() {
                 <Route index element={<Home />} />
                 <Route path="event/:id" element={<EventDetail />} />
                 <Route path="reservation-success" element={<ReservationSuccess />} />
+                <Route path="reservations" element={<MyReservations />} />
                 <Route path="profile" element={<ProfileSettings />} />
                 
                 {/* Admin Routes */}
