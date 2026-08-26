@@ -6,10 +6,10 @@ export default function Home() {
   const navigate = useNavigate();
 
   const categories = [
-    { label: 'Música', icon: IconMusic, color: 'blue', bg: 'rgba(164, 201, 255, 0.2)' },
-    { label: 'Arte', icon: IconPalette, color: 'green', bg: 'rgba(178, 240, 211, 0.4)' },
-    { label: 'Charlas', icon: IconMicrophone2, color: 'indigo', bg: 'rgba(217, 226, 255, 0.5)' },
-    { label: 'Juegos', icon: IconDeviceGamepad, color: 'red', bg: 'rgba(255, 218, 214, 0.5)' },
+    { id: 'musica', label: 'Música', icon: IconMusic, color: 'blue', bg: 'rgba(164, 201, 255, 0.2)' },
+    { id: 'arte', label: 'Arte', icon: IconPalette, color: 'green', bg: 'rgba(178, 240, 211, 0.4)' },
+    { id: 'charlas', label: 'Charlas', icon: IconMicrophone2, color: 'indigo', bg: 'rgba(217, 226, 255, 0.5)' },
+    { id: 'juegos', label: 'Juegos', icon: IconDeviceGamepad, color: 'red', bg: 'rgba(255, 218, 214, 0.5)' },
   ];
 
   const events = [
@@ -69,7 +69,15 @@ export default function Home() {
 
       <SimpleGrid cols={4} spacing="lg">
         {categories.map((cat) => (
-          <Card key={cat.label} shadow="sm" padding="xl" radius="md" withBorder style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <Card 
+            key={cat.label} 
+            shadow="sm" 
+            padding="xl" 
+            radius="md" 
+            withBorder 
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}
+            onClick={() => navigate(`/category/${cat.id}`)}
+          >
             <Box bg={cat.bg} p={16} style={{ borderRadius: '50%' }} mb="md">
               <cat.icon size="1.5rem" color={`var(--mantine-color-${cat.color}-filled)`} />
             </Box>

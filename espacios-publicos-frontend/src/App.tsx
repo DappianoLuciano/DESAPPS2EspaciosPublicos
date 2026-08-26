@@ -13,6 +13,7 @@ import CreateEvent from './pages/CreateEvent';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import MyReservations from './pages/MyReservations';
+import CategoryEvents from './pages/CategoryEvents';
 
 const theme = {
   fontFamily: 'Open Sans, sans-serif',
@@ -31,6 +32,7 @@ function App() {
             <Route element={<PrivateRoute />}>
               <Route path="/" element={<Layout />}>
                 <Route index element={<Home />} />
+                <Route path="category/:id" element={<CategoryEvents />} />
                 <Route path="event/:id" element={<EventDetail />} />
                 <Route path="reservation-success" element={<ReservationSuccess />} />
                 <Route path="reservations" element={<MyReservations />} />
