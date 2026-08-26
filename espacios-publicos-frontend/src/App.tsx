@@ -15,6 +15,7 @@ import Register from './pages/Register';
 import MyReservations from './pages/MyReservations';
 import CategoryEvents from './pages/CategoryEvents';
 import CancelReservation from './pages/CancelReservation';
+import EventAttendees from './pages/EventAttendees';
 
 const theme = {
   fontFamily: 'Open Sans, sans-serif',
@@ -44,6 +45,8 @@ function App() {
                 <Route element={<PrivateRoute requireAdmin={true} />}>
                   <Route path="admin" element={<AdminDashboard />} />
                   <Route path="admin/create-event" element={<CreateEvent />} />
+                  <Route path="admin/event/:id/edit" element={<CreateEvent />} />
+                  <Route path="admin/event/:id/attendees" element={<EventAttendees />} />
                 </Route>
 
                 <Route path="*" element={<Navigate to="/" replace />} />

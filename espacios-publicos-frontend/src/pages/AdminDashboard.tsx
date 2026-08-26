@@ -83,9 +83,15 @@ export default function AdminDashboard() {
                 <Table.Td>{getStatusBadge(ev.status)}</Table.Td>
                 <Table.Td>
                   <Flex gap="xs">
-                    <ActionIcon variant="subtle" color="gray"><IconEye size="1rem" /></ActionIcon>
-                    <ActionIcon variant="subtle" color="blue"><IconEdit size="1rem" /></ActionIcon>
-                    <ActionIcon variant="subtle" color="red"><IconTrash size="1rem" /></ActionIcon>
+                    <ActionIcon variant="subtle" color="gray" onClick={() => navigate(`/admin/event/${ev.id}/attendees`)}>
+                      <IconEye size="1rem" />
+                    </ActionIcon>
+                    <ActionIcon variant="subtle" color="blue" onClick={() => navigate(`/admin/event/${ev.id}/edit`)}>
+                      <IconEdit size="1rem" />
+                    </ActionIcon>
+                    <ActionIcon variant="subtle" color="red">
+                      <IconTrash size="1rem" />
+                    </ActionIcon>
                   </Flex>
                 </Table.Td>
               </Table.Tr>
