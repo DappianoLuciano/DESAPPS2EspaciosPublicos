@@ -32,21 +32,21 @@ function App() {
             <Route path="/register" element={<Register />} />
             
             <Route element={<PrivateRoute />}>
-              <Route path="/" element={<Layout />}>
-                <Route index element={<Home />} />
-                <Route path="category/:id" element={<CategoryEvents />} />
-                <Route path="event/:id" element={<EventDetail />} />
-                <Route path="reservation-success" element={<ReservationSuccess />} />
-                <Route path="reservations" element={<MyReservations />} />
-                <Route path="cancel-reservation/:id" element={<CancelReservation />} />
-                <Route path="profile" element={<ProfileSettings />} />
+              <Route element={<Layout />}>
+                <Route path="/" element={<Home />} />
+                <Route path="/category/:id" element={<CategoryEvents />} />
+                <Route path="/event/:id" element={<EventDetail />} />
+                <Route path="/reservation-success" element={<ReservationSuccess />} />
+                <Route path="/reservations" element={<MyReservations />} />
+                <Route path="/cancel-reservation/:id" element={<CancelReservation />} />
+                <Route path="/profile" element={<ProfileSettings />} />
                 
                 {/* Admin Routes */}
                 <Route element={<PrivateRoute requireAdmin={true} />}>
-                  <Route path="admin" element={<AdminDashboard />} />
-                  <Route path="admin/create-event" element={<CreateEvent />} />
-                  <Route path="admin/event/:id/edit" element={<CreateEvent />} />
-                  <Route path="admin/event/:id/attendees" element={<EventAttendees />} />
+                  <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/admin/create-event" element={<CreateEvent />} />
+                  <Route path="/admin/event/:id/edit" element={<CreateEvent />} />
+                  <Route path="/admin/event/:id/attendees" element={<EventAttendees />} />
                 </Route>
 
                 <Route path="*" element={<Navigate to="/" replace />} />
