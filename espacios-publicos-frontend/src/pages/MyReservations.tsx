@@ -1,7 +1,10 @@
 import { Container, Title, Text, SimpleGrid, Card, Badge, Flex, Button, Box, ActionIcon } from '@mantine/core';
 import { IconCalendarEvent, IconMapPin, IconDotsVertical, IconCheck, IconPlayerPlay, IconHistory } from '@tabler/icons-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function MyReservations() {
+  const navigate = useNavigate();
+
   const reservations = [
     {
       id: 1,
@@ -58,7 +61,7 @@ export default function MyReservations() {
         </Box>
         <Flex gap="md">
           <Button variant="default" radius="xl">Filtrar por Fecha</Button>
-          <Button color="dark" radius="xl">Nueva Reserva</Button>
+          <Button color="dark" radius="xl" onClick={() => navigate('/')}>Nueva Reserva</Button>
         </Flex>
       </Flex>
 
@@ -99,6 +102,7 @@ export default function MyReservations() {
                 color={res.actionColor} 
                 fullWidth 
                 radius="md"
+                onClick={() => navigate(`/event/${res.id}`)}
               >
                 {res.actionText}
               </Button>
