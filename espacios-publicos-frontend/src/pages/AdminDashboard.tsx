@@ -1,10 +1,8 @@
-import { Container, Title, Text, Card, SimpleGrid, Flex, Box, Table, Badge, ActionIcon, Button } from '@mantine/core';
-import { IconChartBar, IconUsers, IconEdit, IconTrash, IconEye } from '@tabler/icons-react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Container, Title, Text, Card, SimpleGrid, Flex, Box, Table, Badge, Button } from '@mantine/core';
+import { IconChartBar, IconUsers } from '@tabler/icons-react';
+import { Link } from 'react-router-dom';
 
 export default function AdminDashboard() {
-  const navigate = useNavigate();
-
   const events = [
     { id: 1, title: 'Festival de Arte Urbano 2024', category: 'Arte', date: '15 Oct 2024', status: 'Activo' },
     { id: 2, title: 'BA Tech Summit 2024', category: 'Tecnología', date: '20 Oct 2024', status: 'Reprogramado' },
@@ -61,9 +59,12 @@ export default function AdminDashboard() {
       </SimpleGrid>
 
       <Card shadow="sm" radius="md" withBorder p={0}>
-        <Box p="xl" style={{ borderBottom: '1px solid #E2E8F0' }}>
+        <Flex justify="space-between" align="center" p="xl" style={{ borderBottom: '1px solid #E2E8F0' }}>
           <Title order={3} fz={20}>Gestión de Eventos</Title>
-        </Box>
+          <Button component={Link} to="/admin/events" variant="subtle" size="sm">
+            Ver más
+          </Button>
+        </Flex>
         <Table verticalSpacing="md" horizontalSpacing="xl" striped>
           <Table.Thead>
             <Table.Tr>
@@ -71,7 +72,6 @@ export default function AdminDashboard() {
               <Table.Th>Categoría</Table.Th>
               <Table.Th>Fecha</Table.Th>
               <Table.Th>Estado</Table.Th>
-              <Table.Th>Acciones</Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
@@ -81,19 +81,6 @@ export default function AdminDashboard() {
                 <Table.Td>{ev.category}</Table.Td>
                 <Table.Td>{ev.date}</Table.Td>
                 <Table.Td>{getStatusBadge(ev.status)}</Table.Td>
-                <Table.Td>
-                  <Flex gap="xs">
-                    <ActionIcon component={Link} to={`/admin/event/${ev.id}/attendees`} variant="subtle" color="gray">
-                      <IconEye size="1rem" />
-                    </ActionIcon>
-                    <ActionIcon component={Link} to={`/admin/event/${ev.id}/edit`} variant="subtle" color="blue">
-                      <IconEdit size="1rem" />
-                    </ActionIcon>
-                    <ActionIcon variant="subtle" color="red">
-                      <IconTrash size="1rem" />
-                    </ActionIcon>
-                  </Flex>
-                </Table.Td>
               </Table.Tr>
             ))}
           </Table.Tbody>

@@ -16,6 +16,7 @@ export default function Sidebar() {
   const adminLinks = [
     { icon: IconDashboard, label: 'Panel Admin', path: '/admin' },
     { icon: IconPlus, label: 'Nuevo Evento', path: '/admin/create-event' },
+    { icon: IconCalendarEvent, label: 'Gestión de Eventos', path: '/admin/events' },
   ];
 
   const handleLogout = () => {
