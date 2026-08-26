@@ -1,5 +1,5 @@
 import { Flex, TextInput, Avatar, Text, ActionIcon } from '@mantine/core';
-import { IconSearch, IconBell, IconMapPin } from '@tabler/icons-react';
+import { IconSearch, IconMapPin } from '@tabler/icons-react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -42,9 +42,6 @@ export default function Header() {
         )}
         
         <Flex align="center" gap="md" style={{ borderLeft: '1px solid #E2E8F0', paddingLeft: 16 }}>
-          <ActionIcon variant="light" color="gray" radius="xl" size="lg">
-            <IconBell size="1.2rem" />
-          </ActionIcon>
           <Avatar src={null} alt={user?.name || 'User'} radius="xl" color="blue">
             {user?.name ? user.name.substring(0, 2).toUpperCase() : 'US'}
           </Avatar>
