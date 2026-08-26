@@ -27,7 +27,7 @@ export default function Sidebar() {
     <Box w={280} h="100vh" bg="#000A24" c="white" style={{ borderRight: '1px solid #C5C6CE', display: 'flex', flexDirection: 'column' }}>
       <Flex p="lg" align="center" gap="md" style={{ borderBottom: '1px solid rgba(197, 198, 206, 0.2)' }}>
         <Avatar src="https://flagcdn.com/w40/ar.png" radius="xl" size="sm" />
-        <Text fw={700} fz="xl" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Espacios Publicos</Text>
+        <Text fw={700} fz="xl">Espacios Publicos</Text>
       </Flex>
 
       <Box style={{ flex: 1, padding: '16px 0' }}>

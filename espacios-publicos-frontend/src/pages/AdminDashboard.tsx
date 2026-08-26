@@ -24,7 +24,7 @@ export default function AdminDashboard() {
     <Container size="xl" py={40}>
       <Flex justify="space-between" align="center" mb="xl">
         <Box>
-          <Title order={1} style={{ fontFamily: 'Space Grotesk' }} fz={32}>Panel Admin</Title>
+          <Title order={1} fz={32}>Panel Admin</Title>
           <Text c="dimmed">Resumen de actividad e impacto en la ciudad.</Text>
         </Box>
         <Button onClick={() => navigate('/admin/create-event')} color="blue">

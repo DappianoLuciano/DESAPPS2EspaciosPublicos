@@ -38,7 +38,7 @@ export default function EventDetail() {
         </Box>
 
         <Box style={{ gridColumn: 'span 8' }}>
-          <Title order={1} fz={36} style={{ fontFamily: 'Liberation Sans, sans-serif' }}>Festival de Arte Urbano 2024</Title>
+          <Title order={1} fz={36}>Festival de Arte Urbano 2024</Title>
           <Text fz="lg" c="dimmed" mt="md" maw={600}>
             Una celebración de la cultura local con artistas en vivo, talleres interactivos y la mejor gastronomía de la ciudad al aire libre.
           </Text>

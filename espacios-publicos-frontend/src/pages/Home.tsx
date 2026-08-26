@@ -54,7 +54,7 @@ export default function Home() {
         <Badge color="green" variant="filled" size="lg" radius="xl" mb="md" style={{ width: 'fit-content', color: '#002116', backgroundColor: '#B2F0D3' }}>
           DESTACADO
         </Badge>
-        <Title order={1} c="white" style={{ fontFamily: 'Space Grotesk' }} fz={40} mb="sm">
+        <Title order={1} c="white" fz={40} mb="sm">
           Noche de los Museos 2026
         </Title>
         <Text c="rgba(255,255,255,0.9)" fz="lg" maw={600} mb="xl">
@@ -63,7 +63,7 @@ export default function Home() {
       </Box>
 
       <Flex justify="space-between" align="center" mt={48} mb={24}>
-        <Title order={2} style={{ fontFamily: 'Space Grotesk' }}>Categorías</Title>
+        <Title order={2}>Categorías</Title>
         <Button variant="subtle" size="xs">Ver todas</Button>
       </Flex>
 
@@ -73,12 +73,12 @@ export default function Home() {
             <Box bg={cat.bg} p={16} style={{ borderRadius: '50%' }} mb="md">
               <cat.icon size="1.5rem" color={`var(--mantine-color-${cat.color}-filled)`} />
             </Box>
-            <Text fw={600} fz="xl" style={{ fontFamily: 'Space Grotesk' }}>{cat.label}</Text>
+            <Text fw={600} fz="xl">{cat.label}</Text>
           </Card>
         ))}
       </SimpleGrid>
 
-      <Title order={2} style={{ fontFamily: 'Space Grotesk' }} mt={48} mb={24}>
+      <Title order={2} mt={48} mb={24}>
         Próximos Eventos
       </Title>
 
@@ -94,7 +94,7 @@ export default function Home() {
             </Card.Section>
 
             <Text c="dimmed" fz="xs" fw={700} mt="md" tt="uppercase">{ev.tag}</Text>
-            <Text fw={600} fz="xl" mt="xs" style={{ fontFamily: 'Space Grotesk' }}>{ev.title}</Text>
+            <Text fw={600} fz="xl" mt="xs">{ev.title}</Text>
             <Text fz="sm" c="dimmed" mt="sm" lineClamp={2}>
               {ev.desc}
             </Text>

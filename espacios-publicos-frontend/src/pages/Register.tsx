@@ -19,7 +19,7 @@ export default function Register() {
   return (
     <Box bg="gray.0" h="100vh" style={{ display: 'flex', alignItems: 'center' }}>
       <Container size={420} w="100%">
-        <Title ta="center" style={{ fontFamily: 'Space Grotesk' }}>
+        <Title ta="center">
           Crear una cuenta
         </Title>
         <Text c="dimmed" size="sm" ta="center" mt={5}>

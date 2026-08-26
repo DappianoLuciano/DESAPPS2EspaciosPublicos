@@ -1,9 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600;700&display=swap');
+
 /* Clear Vite default styles */
 html, body {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: Inter, sans-serif;
   background-color: #F8F9F7;
 }
 

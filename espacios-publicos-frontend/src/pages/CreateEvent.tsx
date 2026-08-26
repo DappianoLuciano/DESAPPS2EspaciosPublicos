@@ -6,7 +6,7 @@ export default function CreateEvent() {
 
   return (
     <Container size="md" py={40}>
-      <Title order={1} style={{ fontFamily: 'Space Grotesk' }} fz={32} mb="xs">
+      <Title order={1} fz={32} mb="xs">
         Crear Nuevo Evento
       </Title>
       <Text c="dimmed" mb={40}>

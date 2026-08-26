@@ -19,7 +19,7 @@ export default function Header() {
     >
       <Flex align="center" gap="md">
         {isAdmin ? (
-          <Text fw={700} fz="xl" style={{ fontFamily: 'Space Grotesk' }}>Gestión Municipal</Text>
+          <Text fw={700} fz="xl">Gestión Municipal</Text>
         ) : (
           <TextInput
             placeholder="Buscar eventos..."
@@ -34,7 +34,7 @@ export default function Header() {
       <Flex align="center" gap="lg">
         {!isAdmin && (
           <Flex align="center" gap="xs">
-            <Text fw={700} fz="lg" style={{ fontFamily: 'Space Grotesk' }}>Argentina</Text>
+            <Text fw={700} fz="lg">Argentina</Text>
             <ActionIcon variant="transparent" color="gray">
               <IconMapPin size="1.2rem" />
             </ActionIcon>

@@ -13,9 +13,14 @@ import CreateEvent from './pages/CreateEvent';
 import Login from './pages/Login';
 import Register from './pages/Register';
 
+const theme = {
+  fontFamily: 'Open Sans, sans-serif',
+  headings: { fontFamily: 'Nunito, sans-serif' },
+};
+
 function App() {
   return (
-    <MantineProvider>
+    <MantineProvider theme={theme}>
       <AuthProvider>
         <BrowserRouter>
           <Routes>

@@ -17,7 +17,7 @@ export default function ReservationSuccess() {
         >
           <IconCheck size="2.5rem" color="#0F503C" stroke={3} />
         </Box>
-        <Title order={2} style={{ fontFamily: 'Space Grotesk' }} fz={32} mb="xs">
+        <Title order={2} fz={32} mb="xs">
           ¡Reserva Confirmada!
         </Title>
         <Text c="dimmed" fz="lg" mb={40}>
