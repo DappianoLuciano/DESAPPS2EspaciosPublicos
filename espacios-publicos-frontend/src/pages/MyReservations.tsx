@@ -97,24 +97,26 @@ export default function MyReservations() {
             </Flex>
 
             <Flex gap="sm" mt="auto">
-              <Button 
-                variant={res.actionVariant} 
-                color={res.actionColor} 
-                style={{ flex: res.id === 1 ? 1 : 'unset', width: res.id === 1 ? 'auto' : '100%' }}
-                radius="md"
-                onClick={() => navigate(`/event/${res.id}`)}
-              >
-                {res.actionText}
-              </Button>
               {res.id === 1 && (
-                <Button 
-                  color="red" 
-                  radius="md" 
-                  style={{ flex: 1 }}
-                  onClick={() => navigate(`/cancel-reservation/${res.id}`)}
-                >
-                  Cancelar
-                </Button>
+                <>
+                  <Button 
+                    variant={res.actionVariant} 
+                    color={res.actionColor} 
+                    style={{ flex: 1 }}
+                    radius="md"
+                    onClick={() => navigate(`/event/${res.id}`)}
+                  >
+                    {res.actionText}
+                  </Button>
+                  <Button 
+                    color="red" 
+                    radius="md" 
+                    style={{ flex: 1 }}
+                    onClick={() => navigate(`/cancel-reservation/${res.id}`)}
+                  >
+                    Cancelar
+                  </Button>
+                </>
               )}
             </Flex>
           </Card>
