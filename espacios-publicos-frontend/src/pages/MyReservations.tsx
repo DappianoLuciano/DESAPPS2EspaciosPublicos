@@ -1,5 +1,5 @@
-import { Container, Title, Text, SimpleGrid, Card, Badge, Flex, Button, Box, ActionIcon } from '@mantine/core';
-import { IconCalendarEvent, IconMapPin, IconDotsVertical, IconCheck, IconPlayerPlay, IconHistory } from '@tabler/icons-react';
+import { Container, Title, Text, SimpleGrid, Card, Badge, Flex, Button, Box } from '@mantine/core';
+import { IconCalendarEvent, IconMapPin, IconCheck, IconPlayerPlay, IconHistory } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function MyReservations() {
@@ -100,16 +100,21 @@ export default function MyReservations() {
               <Button 
                 variant={res.actionVariant} 
                 color={res.actionColor} 
-                fullWidth 
+                style={{ flex: res.id === 1 ? 1 : 'unset', width: res.id === 1 ? 'auto' : '100%' }}
                 radius="md"
                 onClick={() => navigate(`/event/${res.id}`)}
               >
                 {res.actionText}
               </Button>
               {res.id === 1 && (
-                <ActionIcon variant="default" size="36px" radius="md">
-                  <IconDotsVertical size="1.2rem" />
-                </ActionIcon>
+                <Button 
+                  color="red" 
+                  radius="md" 
+                  style={{ flex: 1 }}
+                  onClick={() => navigate(`/cancel-reservation/${res.id}`)}
+                >
+                  Cancelar
+                </Button>
               )}
             </Flex>
           </Card>

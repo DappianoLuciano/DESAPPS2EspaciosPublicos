@@ -14,6 +14,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import MyReservations from './pages/MyReservations';
 import CategoryEvents from './pages/CategoryEvents';
+import CancelReservation from './pages/CancelReservation';
 
 const theme = {
   fontFamily: 'Open Sans, sans-serif',
@@ -36,6 +37,7 @@ function App() {
                 <Route path="event/:id" element={<EventDetail />} />
                 <Route path="reservation-success" element={<ReservationSuccess />} />
                 <Route path="reservations" element={<MyReservations />} />
+                <Route path="cancel-reservation/:id" element={<CancelReservation />} />
                 <Route path="profile" element={<ProfileSettings />} />
                 
                 {/* Admin Routes */}
