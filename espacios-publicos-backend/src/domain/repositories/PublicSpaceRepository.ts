@@ -1,7 +1,13 @@
-import { CreatePublicSpaceData, PublicSpace } from "../entities/PublicSpace";
+import { CreatePublicSpaceData, PublicSpace, PublicSpaceStatus, UpdatePublicSpaceData } from "../entities/PublicSpace";
+
+export interface PublicSpaceFilters {
+  status?: PublicSpaceStatus;
+}
 
 export interface PublicSpaceRepository {
   create(data: CreatePublicSpaceData): Promise<PublicSpace>;
   findById(id: string): Promise<PublicSpace | null>;
-  findAll(): Promise<PublicSpace[]>;
+  findAll(filters?: PublicSpaceFilters): Promise<PublicSpace[]>;
+  update(id: string, data: UpdatePublicSpaceData): Promise<PublicSpace>;
+  delete(id: string): Promise<void>;
 }

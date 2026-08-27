@@ -1,6 +1,7 @@
 import { CancelCommunityEventRegistrationUseCase } from "./application/use-cases/CancelCommunityEventRegistrationUseCase";
 import { CreateCommunityEventUseCase } from "./application/use-cases/CreateCommunityEventUseCase";
 import { CreatePublicSpaceUseCase } from "./application/use-cases/CreatePublicSpaceUseCase";
+import { DeletePublicSpaceUseCase } from "./application/use-cases/DeletePublicSpaceUseCase";
 import { GetCommunityEventUseCase } from "./application/use-cases/GetCommunityEventUseCase";
 import { ListCitizenCommunityEventRegistrationsUseCase } from "./application/use-cases/ListCitizenCommunityEventRegistrationsUseCase";
 import { ListCommunityEventsUseCase } from "./application/use-cases/ListCommunityEventsUseCase";
@@ -9,12 +10,14 @@ import { ListPublicSpacesUseCase } from "./application/use-cases/ListPublicSpace
 import { ListReservationsUseCase } from "./application/use-cases/ListReservationsUseCase";
 import { RegisterCitizenToCommunityEventUseCase } from "./application/use-cases/RegisterCitizenToCommunityEventUseCase";
 import { RequestReservationUseCase } from "./application/use-cases/RequestReservationUseCase";
+import { UpdatePublicSpaceUseCase } from "./application/use-cases/UpdatePublicSpaceUseCase";
 import { PrismaCommunityEventRegistrationRepository } from "./infrastructure/database/PrismaCommunityEventRegistrationRepository";
 import { PrismaCommunityEventRepository } from "./infrastructure/database/PrismaCommunityEventRepository";
 import { PrismaEventOutboxRepository } from "./infrastructure/database/PrismaEventOutboxRepository";
 import { PrismaPublicSpaceRepository } from "./infrastructure/database/PrismaPublicSpaceRepository";
 import { PrismaReservationRepository } from "./infrastructure/database/PrismaReservationRepository";
 import { ConsoleEventBus } from "./infrastructure/events/ConsoleEventBus";
+import { SupabaseStorageService } from "./infrastructure/storage/SupabaseStorageService";
 import { CommunityEventController } from "./interfaces/http/controllers/CommunityEventController";
 import { PublicSpaceController } from "./interfaces/http/controllers/PublicSpaceController";
 import { ReservationController } from "./interfaces/http/controllers/ReservationController";
@@ -27,9 +30,12 @@ export function createContainer() {
   const communityEventRegistrationRepository = new PrismaCommunityEventRegistrationRepository();
   const eventOutboxRepository = new PrismaEventOutboxRepository();
   const eventBus = new ConsoleEventBus();
+  const storageService = new SupabaseStorageService();
 
   const createPublicSpaceUseCase = new CreatePublicSpaceUseCase(publicSpaceRepository);
   const listPublicSpacesUseCase = new ListPublicSpacesUseCase(publicSpaceRepository);
+  const updatePublicSpaceUseCase = new UpdatePublicSpaceUseCase(publicSpaceRepository);
+  const deletePublicSpaceUseCase = new DeletePublicSpaceUseCase(publicSpaceRepository);
 
   const requestReservationUseCase = new RequestReservationUseCase(
     publicSpaceRepository,
@@ -67,9 +73,12 @@ export function createContainer() {
   );
 
   return {
+    storageService,
     publicSpaceController: new PublicSpaceController(
       createPublicSpaceUseCase,
-      listPublicSpacesUseCase
+      listPublicSpacesUseCase,
+      updatePublicSpaceUseCase,
+      deletePublicSpaceUseCase
     ),
     reservationController: new ReservationController(
       requestReservationUseCase,

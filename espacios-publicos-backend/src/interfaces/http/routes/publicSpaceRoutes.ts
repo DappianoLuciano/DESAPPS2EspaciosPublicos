@@ -8,6 +8,8 @@ export function createPublicSpaceRoutes(controller: PublicSpaceController): Rout
 
   router.post("/", requireRole("municipal_admin"), asyncHandler(controller.create));
   router.get("/", asyncHandler(controller.list));
+  router.put("/:id", requireRole("municipal_admin"), asyncHandler(controller.update));
+  router.delete("/:id", requireRole("municipal_admin"), asyncHandler(controller.delete));
 
   return router;
 }

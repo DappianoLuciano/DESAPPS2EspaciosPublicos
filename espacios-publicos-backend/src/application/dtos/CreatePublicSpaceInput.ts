@@ -4,5 +4,6 @@ export interface CreatePublicSpaceInput {
   address: string;
   zone?: string;
   capacity: number;
+  status?: "ENABLED" | "DISABLED";
   imageUrl?: string | null;
 }

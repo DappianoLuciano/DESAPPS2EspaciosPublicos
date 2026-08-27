@@ -12,9 +12,13 @@ export interface User {
 export interface PublicSpace {
   id: string;
   name: string;
+  description: string;
   address: string;
   zone?: string;
   capacity: number;
+  status: 'ENABLED' | 'DISABLED';
+  imageUrl?: string | null;
+  createdAt: string;
 }
 
 export interface CommunityEventCatalogItem {
@@ -115,6 +119,23 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return data as T;
 }
 
+async function uploadRequest<T>(path: string, formData: FormData): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    headers: getMockIdentityHeaders(),
+    body: formData,
+  });
+
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+
+  if (!response.ok) {
+    throw new Error(data?.message || 'No se pudo subir la imagen.');
+  }
+
+  return data as T;
+}
+
 function getMockIdentityHeaders(): Record<string, string> {
   const saved = localStorage.getItem('mock_user');
 
@@ -139,8 +160,52 @@ export function mockLogin(payload: { email: string; password: string }) {
   });
 }
 
-export function listPublicSpaces() {
-  return request<PublicSpace[]>('/api/public-spaces');
+export function uploadEventImage(file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return uploadRequest<{ imageUrl: string }>('/api/uploads/event-image', formData);
+}
+
+export interface PublicSpacePayload {
+  name: string;
+  description: string;
+  address: string;
+  zone: string;
+  capacity: number;
+  status: 'ENABLED' | 'DISABLED';
+  imageUrl?: string | null;
+}
+
+export function listPublicSpaces(params?: { status?: 'ENABLED' | 'DISABLED' }) {
+  const searchParams = new URLSearchParams();
+
+  if (params?.status) {
+    searchParams.set('status', params.status);
+  }
+
+  const query = searchParams.toString();
+  return request<PublicSpace[]>(`/api/public-spaces${query ? `?${query}` : ''}`);
+}
+
+export function createPublicSpace(payload: PublicSpacePayload) {
+  return request<PublicSpace>('/api/public-spaces', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updatePublicSpace(id: string, payload: PublicSpacePayload) {
+  return request<PublicSpace>(`/api/public-spaces/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deletePublicSpace(id: string) {
+  return request<void>(`/api/public-spaces/${id}`, {
+    method: 'DELETE',
+  });
 }
 
 export function listCommunityEvents(params?: { category?: string; availableOnly?: boolean }) {

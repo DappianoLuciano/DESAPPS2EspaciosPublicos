@@ -21,6 +21,13 @@ export function errorHandler(
       });
       return;
     }
+
+    if (error.code === "P2003") {
+      response.status(409).json({
+        message: "No se puede eliminar el registro porque tiene eventos o reservas asociadas."
+      });
+      return;
+    }
   }
 
   console.error(error);

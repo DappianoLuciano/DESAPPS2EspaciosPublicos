@@ -58,6 +58,10 @@ export class CreateCommunityEventUseCase {
       throw new NotFoundError("El espacio publico indicado no existe.");
     }
 
+    if (publicSpace.status !== "ENABLED") {
+      throw new ValidationError("El espacio publico indicado no esta habilitado para nuevos eventos.");
+    }
+
     if (input.capacity > publicSpace.capacity) {
       throw new ValidationError("El cupo del evento supera la capacidad del espacio.");
     }

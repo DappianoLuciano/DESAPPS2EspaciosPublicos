@@ -1,5 +1,5 @@
 import { Box, NavLink, Flex, Text, Avatar } from '@mantine/core';
-import { IconHome, IconCalendarEvent, IconSettings, IconPlus, IconDashboard, IconLogout } from '@tabler/icons-react';
+import { IconHome, IconCalendarEvent, IconSettings, IconPlus, IconDashboard, IconLogout, IconMapPin } from '@tabler/icons-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -17,6 +17,7 @@ export default function Sidebar() {
     { icon: IconDashboard, label: 'Panel Admin', path: '/admin' },
     { icon: IconPlus, label: 'Nuevo Evento', path: '/admin/create-event' },
     { icon: IconCalendarEvent, label: 'Gestión de Eventos', path: '/admin/events' },
+    { icon: IconMapPin, label: 'Espacios Públicos', path: '/admin/public-spaces' },
   ];
 
   const handleLogout = () => {

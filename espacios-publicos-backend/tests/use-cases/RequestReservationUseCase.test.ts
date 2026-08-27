@@ -28,6 +28,14 @@ class FakePublicSpaceRepository implements PublicSpaceRepository {
   async findAll(): Promise<PublicSpace[]> {
     return this.spaces;
   }
+
+  async update(): Promise<PublicSpace> {
+    throw new Error("Metodo no usado en esta prueba.");
+  }
+
+  async delete(): Promise<void> {
+    throw new Error("Metodo no usado en esta prueba.");
+  }
 }
 
 class FakeReservationRepository implements ReservationRepository {
@@ -139,6 +147,7 @@ function createUseCase() {
     description: "Espacio verde para actividades culturales.",
     address: "CABA",
     capacity: 500,
+    status: "ENABLED",
     createdAt: new Date()
   });
 

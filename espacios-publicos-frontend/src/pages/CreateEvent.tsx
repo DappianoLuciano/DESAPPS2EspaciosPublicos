@@ -1,7 +1,9 @@
 import { Alert, Box, Button, Card, Container, Flex, Select, SimpleGrid, Text, Textarea, TextInput, Title } from '@mantine/core';
+import { Dropzone, IMAGE_MIME_TYPE } from '@mantine/dropzone';
+import { IconPhoto, IconUpload, IconX } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { createCommunityEvent, listPublicSpaces } from '../lib/api';
+import { createCommunityEvent, listPublicSpaces, uploadEventImage } from '../lib/api';
 import type { PublicSpace } from '../lib/api';
 
 export default function CreateEvent() {
@@ -16,16 +18,53 @@ export default function CreateEvent() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [capacity, setCapacity] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [imagePreviewUrl, setImagePreviewUrl] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingSpaces, setLoadingSpaces] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    listPublicSpaces()
+    listPublicSpaces({ status: 'ENABLED' })
       .then(setPublicSpaces)
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoadingSpaces(false));
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (imagePreviewUrl) {
+        URL.revokeObjectURL(imagePreviewUrl);
+      }
+    };
+  }, [imagePreviewUrl]);
+
+  const handleImageDrop = async (files: File[]) => {
+    const file = files[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (imagePreviewUrl) {
+      URL.revokeObjectURL(imagePreviewUrl);
+    }
+
+    setError(null);
+    setUploadingImage(true);
+    setImagePreviewUrl(URL.createObjectURL(file));
+
+    try {
+      const response = await uploadEventImage(file);
+      setImageUrl(response.imageUrl);
+    } catch (err) {
+      setImageUrl('');
+      setError(err instanceof Error ? err.message : 'No se pudo subir la imagen.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   const handleSubmit = async () => {
     setError(null);
@@ -34,6 +73,10 @@ export default function CreateEvent() {
     try {
       if (!title || !category || !publicSpaceId || !description || !startDate || !capacity) {
         throw new Error('Completá los campos obligatorios para crear el evento.');
+      }
+
+      if (uploadingImage) {
+        throw new Error('Esperá a que termine de subir la imagen.');
       }
 
       await createCommunityEvent({
@@ -47,7 +90,7 @@ export default function CreateEvent() {
         requiresRegistration: true,
         startDate: new Date(`${startDate}T09:00:00`).toISOString(),
         endDate: new Date(`${endDate || startDate}T18:00:00`).toISOString(),
-        imageUrl: null,
+        imageUrl: imageUrl || null,
       });
 
       navigate('/');
@@ -123,6 +166,45 @@ export default function CreateEvent() {
               value={description}
               onChange={(event) => setDescription(event.currentTarget.value)}
             />
+
+            <Text fw={600} mb={6}>Imagen del evento</Text>
+            <Dropzone
+              onDrop={handleImageDrop}
+              onReject={() => setError('La imagen debe ser JPG, PNG o WEBP y pesar hasta 5MB.')}
+              maxSize={5 * 1024 ** 2}
+              accept={IMAGE_MIME_TYPE}
+              loading={uploadingImage}
+              mb="md"
+            >
+              <Flex align="center" justify="center" gap="md" mih={120}>
+                <Dropzone.Accept>
+                  <IconUpload size="2rem" color="var(--mantine-color-blue-6)" />
+                </Dropzone.Accept>
+                <Dropzone.Reject>
+                  <IconX size="2rem" color="var(--mantine-color-red-6)" />
+                </Dropzone.Reject>
+                <Dropzone.Idle>
+                  <IconPhoto size="2rem" color="var(--mantine-color-gray-6)" />
+                </Dropzone.Idle>
+                <Box>
+                  <Text fw={700}>Arrastrá una imagen o hacé click para seleccionarla</Text>
+                  <Text size="sm" c="dimmed">JPG, PNG o WEBP hasta 5MB</Text>
+                </Box>
+              </Flex>
+            </Dropzone>
+
+            {imagePreviewUrl && (
+              <Box
+                h={180}
+                style={{
+                  borderRadius: 8,
+                  backgroundImage: `url(${imagePreviewUrl})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  border: '1px solid #E2E8F0',
+                }}
+              />
+            )}
           </Card>
         </Box>
 

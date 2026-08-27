@@ -18,6 +18,11 @@ enum CommunityEventStatus {
   CANCELLED
 }
 
+enum PublicSpaceStatus {
+  ENABLED
+  DISABLED
+}
+
 model PublicSpace {
   id          String           @id @default(uuid())
   name        String
@@ -25,6 +30,7 @@ model PublicSpace {
   address     String
   zone        String           @default("Sin definir")
   capacity    Int
+  status      PublicSpaceStatus @default(ENABLED)
   imageUrl    String?
   createdAt   DateTime         @default(now())
   reservations Reservation[]

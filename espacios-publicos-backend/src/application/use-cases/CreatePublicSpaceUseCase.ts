@@ -15,6 +15,10 @@ export class CreatePublicSpaceUseCase {
       throw new ValidationError("La capacidad debe ser un numero mayor a cero.");
     }
 
+    if (input.status && !["ENABLED", "DISABLED"].includes(input.status)) {
+      throw new ValidationError("El estado del espacio publico no es valido.");
+    }
+
     return this.publicSpaceRepository.create(input);
   }
 }
