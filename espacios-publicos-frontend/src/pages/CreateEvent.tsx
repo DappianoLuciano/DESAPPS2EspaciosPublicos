@@ -93,7 +93,7 @@ export default function CreateEvent() {
         imageUrl: imageUrl || null,
       });
 
-      navigate('/');
+      navigate('/admin/events');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear el evento.');
     } finally {

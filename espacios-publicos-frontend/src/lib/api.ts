@@ -99,6 +99,14 @@ export interface CitizenCommunityEventRegistration {
   };
 }
 
+export interface CommunityEventRegistration {
+  id: string;
+  communityEventId: string;
+  citizenName: string;
+  citizenEmail: string;
+  createdAt: string;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
@@ -247,6 +255,10 @@ export function registerToCommunityEvent(
       body: JSON.stringify(payload),
     }
   );
+}
+
+export function listCommunityEventRegistrations(id: string) {
+  return request<CommunityEventRegistration[]>(`/api/community-events/${id}/registrations`);
 }
 
 export function listMyCommunityEventRegistrations() {

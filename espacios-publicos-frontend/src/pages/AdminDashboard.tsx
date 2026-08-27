@@ -1,42 +1,76 @@
-import { Container, Title, Text, Card, SimpleGrid, Flex, Box, Table, Badge, Button } from '@mantine/core';
+import { Alert, Box, Button, Card, Flex, SimpleGrid, Table, Text, Title, Badge } from '@mantine/core';
 import { IconChartBar, IconUsers } from '@tabler/icons-react';
+import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { listCommunityEvents } from '../lib/api';
+import type { CommunityEventCatalogItem } from '../lib/api';
 
 export default function AdminDashboard() {
-  const events = [
-    { id: 1, title: 'Festival de Arte Urbano 2024', category: 'Arte', date: '15 Oct 2024', status: 'Activo' },
-    { id: 2, title: 'BA Tech Summit 2024', category: 'Tecnología', date: '20 Oct 2024', status: 'Reprogramado' },
-    { id: 3, title: 'Jazz en el Parque', category: 'Música', date: '12 Oct 2024', status: 'Cancelado' },
-  ];
+  const [events, setEvents] = useState<CommunityEventCatalogItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const getStatusBadge = (status: string) => {
+  useEffect(() => {
+    listCommunityEvents()
+      .then((response) => setEvents(response.items))
+      .catch((err: Error) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const activeEvents = events.filter((event) => event.status === 'ACTIVE').length;
+  const estimatedReach = useMemo(
+    () => events.reduce((total, event) => total + event.capacity, 0),
+    [events]
+  );
+  const recentEvents = events.slice(0, 5);
+
+  const formatDate = (date: string) => (
+    new Intl.DateTimeFormat('es-AR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }).format(new Date(date))
+  );
+
+  const getStatusBadge = (status: CommunityEventCatalogItem['status']) => {
     switch (status) {
-      case 'Activo': return <Badge color="green" variant="light">Activo</Badge>;
-      case 'Reprogramado': return <Badge color="blue" variant="light">Reprogramado</Badge>;
-      case 'Cancelado': return <Badge color="red" variant="light">Cancelado</Badge>;
-      default: return <Badge color="gray">{status}</Badge>;
+      case 'ACTIVE':
+        return <Badge color="green" variant="light">Activo</Badge>;
+      case 'ACTIVE_FULL':
+        return <Badge color="blue" variant="light">Completo</Badge>;
+      case 'CANCELLED':
+        return <Badge color="red" variant="light">Cancelado</Badge>;
+      default:
+        return <Badge color="gray" variant="light">Sin estado</Badge>;
     }
   };
 
   return (
-    <Container size="xl" py={40}>
-      <Flex justify="space-between" align="center" mb="xl">
+    <ContainerShim>
+      <Flex justify="space-between" align={{ base: 'flex-start', sm: 'center' }} direction={{ base: 'column', sm: 'row' }} gap="md" mb="xl">
         <Box>
           <Title order={1} fz={32}>Panel Admin</Title>
-          <Text c="dimmed">Resumen de actividad e impacto en la ciudad.</Text>
+          <Text c="dimmed">Resumen de actividad e impacto de los eventos comunitarios.</Text>
         </Box>
         <Button component={Link} to="/admin/create-event" color="blue">
-          + Nuevo Evento
+          Nuevo Evento
         </Button>
       </Flex>
 
-      <SimpleGrid cols={3} spacing="lg" mb={40}>
+      {error && (
+        <Alert color="red" mb="lg">
+          {error}
+        </Alert>
+      )}
+
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg" mb={40}>
         <Card shadow="sm" radius="md" withBorder p="xl">
           <Flex justify="space-between" align="flex-start">
             <Box>
               <Text c="dimmed" fw={600} tt="uppercase" fz="sm">Eventos Activos</Text>
-              <Title order={2} fz={40} mt="sm">124</Title>
-              <Text c="green" fz="sm" fw={500} mt="xs">+12% este mes</Text>
+              <Title order={2} fz={40} mt="sm">{activeEvents}</Title>
+              <Text c="dimmed" fz="sm" mt="xs">{events.length} eventos publicados</Text>
             </Box>
             <Box bg="blue.1" p="sm" style={{ borderRadius: '50%' }}>
               <IconChartBar color="blue" size="1.5rem" />
@@ -48,8 +82,8 @@ export default function AdminDashboard() {
           <Flex justify="space-between" align="flex-start">
             <Box>
               <Text c="dimmed" fw={600} tt="uppercase" fz="sm">Impacto Estimado</Text>
-              <Title order={2} fz={40} mt="sm">8.5k</Title>
-              <Text c="dimmed" fz="sm" mt="xs">Personas alcanzadas</Text>
+              <Title order={2} fz={40} mt="sm">{estimatedReach}</Title>
+              <Text c="dimmed" fz="sm" mt="xs">Cupos disponibles para la comunidad</Text>
             </Box>
             <Box bg="blue.1" p="sm" style={{ borderRadius: '50%' }}>
               <IconUsers color="blue" size="1.5rem" />
@@ -65,27 +99,49 @@ export default function AdminDashboard() {
             Ver más
           </Button>
         </Flex>
-        <Table verticalSpacing="md" horizontalSpacing="xl" striped>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Evento</Table.Th>
-              <Table.Th>Categoría</Table.Th>
-              <Table.Th>Fecha</Table.Th>
-              <Table.Th>Estado</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {events.map((ev) => (
-              <Table.Tr key={ev.id}>
-                <Table.Td fw={600}>{ev.title}</Table.Td>
-                <Table.Td>{ev.category}</Table.Td>
-                <Table.Td>{ev.date}</Table.Td>
-                <Table.Td>{getStatusBadge(ev.status)}</Table.Td>
+        <Box style={{ overflowX: 'auto' }}>
+          <Table verticalSpacing="md" horizontalSpacing="xl" striped style={{ minWidth: 640 }}>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Evento</Table.Th>
+                <Table.Th>Categoría</Table.Th>
+                <Table.Th>Fecha</Table.Th>
+                <Table.Th>Estado</Table.Th>
               </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+            </Table.Thead>
+            <Table.Tbody>
+              {recentEvents.map((event) => (
+                <Table.Tr key={event.id}>
+                  <Table.Td fw={600}>{event.title}</Table.Td>
+                  <Table.Td>{event.category}</Table.Td>
+                  <Table.Td>{formatDate(event.startDate)}</Table.Td>
+                  <Table.Td>{getStatusBadge(event.status)}</Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Box>
+
+        {!loading && recentEvents.length === 0 && (
+          <Text c="dimmed" ta="center" py="xl">
+            Todavía no hay eventos publicados.
+          </Text>
+        )}
+
+        {loading && (
+          <Text c="dimmed" ta="center" py="xl">
+            Cargando eventos...
+          </Text>
+        )}
       </Card>
-    </Container>
+    </ContainerShim>
+  );
+}
+
+function ContainerShim({ children }: { children: ReactNode }) {
+  return (
+    <Box px={{ base: 'md', md: 40 }} py={40}>
+      {children}
+    </Box>
   );
 }
