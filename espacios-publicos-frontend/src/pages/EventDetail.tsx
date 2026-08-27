@@ -194,12 +194,24 @@ export default function EventDetail() {
             </Card>
 
             <Title order={3} mt={40} mb="md">Ubicación</Title>
-            <Card withBorder radius="md" p={0} h={250} style={{ overflow: 'hidden', position: 'relative' }}>
-              <Box h="100%" bg="gray.2" style={{ background: 'url(https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&q=80) center/cover' }} />
-              <Card shadow="sm" p="sm" radius="md" style={{ position: 'absolute', bottom: 16, left: 16 }}>
+            <Card withBorder radius="md" p={0} h={300} style={{ overflow: 'hidden', position: 'relative' }}>
+              <iframe
+                title="Mapa de Ubicación"
+                width="100%"
+                height="100%"
+                style={{ border: 0, position: 'absolute', top: 0, left: 0 }}
+                loading="lazy"
+                allowFullScreen
+                referrerPolicy="no-referrer-when-downgrade"
+                src={`https://maps.google.com/maps?q=${encodeURIComponent(event.publicSpace.name + ', ' + event.publicSpace.address)}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+              />
+              <Card shadow="sm" p="sm" radius="md" style={{ position: 'absolute', bottom: 16, left: 16, zIndex: 1 }}>
                 <Group gap="xs">
                   <IconMapPin size="1rem" color="gray" />
-                  <Text fw={700} fz="sm">{event.publicSpace.name} - {event.publicSpace.zone}</Text>
+                  <Box>
+                    <Text fw={700} fz="sm">{event.publicSpace.name}</Text>
+                    <Text c="dimmed" fz="xs">{event.publicSpace.address}</Text>
+                  </Box>
                 </Group>
               </Card>
             </Card>
