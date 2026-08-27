@@ -27,6 +27,10 @@ class FakeCommunityEventRepository implements CommunityEventRepository {
     return this.catalogItems;
   }
 
+  async findActiveCatalogById(id: string): Promise<CommunityEventCatalogItem | null> {
+    return this.catalogItems.find((event) => event.id === id) || null;
+  }
+
   async findOverlapping(): Promise<CommunityEvent[]> {
     throw new Error("Metodo no usado en esta prueba.");
   }

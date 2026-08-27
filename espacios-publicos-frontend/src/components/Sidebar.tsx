@@ -32,7 +32,7 @@ export default function Sidebar() {
       </Flex>
 
       <Box style={{ flex: 1, padding: '16px 0' }}>
-        {user?.role !== 'admin' && mainLinks.map((link) => (
+        {user?.role !== 'municipal_admin' && mainLinks.map((link) => (
           <NavLink
             key={link.label}
             label={<Text fw={600} fz="sm">{link.label}</Text>}
@@ -50,7 +50,7 @@ export default function Sidebar() {
           />
         ))}
 
-        {user?.role === 'admin' && (
+        {user?.role === 'municipal_admin' && (
           <>
             <Text c="dimmed" fz="xs" fw={700} tt="uppercase" px="lg" mt="xl" mb="sm">Admin</Text>
             {adminLinks.map((link) => (

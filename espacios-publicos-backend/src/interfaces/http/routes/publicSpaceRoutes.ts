@@ -1,11 +1,12 @@
 import { Router } from "express";
 import { PublicSpaceController } from "../controllers/PublicSpaceController";
 import { asyncHandler } from "../middlewares/asyncHandler";
+import { requireRole } from "../middlewares/mockIdentity";
 
 export function createPublicSpaceRoutes(controller: PublicSpaceController): Router {
   const router = Router();
 
-  router.post("/", asyncHandler(controller.create));
+  router.post("/", requireRole("municipal_admin"), asyncHandler(controller.create));
   router.get("/", asyncHandler(controller.list));
 
   return router;

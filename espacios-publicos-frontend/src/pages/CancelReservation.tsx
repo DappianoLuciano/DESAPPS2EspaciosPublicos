@@ -1,10 +1,66 @@
-import { Container, Title, Text, Card, Flex, Button, Box, ActionIcon, Select, Textarea, Alert, ThemeIcon } from '@mantine/core';
-import { IconArrowLeft, IconAlertTriangle, IconArmchair } from '@tabler/icons-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { ActionIcon, Alert, Box, Button, Card, Container, Flex, Select, Text, Textarea, ThemeIcon, Title } from '@mantine/core';
+import { IconAlertTriangle, IconArmchair, IconArrowLeft } from '@tabler/icons-react';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { cancelCommunityEventRegistration, listMyCommunityEventRegistrations } from '../lib/api';
+import type { CitizenCommunityEventRegistration } from '../lib/api';
 
 export default function CancelReservation() {
   const navigate = useNavigate();
-  const { id: _id } = useParams(); // Podríamos usar el id para buscar el evento real, por ahora usamos datos de prueba
+  const location = useLocation();
+  const { user } = useAuth();
+  const { id } = useParams();
+  const [reservation, setReservation] = useState<CitizenCommunityEventRegistration | null>(
+    location.state?.reservation || null
+  );
+  const [reason, setReason] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (reservation || !id || !user?.email) {
+      return;
+    }
+
+    listMyCommunityEventRegistrations()
+      .then((items) => {
+        setReservation(items.find((item) => item.id === id) || null);
+      })
+      .catch((err: Error) => setError(err.message));
+  }, [id, reservation, user?.email]);
+
+  const handleCancel = async () => {
+    if (!id || !user?.email || !reason) {
+      setError('Seleccioná un motivo para confirmar la cancelación.');
+      return;
+    }
+
+    setError(null);
+    setSubmitting(true);
+
+    try {
+      await cancelCommunityEventRegistration(id);
+      navigate('/reservations');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo cancelar la reserva.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const formatDate = (date?: string) => {
+    if (!date) {
+      return '-';
+    }
+
+    return new Intl.DateTimeFormat('es-AR', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(date));
+  };
 
   return (
     <Container size="sm" py={40}>
@@ -19,15 +75,21 @@ export default function CancelReservation() {
         </Box>
 
         <Box p="xl">
+          {error && (
+            <Alert color="red" mb="xl">
+              {error}
+            </Alert>
+          )}
+
           <Card withBorder bg="gray.0" radius="md" p="md" mb="xl">
             <Flex gap="md" align="center">
               <ThemeIcon size="xl" color="gray" variant="light" radius="md">
                 <IconArmchair size="1.5rem" />
               </ThemeIcon>
               <Box>
-                <Text fw={700} tt="uppercase" fz="sm">Festival de Jazz BA</Text>
-                <Text size="sm" c="dimmed">Sáb 15 Oct, 20:00 hs</Text>
-                <Text size="sm" c="dimmed">2 Entradas Generales</Text>
+                <Text fw={700} tt="uppercase" fz="sm">{reservation?.communityEvent.title || 'Reserva seleccionada'}</Text>
+                <Text size="sm" c="dimmed">{formatDate(reservation?.communityEvent.startDate)}</Text>
+                <Text size="sm" c="dimmed">{reservation?.communityEvent.publicSpace.name || '-'}</Text>
               </Box>
             </Flex>
           </Card>
@@ -40,7 +102,7 @@ export default function CancelReservation() {
             mb="xl"
             styles={{ title: { fontWeight: 700 } }}
           >
-            Al confirmar la cancelación, tus lugares serán liberados inmediatamente para que otros ciudadanos puedan asistir. Esta acción no se puede deshacer.
+            Al confirmar la cancelación, tu lugar será liberado inmediatamente para que otros ciudadanos puedan asistir. Esta acción no se puede deshacer.
           </Alert>
 
           <Select
@@ -50,6 +112,8 @@ export default function CancelReservation() {
             required
             mb="xl"
             withAsterisk
+            value={reason}
+            onChange={setReason}
           />
 
           <Textarea
@@ -65,7 +129,7 @@ export default function CancelReservation() {
             <Button variant="default" onClick={() => navigate(-1)}>
               Mantener Reserva
             </Button>
-            <Button color="red" onClick={() => navigate('/reservations')}>
+            <Button color="red" onClick={handleCancel} loading={submitting}>
               Confirmar Cancelación
             </Button>
           </Flex>

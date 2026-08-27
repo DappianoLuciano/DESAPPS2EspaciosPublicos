@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 export default function Header() {
   const location = useLocation();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin' && location.pathname.startsWith('/admin');
+  const isAdmin = user?.role === 'municipal_admin' && location.pathname.startsWith('/admin');
 
   return (
     <Flex

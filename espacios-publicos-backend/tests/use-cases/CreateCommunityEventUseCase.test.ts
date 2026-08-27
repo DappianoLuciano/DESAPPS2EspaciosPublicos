@@ -97,6 +97,10 @@ class FakeCommunityEventRepository implements CommunityEventRepository {
     return [];
   }
 
+  async findActiveCatalogById(): Promise<CommunityEventCatalogItem | null> {
+    return null;
+  }
+
   async findById(id: string): Promise<CommunityEvent | null> {
     return this.events.find((event) => event.id === id) || null;
   }

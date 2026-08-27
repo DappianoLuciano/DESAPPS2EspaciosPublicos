@@ -10,9 +10,9 @@ export default function Register() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    login(email || 'ciudadano@buenosaires.gob.ar', 'user'); // Defaults to user on register
+    await login('ciudadano', '1234');
     navigate('/');
   };
 

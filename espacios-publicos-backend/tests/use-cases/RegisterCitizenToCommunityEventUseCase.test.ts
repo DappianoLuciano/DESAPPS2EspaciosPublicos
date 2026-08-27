@@ -2,6 +2,7 @@ import { RegisterCitizenToCommunityEventUseCase } from "../../src/application/us
 import { CommunityEvent, CommunityEventStatus, CreateCommunityEventData } from "../../src/domain/entities/CommunityEvent";
 import { CommunityEventCatalogItem } from "../../src/domain/entities/CommunityEventCatalogItem";
 import {
+  CitizenCommunityEventRegistration,
   CommunityEventRegistration,
   CreateCommunityEventRegistrationData
 } from "../../src/domain/entities/CommunityEventRegistration";
@@ -28,6 +29,10 @@ class FakeCommunityEventRepository implements CommunityEventRepository {
 
   async findActiveCatalog(): Promise<CommunityEventCatalogItem[]> {
     return [];
+  }
+
+  async findActiveCatalogById(): Promise<CommunityEventCatalogItem | null> {
+    return null;
   }
 
   async findOverlapping(): Promise<CommunityEvent[]> {
@@ -87,6 +92,16 @@ class FakeCommunityEventRegistrationRepository implements CommunityEventRegistra
       return registration.communityEventId === communityEventId;
     });
   }
+
+  async findById(_id: string): Promise<CitizenCommunityEventRegistration | null> {
+    return null;
+  }
+
+  async findByCitizenEmail(_citizenEmail: string): Promise<CitizenCommunityEventRegistration[]> {
+    return [];
+  }
+
+  async deleteById(_id: string): Promise<void> {}
 }
 
 class FakeEventOutboxRepository implements EventOutboxRepository {

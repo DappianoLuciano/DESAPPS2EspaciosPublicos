@@ -23,6 +23,31 @@ export class PrismaCommunityEventRepository implements CommunityEventRepository 
     return prisma.communityEvent.findMany({ orderBy: { startDate: "asc" } });
   }
 
+  async findActiveCatalogById(id: string): Promise<CommunityEventCatalogItem | null> {
+    const communityEvent = await prisma.communityEvent.findFirst({
+      where: {
+        id,
+        status: {
+          in: ["ACTIVE", "ACTIVE_FULL"]
+        }
+      },
+      include: {
+        publicSpace: true,
+        _count: {
+          select: {
+            registrations: true
+          }
+        }
+      }
+    });
+
+    if (!communityEvent) {
+      return null;
+    }
+
+    return this.toCatalogItem(communityEvent);
+  }
+
   async findActiveCatalog(filters: CommunityEventCatalogFilters): Promise<CommunityEventCatalogItem[]> {
     const where = {
       status: {
@@ -59,34 +84,7 @@ export class PrismaCommunityEventRepository implements CommunityEventRepository 
     });
 
     return communityEvents
-      .map((communityEvent) => {
-        const registeredCount = communityEvent._count.registrations;
-        const availableCapacity = communityEvent.requiresRegistration
-          ? Math.max(communityEvent.capacity - registeredCount, 0)
-          : communityEvent.capacity;
-
-        return {
-          id: communityEvent.id,
-          title: communityEvent.title,
-          category: communityEvent.category,
-          description: communityEvent.description,
-          organizerName: communityEvent.organizerName,
-          capacity: communityEvent.capacity,
-          registeredCount,
-          availableCapacity,
-          requiresRegistration: communityEvent.requiresRegistration,
-          startDate: communityEvent.startDate,
-          endDate: communityEvent.endDate,
-          status: communityEvent.status,
-          imageUrl: communityEvent.imageUrl,
-          publicSpace: {
-            id: communityEvent.publicSpace.id,
-            name: communityEvent.publicSpace.name,
-            address: communityEvent.publicSpace.address,
-            zone: communityEvent.publicSpace.zone
-          }
-        };
-      })
+      .map((communityEvent) => this.toCatalogItem(communityEvent))
       .filter((communityEvent) => {
         if (!filters.availableOnly) {
           return true;
@@ -130,6 +128,47 @@ export class PrismaCommunityEventRepository implements CommunityEventRepository 
     return {
       gte: startOfDay,
       lte: endOfDay
+    };
+  }
+
+  private toCatalogItem(
+    communityEvent: CommunityEvent & {
+      publicSpace: {
+        id: string;
+        name: string;
+        address: string;
+        zone: string;
+      };
+      _count: {
+        registrations: number;
+      };
+    }
+  ): CommunityEventCatalogItem {
+    const registeredCount = communityEvent._count.registrations;
+    const availableCapacity = communityEvent.requiresRegistration
+      ? Math.max(communityEvent.capacity - registeredCount, 0)
+      : communityEvent.capacity;
+
+    return {
+      id: communityEvent.id,
+      title: communityEvent.title,
+      category: communityEvent.category,
+      description: communityEvent.description,
+      organizerName: communityEvent.organizerName,
+      capacity: communityEvent.capacity,
+      registeredCount,
+      availableCapacity,
+      requiresRegistration: communityEvent.requiresRegistration,
+      startDate: communityEvent.startDate,
+      endDate: communityEvent.endDate,
+      status: communityEvent.status,
+      imageUrl: communityEvent.imageUrl,
+      publicSpace: {
+        id: communityEvent.publicSpace.id,
+        name: communityEvent.publicSpace.name,
+        address: communityEvent.publicSpace.address,
+        zone: communityEvent.publicSpace.zone
+      }
     };
   }
 }

@@ -1,9 +1,35 @@
-import { Container, Card, Title, Text, Button, Center, Box, Flex } from '@mantine/core';
+import { Badge, Box, Button, Card, Center, Container, Flex, Text, Title } from '@mantine/core';
 import { IconCheck, IconDownload, IconHome } from '@tabler/icons-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import type { CommunityEventCatalogItem } from '../lib/api';
 
 export default function ReservationSuccess() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const event = location.state?.event as CommunityEventCatalogItem | undefined;
+
+  const formatDate = (date?: string) => {
+    if (!date) {
+      return '-';
+    }
+
+    return new Intl.DateTimeFormat('es-AR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }).format(new Date(date));
+  };
+
+  const formatTime = (date?: string) => {
+    if (!date) {
+      return '-';
+    }
+
+    return new Intl.DateTimeFormat('es-AR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(date));
+  };
 
   return (
     <Container size="sm" py={60}>
@@ -26,25 +52,25 @@ export default function ReservationSuccess() {
 
         <Card withBorder shadow="sm" radius="md" w="100%" p={0}>
           <Box p="xl" bg="gray.0" style={{ borderBottom: '1px solid #E2E8F0' }}>
-            <Title order={3} fz={20}>Festival Buenos Aires Urbano 2024</Title>
+            <Title order={3} fz={20}>{event?.title || 'Evento reservado'}</Title>
             <Flex mt="md" gap="xl">
               <Box>
                 <Text fz="xs" fw={600} c="dimmed" tt="uppercase">Fecha</Text>
-                <Text fw={500}>15 Oct 2024</Text>
+                <Text fw={500}>{formatDate(event?.startDate)}</Text>
               </Box>
               <Box>
                 <Text fz="xs" fw={600} c="dimmed" tt="uppercase">Horario</Text>
-                <Text fw={500}>14:00hs</Text>
+                <Text fw={500}>{formatTime(event?.startDate)}</Text>
               </Box>
               <Box>
                 <Text fz="xs" fw={600} c="dimmed" tt="uppercase">Entradas</Text>
-                <Text fw={500}>2 Personas</Text>
+                <Text fw={500}>1 Persona</Text>
               </Box>
             </Flex>
           </Box>
           <Center p="xl" style={{ flexDirection: 'column' }}>
             <Box w={180} h={180} bg="gray.2" style={{ backgroundImage: 'url(https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg)', backgroundSize: 'contain' }} mb="lg" />
-            <Badge color="gray" variant="light" size="lg">#RES-2024-8921</Badge>
+            <Badge color="gray" variant="light" size="lg">#{event?.id.slice(0, 8).toUpperCase() || 'RESERVA'}</Badge>
           </Center>
         </Card>
 
@@ -60,6 +86,3 @@ export default function ReservationSuccess() {
     </Container>
   );
 }
-
-// Just adding a quick Badge import that I missed above
-import { Badge } from '@mantine/core';

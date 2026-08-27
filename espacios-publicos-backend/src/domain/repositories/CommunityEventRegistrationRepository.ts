@@ -1,4 +1,5 @@
 import {
+  CitizenCommunityEventRegistration,
   CommunityEventRegistration,
   CreateCommunityEventRegistrationData
 } from "../entities/CommunityEventRegistration";
@@ -11,4 +12,7 @@ export interface CommunityEventRegistrationRepository {
     citizenEmail: string
   ): Promise<CommunityEventRegistration | null>;
   findByEventId(communityEventId: string): Promise<CommunityEventRegistration[]>;
+  findById(id: string): Promise<CitizenCommunityEventRegistration | null>;
+  findByCitizenEmail(citizenEmail: string): Promise<CitizenCommunityEventRegistration[]>;
+  deleteById(id: string): Promise<void>;
 }

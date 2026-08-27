@@ -1,4 +1,5 @@
 import {
+  CitizenCommunityEventRegistration,
   CommunityEventRegistration,
   CreateCommunityEventRegistrationData
 } from "../../domain/entities/CommunityEventRegistration";
@@ -36,6 +37,46 @@ export class PrismaCommunityEventRegistrationRepository
     return prisma.communityEventRegistration.findMany({
       where: { communityEventId },
       orderBy: { createdAt: "asc" }
+    });
+  }
+
+  async findById(id: string): Promise<CitizenCommunityEventRegistration | null> {
+    return prisma.communityEventRegistration.findUnique({
+      where: { id },
+      include: {
+        communityEvent: {
+          include: {
+            publicSpace: true
+          }
+        }
+      }
+    });
+  }
+
+  async findByCitizenEmail(citizenEmail: string): Promise<CitizenCommunityEventRegistration[]> {
+    return prisma.communityEventRegistration.findMany({
+      where: {
+        citizenEmail: {
+          equals: citizenEmail,
+          mode: "insensitive"
+        }
+      },
+      include: {
+        communityEvent: {
+          include: {
+            publicSpace: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+  }
+
+  async deleteById(id: string): Promise<void> {
+    await prisma.communityEventRegistration.delete({
+      where: { id }
     });
   }
 }

@@ -12,6 +12,7 @@ export interface CommunityEventRepository {
   create(data: CreateCommunityEventData): Promise<CommunityEvent>;
   findById(id: string): Promise<CommunityEvent | null>;
   findAll(): Promise<CommunityEvent[]>;
+  findActiveCatalogById(id: string): Promise<CommunityEventCatalogItem | null>;
   findActiveCatalog(filters: CommunityEventCatalogFilters): Promise<CommunityEventCatalogItem[]>;
   findOverlapping(publicSpaceId: string, startDate: Date, endDate: Date): Promise<CommunityEvent[]>;
   updateStatus(id: string, status: CommunityEventStatus): Promise<CommunityEvent>;

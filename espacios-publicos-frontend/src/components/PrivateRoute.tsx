@@ -8,7 +8,7 @@ export function PrivateRoute({ requireAdmin = false }: { requireAdmin?: boolean 
     return <Navigate to="/login" replace />;
   }
 
-  if (requireAdmin && user.role !== 'admin') {
+  if (requireAdmin && user.role !== 'municipal_admin') {
     return <Navigate to="/" replace />;
   }
 

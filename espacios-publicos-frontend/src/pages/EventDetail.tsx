@@ -1,50 +1,124 @@
-import { Box, Container, Title, Text, SimpleGrid, Card, Badge, Group, Button, Flex, List, ThemeIcon, Modal, NumberInput } from '@mantine/core';
-import { IconCheck, IconMapPin, IconCalendar, IconClock, IconUsers } from '@tabler/icons-react';
+import { Alert, Badge, Box, Button, Card, Container, Flex, Group, List, Loader, Modal, SimpleGrid, Text, ThemeIcon, Title } from '@mantine/core';
+import { IconCalendar, IconCheck, IconClock, IconMapPin, IconUsers } from '@tabler/icons-react';
 import { useDisclosure } from '@mantine/hooks';
-import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { getCommunityEvent, registerToCommunityEvent } from '../lib/api';
+import type { CommunityEventCatalogItem } from '../lib/api';
 
 export default function EventDetail() {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const { user } = useAuth();
   const [opened, { open, close }] = useDisclosure(false);
-  const [tickets, setTickets] = useState<number | string>(1);
+  const [event, setEvent] = useState<CommunityEventCatalogItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleConfirmReservation = () => {
-    close();
-    navigate('/reservation-success');
+  useEffect(() => {
+    if (!id) {
+      setError('No se encontró el evento solicitado.');
+      setLoading(false);
+      return;
+    }
+
+    getCommunityEvent(id)
+      .then(setEvent)
+      .catch((err: Error) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  const handleConfirmReservation = async () => {
+    if (!event || !user) {
+      return;
+    }
+
+    setError(null);
+    setSubmitting(true);
+
+    try {
+      await registerToCommunityEvent(event.id, {
+        citizenName: user.name,
+        citizenEmail: user.email,
+      });
+
+      close();
+      navigate('/reservation-success', { state: { event } });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo reservar el lugar.');
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  const formatDate = (date: string) => {
+    return new Intl.DateTimeFormat('es-AR', {
+      day: 'numeric',
+      month: 'long',
+    }).format(new Date(date));
+  };
+
+  const formatTime = (date: string) => {
+    return new Intl.DateTimeFormat('es-AR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(date));
+  };
+
+  if (loading) {
+    return (
+      <Container size="sm" py={80}>
+        <Flex justify="center">
+          <Loader />
+        </Flex>
+      </Container>
+    );
+  }
+
+  if (!event) {
+    return (
+      <Container size="sm" py={80}>
+        <Alert color="red">{error || 'No se encontró el evento solicitado.'}</Alert>
+      </Container>
+    );
+  }
+
+  const canRegister = event.requiresRegistration && event.availableCapacity > 0 && event.status === 'ACTIVE';
 
   return (
     <>
       <Modal opened={opened} onClose={close} title="Confirmar Reserva" centered>
         <Text size="sm" mb="md">
-          Estás por reservar lugares para <strong>Festival de Arte Urbano 2024</strong>. 
-          Selecciona la cantidad de cupos que necesitas.
+          Estás por reservar tu lugar para <strong>{event.title}</strong>.
         </Text>
-        <NumberInput 
-          label="Cantidad de entradas"
-          value={tickets}
-          onChange={setTickets}
-          min={1}
-          max={4}
-          description="Máximo 4 por persona"
-          mb="xl"
-        />
+        <Text size="sm" c="dimmed" mb="xl">
+          La reserva quedará asociada a {user?.email}.
+        </Text>
         <Flex justify="flex-end" gap="sm">
           <Button variant="default" onClick={close}>Cancelar</Button>
-          <Button color="blue" onClick={handleConfirmReservation}>Confirmar Reserva</Button>
+          <Button color="blue" onClick={handleConfirmReservation} loading={submitting}>
+            Confirmar Reserva
+          </Button>
         </Flex>
       </Modal>
 
       <Container size="xl" py={40}>
+        {error && (
+          <Alert color="red" mb="lg">
+            {error}
+          </Alert>
+        )}
+
         <SimpleGrid cols={{ base: 1, lg: 12 }} spacing="xl">
           <Box style={{ gridColumn: 'span 4' }}>
             <Box
               h={350}
               style={{
                 borderRadius: 16,
-                background: 'url(https://images.unsplash.com/photo-1540039155733-d7696d4eb98b?auto=format&fit=crop&q=80) center/cover',
-                position: 'relative'
+                background: `url(${event.imageUrl || 'https://images.unsplash.com/photo-1540039155733-d7696d4eb98b?auto=format&fit=crop&q=80'}) center/cover`,
+                position: 'relative',
               }}
             >
               <Badge color="green" variant="filled" size="lg" radius="xl" m="md" style={{ backgroundColor: '#DCFCE7', color: '#166534' }}>
@@ -54,23 +128,25 @@ export default function EventDetail() {
 
             <Card shadow="sm" padding="xl" radius="md" withBorder mt="lg">
               <Title order={3} fz={24}>Entrada Gratuita</Title>
-              <Text c="dimmed" fz="sm" mt="xs">Requiere inscripción previa</Text>
+              <Text c="dimmed" fz="sm" mt="xs">
+                {event.requiresRegistration ? 'Requiere inscripción previa' : 'Acceso libre'}
+              </Text>
               
               <List spacing="sm" size="sm" mt="xl" icon={<ThemeIcon color="blue" size={20} radius="xl"><IconCheck size="0.8rem" /></ThemeIcon>}>
-                <List.Item>Cupos limitados</List.Item>
+                <List.Item>{event.availableCapacity} cupos disponibles</List.Item>
                 <List.Item>Se solicitará QR al ingreso</List.Item>
               </List>
 
-              <Button fullWidth size="lg" mt="xl" color="blue" onClick={open}>
-                Reservar Lugar
+              <Button fullWidth size="lg" mt="xl" color="blue" onClick={open} disabled={!canRegister}>
+                {canRegister ? 'Reservar Lugar' : 'Sin cupos disponibles'}
               </Button>
             </Card>
           </Box>
 
           <Box style={{ gridColumn: 'span 8' }}>
-            <Title order={1} fz={36}>Festival de Arte Urbano 2024</Title>
+            <Title order={1} fz={36}>{event.title}</Title>
             <Text fz="lg" c="dimmed" mt="md" maw={600}>
-              Una celebración de la cultura local con artistas en vivo, talleres interactivos y la mejor gastronomía de la ciudad al aire libre.
+              {event.description}
             </Text>
 
             <Flex gap="md" mt="xl" direction={{ base: 'column', sm: 'row' }}>
@@ -79,7 +155,7 @@ export default function EventDetail() {
                   <ThemeIcon color="gray" variant="light" size="lg" radius="md"><IconCalendar size="1.2rem" /></ThemeIcon>
                   <div>
                     <Text fz="xs" c="dimmed" fw={600} tt="uppercase">Fecha</Text>
-                    <Text fw={700}>15 de Octubre</Text>
+                    <Text fw={700}>{formatDate(event.startDate)}</Text>
                   </div>
                 </Group>
               </Card>
@@ -88,7 +164,7 @@ export default function EventDetail() {
                   <ThemeIcon color="gray" variant="light" size="lg" radius="md"><IconClock size="1.2rem" /></ThemeIcon>
                   <div>
                     <Text fz="xs" c="dimmed" fw={600} tt="uppercase">Horario</Text>
-                    <Text fw={700}>14:00 - 22:00hs</Text>
+                    <Text fw={700}>{formatTime(event.startDate)} - {formatTime(event.endDate)}</Text>
                   </div>
                 </Group>
               </Card>
@@ -96,8 +172,8 @@ export default function EventDetail() {
                 <Group>
                   <ThemeIcon color="gray" variant="light" size="lg" radius="md"><IconUsers size="1.2rem" /></ThemeIcon>
                   <div>
-                    <Text fz="xs" c="dimmed" fw={600} tt="uppercase">Público</Text>
-                    <Text fw={700}>Familiar</Text>
+                    <Text fz="xs" c="dimmed" fw={600} tt="uppercase">Cupos</Text>
+                    <Text fw={700}>{event.availableCapacity} de {event.capacity}</Text>
                   </div>
                 </Group>
               </Card>
@@ -105,10 +181,7 @@ export default function EventDetail() {
 
             <Title order={3} mt={40} mb="md">Acerca del Evento</Title>
             <Text c="dimmed" lh={1.6}>
-              El Festival de Arte Urbano 2024 reúne a los mejores exponentes locales para una jornada dedicada a la creatividad y la expresión ciudadana. Disfrutá de murales en vivo, instalaciones interactivas y presentaciones musicales en un entorno seguro y familiar.
-            </Text>
-            <Text c="dimmed" lh={1.6} mt="md">
-              Este año, el foco está puesto en la sustentabilidad y el cuidado del espacio público, con talleres especiales de reciclaje artístico y charlas sobre el impacto del arte en la comunidad.
+              {event.description}
             </Text>
 
             <Card withBorder bg="gray.0" mt={40} p="xl" radius="md">
@@ -116,7 +189,7 @@ export default function EventDetail() {
               <List spacing="md" icon={<ThemeIcon color="green" size={24} radius="xl"><IconCheck size="1rem" /></ThemeIcon>}>
                 <List.Item>Llevar DNI o documento de identidad</List.Item>
                 <List.Item>Presentar QR de reserva en el acceso</List.Item>
-                <List.Item>Prohibido el ingreso con bebidas alcohólicas</List.Item>
+                <List.Item>Reserva registrada con el correo de tu perfil</List.Item>
               </List>
             </Card>
 
@@ -126,7 +199,7 @@ export default function EventDetail() {
               <Card shadow="sm" p="sm" radius="md" style={{ position: 'absolute', bottom: 16, left: 16 }}>
                 <Group gap="xs">
                   <IconMapPin size="1rem" color="gray" />
-                  <Text fw={700} fz="sm">Plaza de las Naciones Unidas</Text>
+                  <Text fw={700} fz="sm">{event.publicSpace.name} - {event.publicSpace.zone}</Text>
                 </Group>
               </Card>
             </Card>

@@ -1,22 +1,28 @@
-import { TextInput, PasswordInput, Checkbox, Anchor, Paper, Title, Text, Container, Group, Button, Box, SegmentedControl } from '@mantine/core';
+import { Alert, Anchor, Box, Button, Container, Group, Paper, PasswordInput, Text, TextInput, Title } from '@mantine/core';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'user' | 'admin'>('user');
+  const [email, setEmail] = useState('ciudadano');
+  const [password, setPassword] = useState('1234');
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    login(email || 'ciudadano@buenosaires.gob.ar', role);
-    if (role === 'admin') {
-      navigate('/admin');
-    } else {
-      navigate('/');
+    setError(null);
+    setSubmitting(true);
+
+    try {
+      const user = await login(email, password);
+      navigate(user.role === 'municipal_admin' ? '/admin' : '/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo iniciar sesión.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -27,28 +33,20 @@ export default function Login() {
           ¡Bienvenido de nuevo!
         </Title>
         <Text c="dimmed" size="sm" ta="center" mt={5}>
-          ¿No tienes una cuenta?{' '}
-          <Anchor size="sm" component="button" onClick={() => navigate('/register')}>
-            Regístrate
-          </Anchor>
+          Usá uno de los perfiles de prueba del módulo.
         </Text>
 
         <Paper withBorder shadow="md" p={30} mt={30} radius="md">
+          {error && (
+            <Alert color="red" mb="md">
+              {error}
+            </Alert>
+          )}
+
           <form onSubmit={handleLogin}>
-            <SegmentedControl
-              fullWidth
-              mb="md"
-              value={role}
-              onChange={(v) => setRole(v as 'user' | 'admin')}
-              data={[
-                { label: 'Ciudadano', value: 'user' },
-                { label: 'Gestión Municipal', value: 'admin' },
-              ]}
-            />
-            
             <TextInput 
-              label="Correo electrónico" 
-              placeholder="tu@email.com" 
+              label="Usuario" 
+              placeholder="ciudadano o admin" 
               required 
               value={email}
               onChange={(e) => setEmail(e.currentTarget.value)}
@@ -62,17 +60,24 @@ export default function Login() {
               onChange={(e) => setPassword(e.currentTarget.value)}
             />
             
-            <Group justify="space-between" mt="lg">
-              <Checkbox label="Recordarme" />
-              <Anchor component="button" size="sm">
-                ¿Olvidaste tu contraseña?
-              </Anchor>
-            </Group>
-            
-            <Button fullWidth mt="xl" type="submit" color="blue">
+            <Button fullWidth mt="xl" type="submit" color="blue" loading={submitting}>
               Iniciar Sesión
             </Button>
           </form>
+
+          <Box mt="xl">
+            <Text fw={700} size="sm">Ciudadano</Text>
+            <Text size="sm" c="dimmed">ciudadano / 1234</Text>
+            <Group justify="space-between" mt="md">
+              <Box>
+                <Text fw={700} size="sm">Gestión Municipal</Text>
+                <Text size="sm" c="dimmed">admin / 1234</Text>
+              </Box>
+              <Anchor size="sm" component="button" onClick={() => navigate('/register')}>
+                Crear cuenta
+              </Anchor>
+            </Group>
+          </Box>
         </Paper>
       </Container>
     </Box>

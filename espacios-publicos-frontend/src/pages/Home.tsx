@@ -1,40 +1,54 @@
 import { Box, Container, Title, Text, SimpleGrid, Card, Badge, ActionIcon, Flex, Button } from '@mantine/core';
-import { IconMusic, IconMicrophone2, IconPalette, IconDeviceGamepad, IconBookmark } from '@tabler/icons-react';
+import { IconArrowRight, IconBookmark } from '@tabler/icons-react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { listCommunityEvents } from '../lib/api';
+import type { CommunityEventCatalogItem } from '../lib/api';
 
 export default function Home() {
   const navigate = useNavigate();
+  const [events, setEvents] = useState<CommunityEventCatalogItem[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [eventsError, setEventsError] = useState<string | null>(null);
 
   const categories = [
-    { id: 'musica', label: 'Música', icon: IconMusic, color: 'blue', bg: 'rgba(164, 201, 255, 0.2)' },
-    { id: 'arte', label: 'Arte', icon: IconPalette, color: 'green', bg: 'rgba(178, 240, 211, 0.4)' },
-    { id: 'charlas', label: 'Charlas', icon: IconMicrophone2, color: 'indigo', bg: 'rgba(217, 226, 255, 0.5)' },
-    { id: 'juegos', label: 'Juegos', icon: IconDeviceGamepad, color: 'red', bg: 'rgba(255, 218, 214, 0.5)' },
+    {
+      id: 'musica',
+      label: 'Música',
+      image: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&q=80',
+    },
+    {
+      id: 'arte',
+      label: 'Arte',
+      image: 'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?auto=format&fit=crop&q=80',
+    },
+    {
+      id: 'charlas',
+      label: 'Charlas',
+      image: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&q=80',
+    },
+    {
+      id: 'juegos',
+      label: 'Juegos',
+      image: 'https://images.unsplash.com/photo-1511882150382-421056c89033?auto=format&fit=crop&q=80',
+    },
   ];
 
-  const events = [
-    {
-      id: 1,
-      tag: 'MÚSICA LIBRE',
-      title: 'Jazz en el Parque Centenario',
-      desc: 'Disfruta de una tarde de jazz contemporáneo al aire libre...',
-      date: '15 Oct, 18:00hs',
-    },
-    {
-      id: 2,
-      tag: 'TECNOLOGÍA',
-      title: 'BA Tech Summit 2024',
-      desc: 'El encuentro más grande de innovación y tecnología...',
-      date: '20 Oct, 09:00hs',
-    },
-    {
-      id: 3,
-      tag: 'GASTRONOMÍA',
-      title: 'Festival Sabores BA',
-      desc: 'Descubrí la diversidad culinaria de la ciudad con más de 50...',
-      date: '25 Oct, 12:00hs',
-    }
-  ];
+  useEffect(() => {
+    listCommunityEvents({ availableOnly: true })
+      .then((response) => setEvents(response.items))
+      .catch((err: Error) => setEventsError(err.message))
+      .finally(() => setLoadingEvents(false));
+  }, []);
+
+  const formatEventDate = (date: string) => {
+    return new Intl.DateTimeFormat('es-AR', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(date));
+  };
 
   return (
     <Container size="lg" py={40}>
@@ -71,17 +85,57 @@ export default function Home() {
         {categories.map((cat) => (
           <Card 
             key={cat.label} 
+            className="category-card"
             shadow="sm" 
-            padding="xl" 
+            padding={0} 
             radius="md" 
             withBorder 
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}
+            h={210}
+            style={{ cursor: 'pointer', overflow: 'hidden', position: 'relative' }}
             onClick={() => navigate(`/category/${cat.id}`)}
           >
-            <Box bg={cat.bg} p={16} style={{ borderRadius: '50%' }} mb="md">
-              <cat.icon size="1.5rem" color={`var(--mantine-color-${cat.color}-filled)`} />
+            <Box
+              className="category-card-image"
+              h="100%"
+              style={{
+                backgroundImage: `url(${cat.image})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }}
+            />
+            <Box className="category-card-overlay" />
+            <Flex
+              direction="column"
+              align="center"
+              justify="center"
+              h="100%"
+              w="100%"
+              p="lg"
+              style={{ position: 'absolute', inset: 0 }}
+            >
+              <Text fw={800} fz={28} c="white" ta="center">
+                {cat.label}
+              </Text>
+            </Flex>
+            <Box
+              className="category-card-cta"
+              bg="#000A24"
+              c="white"
+              px="md"
+              py={8}
+              style={{
+                position: 'absolute',
+                left: 16,
+                bottom: 16,
+                borderRadius: 6,
+                boxShadow: '0 8px 18px rgba(0, 0, 0, 0.16)',
+              }}
+            >
+              <Flex align="center" gap={6}>
+                <Text fw={700} fz="sm">Ver más</Text>
+                <IconArrowRight size="1rem" />
+              </Flex>
             </Box>
-            <Text fw={600} fz="xl">{cat.label}</Text>
           </Card>
         ))}
       </SimpleGrid>
@@ -90,25 +144,35 @@ export default function Home() {
         Próximos Eventos
       </Title>
 
+      {eventsError && (
+        <Text c="red" mb="md">
+          {eventsError}
+        </Text>
+      )}
+
+      {!loadingEvents && events.length === 0 && (
+        <Text c="dimmed">Todavía no hay eventos publicados.</Text>
+      )}
+
       <SimpleGrid cols={3} spacing="lg">
-        {events.map((ev) => (
-          <Card key={ev.id} shadow="sm" padding="lg" radius="md" withBorder style={{ cursor: 'pointer' }} onClick={() => navigate(`/event/${ev.id}`)}>
+        {events.map((event) => (
+          <Card key={event.id} shadow="sm" padding="lg" radius="md" withBorder style={{ cursor: 'pointer' }} onClick={() => navigate(`/event/${event.id}`)}>
             <Card.Section>
-              <Box h={160} bg="gray.2" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1540039155733-d7696d4eb98b?auto=format&fit=crop&q=80)', backgroundSize: 'cover' }}>
+              <Box h={160} bg="gray.2" style={{ backgroundImage: `url(${event.imageUrl || 'https://images.unsplash.com/photo-1540039155733-d7696d4eb98b?auto=format&fit=crop&q=80'})`, backgroundSize: 'cover' }}>
                 <ActionIcon variant="default" radius="md" size="lg" style={{ position: 'absolute', top: 16, right: 16 }}>
                   <IconBookmark size="1.1rem" color="gray" />
                 </ActionIcon>
               </Box>
             </Card.Section>
 
-            <Text c="dimmed" fz="xs" fw={700} mt="md" tt="uppercase">{ev.tag}</Text>
-            <Text fw={600} fz="xl" mt="xs">{ev.title}</Text>
+            <Text c="dimmed" fz="xs" fw={700} mt="md" tt="uppercase">{event.category}</Text>
+            <Text fw={600} fz="xl" mt="xs">{event.title}</Text>
             <Text fz="sm" c="dimmed" mt="sm" lineClamp={2}>
-              {ev.desc}
+              {event.description}
             </Text>
 
             <Badge variant="light" color="gray" mt="lg" fullWidth size="lg" radius="sm">
-              {ev.date}
+              {formatEventDate(event.startDate)}
             </Badge>
           </Card>
         ))}

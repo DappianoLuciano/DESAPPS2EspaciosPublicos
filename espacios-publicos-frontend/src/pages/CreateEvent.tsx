@@ -1,29 +1,61 @@
-import { Container, Title, Text, Card, TextInput, Select, Textarea, Button, Flex, SimpleGrid, Box } from '@mantine/core';
+import { Alert, Box, Button, Card, Container, Flex, Select, SimpleGrid, Text, Textarea, TextInput, Title } from '@mantine/core';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { createCommunityEvent, listPublicSpaces } from '../lib/api';
+import type { PublicSpace } from '../lib/api';
 
 export default function CreateEvent() {
   const navigate = useNavigate();
   const { id } = useParams();
-  
   const isEditMode = Boolean(id);
+  const [publicSpaces, setPublicSpaces] = useState<PublicSpace[]>([]);
+  const [title, setTitle] = useState('');
+  const [category, setCategory] = useState<string | null>(null);
+  const [publicSpaceId, setPublicSpaceId] = useState<string | null>(null);
+  const [description, setDescription] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [capacity, setCapacity] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loadingSpaces, setLoadingSpaces] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Mock de datos iniciales si estamos en modo edición
-  const initialData = isEditMode ? {
-    title: 'Festival de Arte Urbano 2024',
-    category: 'Arte',
-    location: 'Plaza de las Naciones Unidas',
-    description: 'Una celebración de la cultura local con artistas en vivo, talleres interactivos y la mejor gastronomía de la ciudad al aire libre.',
-    startDate: '2024-10-15',
-    endDate: '2024-10-15',
-    capacity: 500
-  } : {
-    title: '',
-    category: null,
-    location: null,
-    description: '',
-    startDate: '',
-    endDate: '',
-    capacity: ''
+  useEffect(() => {
+    listPublicSpaces()
+      .then(setPublicSpaces)
+      .catch((err: Error) => setError(err.message))
+      .finally(() => setLoadingSpaces(false));
+  }, []);
+
+  const handleSubmit = async () => {
+    setError(null);
+    setSubmitting(true);
+
+    try {
+      if (!title || !category || !publicSpaceId || !description || !startDate || !capacity) {
+        throw new Error('Completá los campos obligatorios para crear el evento.');
+      }
+
+      await createCommunityEvent({
+        title,
+        category,
+        description,
+        publicSpaceId,
+        organizerName: 'Gestión Municipal',
+        organizerProfileEnabled: true,
+        capacity: Number(capacity),
+        requiresRegistration: true,
+        startDate: new Date(`${startDate}T09:00:00`).toISOString(),
+        endDate: new Date(`${endDate || startDate}T18:00:00`).toISOString(),
+        imageUrl: null,
+      });
+
+      navigate('/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo crear el evento.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -37,6 +69,12 @@ export default function CreateEvent() {
           : 'Complete los detalles para registrar un nuevo evento comunitario en el espacio público.'}
       </Text>
 
+      {error && (
+        <Alert color="red" mb="lg">
+          {error}
+        </Alert>
+      )}
+
       <SimpleGrid cols={12} spacing="xl">
         <Box style={{ gridColumn: 'span 8' }}>
           <Card withBorder shadow="sm" radius="md" p="xl">
@@ -49,7 +87,8 @@ export default function CreateEvent() {
               placeholder="Ej: Festival de Arte Urbano"
               required
               mb="lg"
-              defaultValue={initialData.title}
+              value={title}
+              onChange={(event) => setTitle(event.currentTarget.value)}
             />
 
             <SimpleGrid cols={2} mb="lg">
@@ -57,14 +96,20 @@ export default function CreateEvent() {
                 label="Categoría"
                 placeholder="Seleccione categoría"
                 data={['Música', 'Arte', 'Tecnología', 'Gastronomía', 'Teatro']}
-                defaultValue={initialData.category}
+                value={category}
+                onChange={setCategory}
                 required
               />
               <Select
                 label="Espacio Público"
                 placeholder="Seleccione ubicación"
-                data={['Plaza de las Naciones Unidas', 'Parque Centenario', 'Planetario', 'Reserva Ecológica']}
-                defaultValue={initialData.location}
+                data={publicSpaces.map((space) => ({
+                  value: space.id,
+                  label: `${space.name} (${space.zone || 'Sin zona'})`,
+                }))}
+                disabled={loadingSpaces || publicSpaces.length === 0}
+                value={publicSpaceId}
+                onChange={setPublicSpaceId}
                 required
               />
             </SimpleGrid>
@@ -75,7 +120,8 @@ export default function CreateEvent() {
               minRows={4}
               required
               mb="lg"
-              defaultValue={initialData.description}
+              value={description}
+              onChange={(event) => setDescription(event.currentTarget.value)}
             />
           </Card>
         </Box>
@@ -91,13 +137,15 @@ export default function CreateEvent() {
               type="date"
               required
               mb="md"
-              defaultValue={initialData.startDate}
+              value={startDate}
+              onChange={(event) => setStartDate(event.currentTarget.value)}
             />
             <TextInput
               label="Fecha de Fin"
               type="date"
               mb="md"
-              defaultValue={initialData.endDate}
+              value={endDate}
+              onChange={(event) => setEndDate(event.currentTarget.value)}
             />
           </Card>
 
@@ -110,7 +158,8 @@ export default function CreateEvent() {
               label="Capacidad Máxima"
               type="number"
               placeholder="Ej: 500"
-              defaultValue={initialData.capacity}
+              value={capacity}
+              onChange={(event) => setCapacity(event.currentTarget.value)}
               required
             />
           </Card>
@@ -119,7 +168,7 @@ export default function CreateEvent() {
 
       <Flex justify="flex-end" gap="md" mt={40}>
         <Button variant="default" onClick={() => navigate('/admin')}>Cancelar</Button>
-        <Button color="blue" onClick={() => navigate('/admin')}>
+        <Button color="blue" onClick={handleSubmit} loading={submitting}>
           {isEditMode ? 'Guardar Cambios' : 'Crear Evento'}
         </Button>
       </Flex>

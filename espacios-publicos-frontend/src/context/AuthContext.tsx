@@ -1,18 +1,11 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
-
-type UserRole = 'user' | 'admin';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-}
+import { mockLogin } from '../lib/api';
+import type { User } from '../lib/api';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, role: UserRole) => void;
+  login: (email: string, password: string) => Promise<User>;
   logout: () => void;
 }
 
@@ -29,15 +22,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = (email: string, role: UserRole) => {
-    const mockUser: User = {
-      id: '1',
-      name: email.split('@')[0],
-      email,
-      role,
-    };
-    setUser(mockUser);
-    localStorage.setItem('mock_user', JSON.stringify(mockUser));
+  const login = async (email: string, password: string) => {
+    const response = await mockLogin({ email, password });
+    setUser(response.user);
+    localStorage.setItem('mock_user', JSON.stringify(response.user));
+    return response.user;
   };
 
   const logout = () => {

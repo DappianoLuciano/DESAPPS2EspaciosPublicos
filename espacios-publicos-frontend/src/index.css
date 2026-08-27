@@ -11,3 +11,31 @@ html, body {
 * {
   box-sizing: border-box;
 }
+
+.category-card .category-card-image {
+  transition: transform 180ms ease;
+}
+
+.category-card .category-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 10, 36, 0.12) 0%, rgba(0, 10, 36, 0.56) 100%);
+  transition: background 180ms ease;
+}
+
+.category-card .category-card-cta {
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.category-card:hover .category-card-image {
+  transform: scale(1.04);
+}
+
+.category-card:hover .category-card-overlay {
+  background: linear-gradient(180deg, rgba(0, 10, 36, 0.18) 0%, rgba(0, 10, 36, 0.68) 100%);
+}
+
+.category-card:hover .category-card-cta {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.24);
+}

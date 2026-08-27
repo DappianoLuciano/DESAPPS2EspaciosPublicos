@@ -1,5 +1,8 @@
+import { CancelCommunityEventRegistrationUseCase } from "./application/use-cases/CancelCommunityEventRegistrationUseCase";
 import { CreateCommunityEventUseCase } from "./application/use-cases/CreateCommunityEventUseCase";
 import { CreatePublicSpaceUseCase } from "./application/use-cases/CreatePublicSpaceUseCase";
+import { GetCommunityEventUseCase } from "./application/use-cases/GetCommunityEventUseCase";
+import { ListCitizenCommunityEventRegistrationsUseCase } from "./application/use-cases/ListCitizenCommunityEventRegistrationsUseCase";
 import { ListCommunityEventsUseCase } from "./application/use-cases/ListCommunityEventsUseCase";
 import { ListCommunityEventRegistrationsUseCase } from "./application/use-cases/ListCommunityEventRegistrationsUseCase";
 import { ListPublicSpacesUseCase } from "./application/use-cases/ListPublicSpacesUseCase";
@@ -45,6 +48,7 @@ export function createContainer() {
     eventBus
   );
   const listCommunityEventsUseCase = new ListCommunityEventsUseCase(communityEventRepository);
+  const getCommunityEventUseCase = new GetCommunityEventUseCase(communityEventRepository);
   const registerCitizenToCommunityEventUseCase = new RegisterCitizenToCommunityEventUseCase(
     communityEventRepository,
     communityEventRegistrationRepository,
@@ -52,6 +56,12 @@ export function createContainer() {
     eventBus
   );
   const listCommunityEventRegistrationsUseCase = new ListCommunityEventRegistrationsUseCase(
+    communityEventRepository,
+    communityEventRegistrationRepository
+  );
+  const listCitizenCommunityEventRegistrationsUseCase =
+    new ListCitizenCommunityEventRegistrationsUseCase(communityEventRegistrationRepository);
+  const cancelCommunityEventRegistrationUseCase = new CancelCommunityEventRegistrationUseCase(
     communityEventRepository,
     communityEventRegistrationRepository
   );
@@ -68,8 +78,11 @@ export function createContainer() {
     communityEventController: new CommunityEventController(
       createCommunityEventUseCase,
       listCommunityEventsUseCase,
+      getCommunityEventUseCase,
       registerCitizenToCommunityEventUseCase,
-      listCommunityEventRegistrationsUseCase
+      listCommunityEventRegistrationsUseCase,
+      listCitizenCommunityEventRegistrationsUseCase,
+      cancelCommunityEventRegistrationUseCase
     )
   };
 }
