@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { UnauthorizedError } from "../../../shared/errors/UnauthorizedError";
+import { AdminRepository } from "../../../domain/repositories/AdminRepository";
 import { mockUsers, sanitizeMockUser } from "../auth/mockUsers";
 import { asyncHandler } from "../middlewares/asyncHandler";
 
-export function createAuthRoutes(): Router {
+export function createAuthRoutes(adminRepository: AdminRepository): Router {
   const router = Router();
 
   router.post(
@@ -20,7 +21,24 @@ export function createAuthRoutes(): Router {
         throw new UnauthorizedError("Credenciales invalidas.");
       }
 
-      response.json({ user: sanitizeMockUser(user) });
+      const sanitizedUser = sanitizeMockUser(user);
+
+      if (sanitizedUser.role === "municipal_admin") {
+        const admin = await adminRepository.findById(sanitizedUser.id);
+
+        if (admin) {
+          response.json({
+            user: {
+              ...sanitizedUser,
+              name: admin.name,
+              email: admin.email
+            }
+          });
+          return;
+        }
+      }
+
+      response.json({ user: sanitizedUser });
     })
   );
 

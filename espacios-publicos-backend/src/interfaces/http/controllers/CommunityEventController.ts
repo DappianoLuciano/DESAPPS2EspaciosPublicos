@@ -30,9 +30,11 @@ export class CommunityEventController {
   list = async (request: Request, response: Response): Promise<void> => {
     const communityEvents = await this.listCommunityEventsUseCase.execute({
       category: this.getStringQuery(request.query.category),
+      search: this.getStringQuery(request.query.search),
       zone: this.getStringQuery(request.query.zone),
       date: this.getStringQuery(request.query.date),
-      availableOnly: request.query.availableOnly === "true"
+      availableOnly: request.query.availableOnly === "true",
+      upcomingOnly: request.query.upcomingOnly === "true"
     });
 
     response.json(communityEvents);

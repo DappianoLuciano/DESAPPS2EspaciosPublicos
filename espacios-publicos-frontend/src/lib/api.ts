@@ -9,6 +9,24 @@ export interface User {
   role: UserRole;
 }
 
+export interface AdminProfile {
+  id: string;
+  username: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  department?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateAdminProfilePayload {
+  name: string;
+  email: string;
+  phone?: string | null;
+  department?: string | null;
+}
+
 export interface PublicSpace {
   id: string;
   name: string;
@@ -25,7 +43,9 @@ export interface CommunityEventCatalogItem {
   id: string;
   title: string;
   category: string;
+  tags: string[];
   description: string;
+  requirements: string[];
   organizerName: string;
   capacity: number;
   registeredCount: number;
@@ -46,7 +66,9 @@ export interface CommunityEventCatalogItem {
 export interface CreateCommunityEventPayload {
   title: string;
   category: string;
+  tags: string[];
   description: string;
+  requirements: string[];
   publicSpaceId: string;
   organizerName: string;
   organizerProfileEnabled: boolean;
@@ -61,7 +83,9 @@ export interface CommunityEvent {
   id: string;
   title: string;
   category: string;
+  tags: string[];
   description: string;
+  requirements: string[];
   publicSpaceId: string;
   organizerName: string;
   capacity: number;
@@ -83,7 +107,9 @@ export interface CitizenCommunityEventRegistration {
     id: string;
     title: string;
     category: string;
+    tags: string[];
     description: string;
+    requirements: string[];
     capacity: number;
     requiresRegistration: boolean;
     startDate: string;
@@ -168,6 +194,17 @@ export function mockLogin(payload: { email: string; password: string }) {
   });
 }
 
+export function getAdminProfile() {
+  return request<AdminProfile>('/api/admin/profile');
+}
+
+export function updateAdminProfile(payload: UpdateAdminProfilePayload) {
+  return request<AdminProfile>('/api/admin/profile', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
 export function uploadEventImage(file: File) {
   const formData = new FormData();
   formData.append('file', file);
@@ -216,15 +253,28 @@ export function deletePublicSpace(id: string) {
   });
 }
 
-export function listCommunityEvents(params?: { category?: string; availableOnly?: boolean }) {
+export function listCommunityEvents(params?: {
+  category?: string;
+  search?: string;
+  availableOnly?: boolean;
+  upcomingOnly?: boolean;
+}) {
   const searchParams = new URLSearchParams();
 
   if (params?.category) {
     searchParams.set('category', params.category);
   }
 
+  if (params?.search) {
+    searchParams.set('search', params.search);
+  }
+
   if (params?.availableOnly) {
     searchParams.set('availableOnly', 'true');
+  }
+
+  if (params?.upcomingOnly) {
+    searchParams.set('upcomingOnly', 'true');
   }
 
   const query = searchParams.toString();

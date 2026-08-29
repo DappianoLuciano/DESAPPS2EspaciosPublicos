@@ -14,6 +14,13 @@ export function errorHandler(
   }
 
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === "P2002") {
+      response.status(409).json({
+        message: "Ya existe un registro con ese correo electrónico."
+      });
+      return;
+    }
+
     if (error.code === "P2021" || error.code === "P2022") {
       response.status(503).json({
         message:

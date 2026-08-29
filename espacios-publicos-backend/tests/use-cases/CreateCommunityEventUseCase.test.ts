@@ -81,7 +81,9 @@ class FakeCommunityEventRepository implements CommunityEventRepository {
       id: `event-${this.events.length + 1}`,
       title: data.title,
       category: data.category,
+      tags: data.tags,
       description: data.description,
+      requirements: data.requirements,
       publicSpaceId: data.publicSpaceId,
       organizerName: data.organizerName,
       capacity: data.capacity,
@@ -188,7 +190,9 @@ function createUseCase() {
 const validInput = {
   title: "Feria de emprendedores",
   category: "Cultura",
+  tags: ["Emprendimientos", "Arte"],
   description: "Encuentro comunitario con puestos culturales y talleres.",
+  requirements: ["Presentar DNI"],
   publicSpaceId: "space-1",
   organizerName: "Comuna 6",
   organizerProfileEnabled: true,
@@ -261,5 +265,19 @@ describe("CreateCommunityEventUseCase", () => {
         title: ""
       })
     ).rejects.toThrow("Titulo, descripcion y espacio publico son obligatorios.");
+  });
+
+  it("rechaza eventos que comienzan en el pasado", async () => {
+    const { useCase } = createUseCase();
+    const startDate = new Date(Date.now() - 60_000);
+    const endDate = new Date(Date.now() + 60 * 60_000);
+
+    await expect(
+      useCase.execute({
+        ...validInput,
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString()
+      })
+    ).rejects.toThrow("El evento no puede comenzar en una fecha u horario pasado.");
   });
 });

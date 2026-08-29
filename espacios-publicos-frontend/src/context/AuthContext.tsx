@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 import { mockLogin } from '../lib/api';
 import type { User } from '../lib/api';
@@ -6,21 +6,17 @@ import type { User } from '../lib/api';
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<User>;
+  updateUser: (updates: Partial<Pick<User, 'name' | 'email'>>) => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-
-  // Intentar cargar usuario guardado (solo para simular persistencia)
-  useEffect(() => {
+  const [user, setUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('mock_user');
-    if (saved) {
-      setUser(JSON.parse(saved));
-    }
-  }, []);
+    return saved ? JSON.parse(saved) as User : null;
+  });
 
   const login = async (email: string, password: string) => {
     const response = await mockLogin({ email, password });
@@ -34,8 +30,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('mock_user');
   };
 
+  const updateUser = (updates: Partial<Pick<User, 'name' | 'email'>>) => {
+    setUser((currentUser) => {
+      if (!currentUser) {
+        return currentUser;
+      }
+
+      const updatedUser = { ...currentUser, ...updates };
+      localStorage.setItem('mock_user', JSON.stringify(updatedUser));
+      return updatedUser;
+    });
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, login, updateUser, logout }}>
       {children}
     </AuthContext.Provider>
   );

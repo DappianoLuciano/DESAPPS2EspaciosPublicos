@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum ReservationStatus {
@@ -21,6 +22,19 @@ enum CommunityEventStatus {
 enum PublicSpaceStatus {
   ENABLED
   DISABLED
+}
+
+model Admin {
+  id         String   @id @default(uuid())
+  username   String   @unique
+  name       String
+  email      String   @unique
+  phone      String?
+  department String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("admins")
 }
 
 model PublicSpace {
@@ -59,7 +73,9 @@ model CommunityEvent {
   id            String      @id @default(uuid())
   title         String
   category      String
+  tags          String[]    @default([])
   description   String
+  requirements  String[]    @default([])
   publicSpaceId String
   organizerName String
   capacity      Int

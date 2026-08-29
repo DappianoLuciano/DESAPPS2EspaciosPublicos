@@ -4,7 +4,9 @@ export interface CommunityEventCatalogItem {
   id: string;
   title: string;
   category: string;
+  tags: string[];
   description: string;
+  requirements: string[];
   organizerName: string;
   capacity: number;
   registeredCount: number;

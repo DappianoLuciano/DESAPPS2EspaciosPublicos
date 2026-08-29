@@ -20,9 +20,11 @@ export class ListCommunityEventsUseCase {
 
     const items = await this.communityEventRepository.findActiveCatalog({
       category: input.category,
+      search: input.search,
       zone: input.zone,
       date,
-      availableOnly: input.availableOnly
+      availableOnly: input.availableOnly,
+      upcomingOnly: input.upcomingOnly
     });
 
     if (items.length === 0) {

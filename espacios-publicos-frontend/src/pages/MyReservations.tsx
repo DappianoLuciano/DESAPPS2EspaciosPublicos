@@ -1,4 +1,4 @@
-import { Alert, Badge, Box, Button, Card, Flex, Loader, SimpleGrid, Text, Title, Container } from '@mantine/core';
+import { Alert, Badge, Box, Button, Card, Container, Flex, Image, Loader, SimpleGrid, Text, Title } from '@mantine/core';
 import { IconCalendarEvent, IconCheck, IconHistory, IconMapPin, IconPlayerPlay } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -68,7 +68,6 @@ export default function MyReservations() {
           </Text>
         </Box>
         <Flex gap="md">
-          <Button variant="default" radius="xl">Filtrar por Fecha</Button>
           <Button color="dark" radius="xl" onClick={() => navigate('/')}>Nueva Reserva</Button>
         </Flex>
       </Flex>
@@ -94,18 +93,17 @@ export default function MyReservations() {
           const status = getStatus(reservation);
           const StatusIcon = status.icon;
           const event = reservation.communityEvent;
-          const canCancel = status.label !== 'Pasada';
+          const canCancel = status.label === 'Confirmada';
 
           return (
             <Card key={reservation.id} shadow="sm" padding="lg" radius="md" withBorder style={{ opacity: status.opacity }}>
               <Card.Section style={{ position: 'relative' }}>
-                <Box
+                <Image
+                  src={event.imageUrl || 'https://images.unsplash.com/photo-1540039155733-d7696d4eb98b?auto=format&fit=crop&q=80'}
+                  fallbackSrc="https://images.unsplash.com/photo-1540039155733-d7696d4eb98b?auto=format&fit=crop&q=80"
+                  alt={`Imagen de ${event.title}`}
                   h={180}
-                  style={{
-                    backgroundImage: `url(${event.imageUrl || 'https://images.unsplash.com/photo-1540039155733-d7696d4eb98b?auto=format&fit=crop&q=80'})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                  }}
+                  fit="cover"
                 />
                 <Badge 
                   color={status.color} 
@@ -140,7 +138,7 @@ export default function MyReservations() {
                   radius="md"
                   onClick={() => navigate(`/event/${event.id}`)}
                 >
-                  Ver Detalle
+                  Ver evento
                 </Button>
                 {canCancel && (
                   <Button 

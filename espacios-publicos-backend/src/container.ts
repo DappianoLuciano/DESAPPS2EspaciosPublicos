@@ -11,6 +11,9 @@ import { ListReservationsUseCase } from "./application/use-cases/ListReservation
 import { RegisterCitizenToCommunityEventUseCase } from "./application/use-cases/RegisterCitizenToCommunityEventUseCase";
 import { RequestReservationUseCase } from "./application/use-cases/RequestReservationUseCase";
 import { UpdatePublicSpaceUseCase } from "./application/use-cases/UpdatePublicSpaceUseCase";
+import { GetAdminProfileUseCase } from "./application/use-cases/GetAdminProfileUseCase";
+import { UpdateAdminProfileUseCase } from "./application/use-cases/UpdateAdminProfileUseCase";
+import { PrismaAdminRepository } from "./infrastructure/database/PrismaAdminRepository";
 import { PrismaCommunityEventRegistrationRepository } from "./infrastructure/database/PrismaCommunityEventRegistrationRepository";
 import { PrismaCommunityEventRepository } from "./infrastructure/database/PrismaCommunityEventRepository";
 import { PrismaEventOutboxRepository } from "./infrastructure/database/PrismaEventOutboxRepository";
@@ -19,11 +22,13 @@ import { PrismaReservationRepository } from "./infrastructure/database/PrismaRes
 import { ConsoleEventBus } from "./infrastructure/events/ConsoleEventBus";
 import { SupabaseStorageService } from "./infrastructure/storage/SupabaseStorageService";
 import { CommunityEventController } from "./interfaces/http/controllers/CommunityEventController";
+import { AdminController } from "./interfaces/http/controllers/AdminController";
 import { PublicSpaceController } from "./interfaces/http/controllers/PublicSpaceController";
 import { ReservationController } from "./interfaces/http/controllers/ReservationController";
 
 // Este archivo arma las dependencias en un solo lugar para que los controllers no creen objetos por su cuenta.
 export function createContainer() {
+  const adminRepository = new PrismaAdminRepository();
   const publicSpaceRepository = new PrismaPublicSpaceRepository();
   const reservationRepository = new PrismaReservationRepository();
   const communityEventRepository = new PrismaCommunityEventRepository();
@@ -31,6 +36,9 @@ export function createContainer() {
   const eventOutboxRepository = new PrismaEventOutboxRepository();
   const eventBus = new ConsoleEventBus();
   const storageService = new SupabaseStorageService();
+
+  const getAdminProfileUseCase = new GetAdminProfileUseCase(adminRepository);
+  const updateAdminProfileUseCase = new UpdateAdminProfileUseCase(adminRepository);
 
   const createPublicSpaceUseCase = new CreatePublicSpaceUseCase(publicSpaceRepository);
   const listPublicSpacesUseCase = new ListPublicSpacesUseCase(publicSpaceRepository);
@@ -73,7 +81,9 @@ export function createContainer() {
   );
 
   return {
+    adminRepository,
     storageService,
+    adminController: new AdminController(getAdminProfileUseCase, updateAdminProfileUseCase),
     publicSpaceController: new PublicSpaceController(
       createPublicSpaceUseCase,
       listPublicSpacesUseCase,

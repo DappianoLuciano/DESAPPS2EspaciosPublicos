@@ -1,5 +1,5 @@
 import { Badge, Box, Button, Card, Center, Container, Flex, Text, Title } from '@mantine/core';
-import { IconCheck, IconDownload, IconHome } from '@tabler/icons-react';
+import { IconCalendarEvent, IconCheck, IconDownload, IconHome } from '@tabler/icons-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { CommunityEventCatalogItem } from '../lib/api';
 
@@ -77,6 +77,9 @@ export default function ReservationSuccess() {
         <Flex direction="column" gap="md" w="100%" mt={40}>
           <Button size="lg" leftSection={<IconDownload size="1.2rem" />} fullWidth>
             Descargar Entrada
+          </Button>
+          <Button size="lg" variant="light" leftSection={<IconCalendarEvent size="1.2rem" />} fullWidth onClick={() => navigate('/reservations')}>
+            Ver mis reservas
           </Button>
           <Button size="lg" variant="default" leftSection={<IconHome size="1.2rem" />} fullWidth onClick={() => navigate('/')}>
             Volver al Inicio

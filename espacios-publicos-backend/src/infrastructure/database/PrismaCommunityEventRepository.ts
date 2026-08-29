@@ -8,6 +8,7 @@ import {
   CommunityEventCatalogFilters,
   CommunityEventRepository
 } from "../../domain/repositories/CommunityEventRepository";
+import { Prisma } from "@prisma/client";
 import { prisma } from "./prismaClient";
 
 export class PrismaCommunityEventRepository implements CommunityEventRepository {
@@ -49,16 +50,52 @@ export class PrismaCommunityEventRepository implements CommunityEventRepository 
   }
 
   async findActiveCatalog(filters: CommunityEventCatalogFilters): Promise<CommunityEventCatalogItem[]> {
-    const where = {
+    const categoryFilter: Prisma.CommunityEventWhereInput | undefined = filters.category
+      ? {
+          OR: [
+            {
+              category: {
+                equals: filters.category,
+                mode: "insensitive"
+              }
+            },
+            {
+              tags: {
+                has: filters.category
+              }
+            }
+          ]
+        }
+      : undefined;
+
+    const searchFilter: Prisma.CommunityEventWhereInput | undefined = filters.search
+      ? {
+          OR: [
+            { title: { contains: filters.search, mode: "insensitive" } },
+            { description: { contains: filters.search, mode: "insensitive" } },
+            { category: { contains: filters.search, mode: "insensitive" } },
+            { organizerName: { contains: filters.search, mode: "insensitive" } },
+            {
+              publicSpace: {
+                is: {
+                  OR: [
+                    { name: { contains: filters.search, mode: "insensitive" } },
+                    { zone: { contains: filters.search, mode: "insensitive" } }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      : undefined;
+
+    const where: Prisma.CommunityEventWhereInput = {
       status: {
         in: ["ACTIVE", "ACTIVE_FULL"] as CommunityEventStatus[]
       },
-      category: filters.category
-        ? {
-            equals: filters.category,
-            mode: "insensitive" as const
-          }
-        : undefined,
+      AND: [categoryFilter, searchFilter].filter(
+        (filter): filter is Prisma.CommunityEventWhereInput => Boolean(filter)
+      ),
       publicSpace: filters.zone
         ? {
             zone: {
@@ -67,7 +104,8 @@ export class PrismaCommunityEventRepository implements CommunityEventRepository 
             }
           }
         : undefined,
-      startDate: filters.date ? this.buildDateFilter(filters.date) : undefined
+      startDate: filters.date ? this.buildDateFilter(filters.date) : undefined,
+      endDate: filters.upcomingOnly ? { gte: new Date() } : undefined
     };
 
     const communityEvents = await prisma.communityEvent.findMany({
@@ -153,7 +191,9 @@ export class PrismaCommunityEventRepository implements CommunityEventRepository 
       id: communityEvent.id,
       title: communityEvent.title,
       category: communityEvent.category,
+      tags: communityEvent.tags,
       description: communityEvent.description,
+      requirements: communityEvent.requirements,
       organizerName: communityEvent.organizerName,
       capacity: communityEvent.capacity,
       registeredCount,

@@ -1,10 +1,10 @@
-import { Alert, Badge, Box, Button, Card, Container, Flex, Group, List, Loader, Modal, SimpleGrid, Text, ThemeIcon, Title } from '@mantine/core';
+import { Alert, Badge, Box, Button, Card, Container, Flex, Group, Image, List, Loader, Modal, SimpleGrid, Text, ThemeIcon, Title } from '@mantine/core';
 import { IconCalendar, IconCheck, IconClock, IconMapPin, IconUsers } from '@tabler/icons-react';
 import { useDisclosure } from '@mantine/hooks';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getCommunityEvent, registerToCommunityEvent } from '../lib/api';
+import { getCommunityEvent, listMyCommunityEventRegistrations, registerToCommunityEvent } from '../lib/api';
 import type { CommunityEventCatalogItem } from '../lib/api';
 
 export default function EventDetail() {
@@ -13,6 +13,7 @@ export default function EventDetail() {
   const { user } = useAuth();
   const [opened, { open, close }] = useDisclosure(false);
   const [event, setEvent] = useState<CommunityEventCatalogItem | null>(null);
+  const [existingRegistrationId, setExistingRegistrationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -24,11 +25,19 @@ export default function EventDetail() {
       return;
     }
 
-    getCommunityEvent(id)
-      .then(setEvent)
+    Promise.all([
+      getCommunityEvent(id),
+      user?.role === 'citizen' ? listMyCommunityEventRegistrations() : Promise.resolve([]),
+    ])
+      .then(([eventResponse, registrations]) => {
+        setEvent(eventResponse);
+        setExistingRegistrationId(
+          registrations.find((registration) => registration.communityEventId === id)?.id || null
+        );
+      })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, user?.role]);
 
   const handleConfirmReservation = async () => {
     if (!event || !user) {
@@ -64,6 +73,7 @@ export default function EventDetail() {
     return new Intl.DateTimeFormat('es-AR', {
       hour: '2-digit',
       minute: '2-digit',
+      hour12: false,
     }).format(new Date(date));
   };
 
@@ -85,7 +95,27 @@ export default function EventDetail() {
     );
   }
 
-  const canRegister = event.requiresRegistration && event.availableCapacity > 0 && event.status === 'ACTIVE';
+  const eventHasStarted = new Date(event.startDate) <= new Date();
+  const canRegister = event.requiresRegistration && !existingRegistrationId && !eventHasStarted && event.availableCapacity > 0 && event.status === 'ACTIVE';
+
+  const getRegistrationLabel = () => {
+    if (existingRegistrationId) return 'Ver mi reserva';
+    if (!event.requiresRegistration) return 'Acceso libre';
+    if (eventHasStarted) return 'Inscripción cerrada';
+    if (event.availableCapacity <= 0 || event.status === 'ACTIVE_FULL') return 'Sin cupos disponibles';
+    return 'Reservar lugar';
+  };
+
+  const handleRegistrationAction = () => {
+    if (existingRegistrationId) {
+      navigate('/reservations');
+      return;
+    }
+
+    if (canRegister) {
+      open();
+    }
+  };
 
   return (
     <>
@@ -113,15 +143,21 @@ export default function EventDetail() {
 
         <SimpleGrid cols={{ base: 1, lg: 12 }} spacing="xl">
           <Box style={{ gridColumn: 'span 4' }}>
-            <Box
-              h={350}
-              style={{
-                borderRadius: 16,
-                background: `url(${event.imageUrl || 'https://images.unsplash.com/photo-1540039155733-d7696d4eb98b?auto=format&fit=crop&q=80'}) center/cover`,
-                position: 'relative',
-              }}
-            >
-              <Badge color="green" variant="filled" size="lg" radius="xl" m="md" style={{ backgroundColor: '#DCFCE7', color: '#166534' }}>
+            <Box h={350} style={{ borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
+              <Image
+                src={event.imageUrl || 'https://images.unsplash.com/photo-1540039155733-d7696d4eb98b?auto=format&fit=crop&q=80'}
+                fallbackSrc="https://images.unsplash.com/photo-1540039155733-d7696d4eb98b?auto=format&fit=crop&q=80"
+                alt={`Imagen de ${event.title}`}
+                h="100%"
+                fit="cover"
+              />
+              <Badge
+                color="green"
+                variant="filled"
+                size="lg"
+                radius="xl"
+                style={{ position: 'absolute', top: 16, left: 16, backgroundColor: '#DCFCE7', color: '#166534' }}
+              >
                 ENTRADA GRATUITA
               </Badge>
             </Box>
@@ -134,64 +170,79 @@ export default function EventDetail() {
               
               <List spacing="sm" size="sm" mt="xl" icon={<ThemeIcon color="blue" size={20} radius="xl"><IconCheck size="0.8rem" /></ThemeIcon>}>
                 <List.Item>{event.availableCapacity} cupos disponibles</List.Item>
-                <List.Item>Se solicitará QR al ingreso</List.Item>
+                {event.requiresRegistration && <List.Item>Se solicitará la reserva al ingreso</List.Item>}
               </List>
 
-              <Button fullWidth size="lg" mt="xl" color="blue" onClick={open} disabled={!canRegister}>
-                {canRegister ? 'Reservar Lugar' : 'Sin cupos disponibles'}
+              <Button
+                fullWidth
+                size="lg"
+                mt="xl"
+                color="blue"
+                onClick={handleRegistrationAction}
+                disabled={!canRegister && !existingRegistrationId}
+              >
+                {getRegistrationLabel()}
               </Button>
             </Card>
           </Box>
 
           <Box style={{ gridColumn: 'span 8' }}>
             <Title order={1} fz={36}>{event.title}</Title>
+            <Flex gap="xs" mt="md" wrap="wrap">
+              <Badge variant="light" color="blue">{event.category}</Badge>
+              {event.tags.map((tag) => (
+                <Badge key={tag} variant="outline" color="gray">#{tag}</Badge>
+              ))}
+            </Flex>
             <Text fz="lg" c="dimmed" mt="md" maw={600}>
               {event.description}
             </Text>
 
-            <Flex gap="md" mt="xl" direction={{ base: 'column', sm: 'row' }}>
-              <Card withBorder radius="md" p="md" bg="gray.0" style={{ flex: 1 }}>
-                <Group>
-                  <ThemeIcon color="gray" variant="light" size="lg" radius="md"><IconCalendar size="1.2rem" /></ThemeIcon>
-                  <div>
+            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md" mt="xl">
+              <Card withBorder radius="md" p="md" bg="gray.0" mih={116}>
+                <Flex align="center" gap="md" h="100%" wrap="nowrap">
+                  <ThemeIcon color="gray" variant="light" size="lg" radius="md" style={{ flexShrink: 0 }}><IconCalendar size="1.2rem" /></ThemeIcon>
+                  <Box style={{ minWidth: 0 }}>
                     <Text fz="xs" c="dimmed" fw={600} tt="uppercase">Fecha</Text>
-                    <Text fw={700}>{formatDate(event.startDate)}</Text>
-                  </div>
-                </Group>
+                    <Text fw={700} fz="lg">{formatDate(event.startDate)}</Text>
+                  </Box>
+                </Flex>
               </Card>
-              <Card withBorder radius="md" p="md" bg="gray.0" style={{ flex: 1 }}>
-                <Group>
-                  <ThemeIcon color="gray" variant="light" size="lg" radius="md"><IconClock size="1.2rem" /></ThemeIcon>
-                  <div>
+              <Card withBorder radius="md" p="md" bg="gray.0" mih={116}>
+                <Flex align="center" gap="md" h="100%" wrap="nowrap">
+                  <ThemeIcon color="gray" variant="light" size="lg" radius="md" style={{ flexShrink: 0 }}><IconClock size="1.2rem" /></ThemeIcon>
+                  <Box style={{ minWidth: 0 }}>
                     <Text fz="xs" c="dimmed" fw={600} tt="uppercase">Horario</Text>
-                    <Text fw={700}>{formatTime(event.startDate)} - {formatTime(event.endDate)}</Text>
-                  </div>
-                </Group>
+                    <Text fw={700} fz="lg">{formatTime(event.startDate)} - {formatTime(event.endDate)}</Text>
+                  </Box>
+                </Flex>
               </Card>
-              <Card withBorder radius="md" p="md" bg="gray.0" style={{ flex: 1 }}>
-                <Group>
-                  <ThemeIcon color="gray" variant="light" size="lg" radius="md"><IconUsers size="1.2rem" /></ThemeIcon>
-                  <div>
+              <Card withBorder radius="md" p="md" bg="gray.0" mih={116}>
+                <Flex align="center" gap="md" h="100%" wrap="nowrap">
+                  <ThemeIcon color="gray" variant="light" size="lg" radius="md" style={{ flexShrink: 0 }}><IconUsers size="1.2rem" /></ThemeIcon>
+                  <Box style={{ minWidth: 0 }}>
                     <Text fz="xs" c="dimmed" fw={600} tt="uppercase">Cupos</Text>
-                    <Text fw={700}>{event.availableCapacity} de {event.capacity}</Text>
-                  </div>
-                </Group>
+                    <Text fw={700} fz="lg">{event.availableCapacity} de {event.capacity}</Text>
+                  </Box>
+                </Flex>
               </Card>
-            </Flex>
+            </SimpleGrid>
 
             <Title order={3} mt={40} mb="md">Acerca del Evento</Title>
             <Text c="dimmed" lh={1.6}>
               {event.description}
             </Text>
 
-            <Card withBorder bg="gray.0" mt={40} p="xl" radius="md">
-              <Title order={4} mb="md">Requisitos e Información</Title>
-              <List spacing="md" icon={<ThemeIcon color="green" size={24} radius="xl"><IconCheck size="1rem" /></ThemeIcon>}>
-                <List.Item>Llevar DNI o documento de identidad</List.Item>
-                <List.Item>Presentar QR de reserva en el acceso</List.Item>
-                <List.Item>Reserva registrada con el correo de tu perfil</List.Item>
-              </List>
-            </Card>
+            {event.requirements.length > 0 && (
+              <Card withBorder bg="gray.0" mt={40} p="xl" radius="md">
+                <Title order={4} mb="md">Requisitos e información</Title>
+                <List spacing="md" icon={<ThemeIcon color="green" size={24} radius="xl"><IconCheck size="1rem" /></ThemeIcon>}>
+                  {event.requirements.map((requirement) => (
+                    <List.Item key={requirement}>{requirement}</List.Item>
+                  ))}
+                </List>
+              </Card>
+            )}
 
             <Title order={3} mt={40} mb="md">Ubicación</Title>
             <Card withBorder radius="md" p={0} h={250} style={{ overflow: 'hidden', position: 'relative' }}>

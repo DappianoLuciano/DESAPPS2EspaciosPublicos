@@ -1,10 +1,16 @@
-import { Alert, Box, Button, Card, Container, Flex, Select, SimpleGrid, Text, Textarea, TextInput, Title } from '@mantine/core';
+import { Alert, Box, Button, Card, Container, Flex, MultiSelect, Select, SimpleGrid, Switch, Text, Textarea, TextInput, Title } from '@mantine/core';
 import { Dropzone, IMAGE_MIME_TYPE } from '@mantine/dropzone';
 import { IconPhoto, IconUpload, IconX } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { createCommunityEvent, listPublicSpaces, uploadEventImage } from '../lib/api';
 import type { PublicSpace } from '../lib/api';
+import { EVENT_CATEGORIES } from '../lib/eventCategories';
+
+function getLocalDateValue(date = new Date()) {
+  const timezoneOffset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - timezoneOffset).toISOString().slice(0, 10);
+}
 
 export default function CreateEvent() {
   const navigate = useNavigate();
@@ -13,11 +19,16 @@ export default function CreateEvent() {
   const [publicSpaces, setPublicSpaces] = useState<PublicSpace[]>([]);
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<string | null>(null);
+  const [tags, setTags] = useState<string[]>([]);
   const [publicSpaceId, setPublicSpaceId] = useState<string | null>(null);
   const [description, setDescription] = useState('');
+  const [requirements, setRequirements] = useState('');
   const [startDate, setStartDate] = useState('');
+  const [startTime, setStartTime] = useState('18:00');
   const [endDate, setEndDate] = useState('');
+  const [endTime, setEndTime] = useState('20:00');
   const [capacity, setCapacity] = useState('');
+  const [requiresRegistration, setRequiresRegistration] = useState(true);
   const [imageUrl, setImageUrl] = useState('');
   const [imagePreviewUrl, setImagePreviewUrl] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -71,7 +82,7 @@ export default function CreateEvent() {
     setSubmitting(true);
 
     try {
-      if (!title || !category || !publicSpaceId || !description || !startDate || !capacity) {
+      if (!title || !category || !publicSpaceId || !description || !startDate || !startTime || !endTime || !capacity) {
         throw new Error('Completá los campos obligatorios para crear el evento.');
       }
 
@@ -79,17 +90,34 @@ export default function CreateEvent() {
         throw new Error('Esperá a que termine de subir la imagen.');
       }
 
+      const resolvedEndDate = endDate || startDate;
+      const startDateTime = new Date(`${startDate}T${startTime}:00`);
+      const endDateTime = new Date(`${resolvedEndDate}T${endTime}:00`);
+
+      if (startDateTime.getTime() < Date.now()) {
+        throw new Error('El evento no puede comenzar en una fecha u horario pasado.');
+      }
+
+      if (endDateTime <= startDateTime) {
+        throw new Error('La finalización debe ser posterior al inicio del evento.');
+      }
+
       await createCommunityEvent({
         title,
         category,
+        tags: tags.filter((tag) => tag !== category),
         description,
+        requirements: requirements
+          .split('\n')
+          .map((requirement) => requirement.trim())
+          .filter(Boolean),
         publicSpaceId,
         organizerName: 'Gestión Municipal',
         organizerProfileEnabled: true,
         capacity: Number(capacity),
-        requiresRegistration: true,
-        startDate: new Date(`${startDate}T09:00:00`).toISOString(),
-        endDate: new Date(`${endDate || startDate}T18:00:00`).toISOString(),
+        requiresRegistration,
+        startDate: startDateTime.toISOString(),
+        endDate: endDateTime.toISOString(),
         imageUrl: imageUrl || null,
       });
 
@@ -136,11 +164,12 @@ export default function CreateEvent() {
 
             <SimpleGrid cols={2} mb="lg">
               <Select
-                label="Categoría"
+                label="Categoría principal"
                 placeholder="Seleccione categoría"
-                data={['Música', 'Arte', 'Tecnología', 'Gastronomía', 'Teatro']}
+                data={[...EVENT_CATEGORIES]}
                 value={category}
                 onChange={setCategory}
+                searchable
                 required
               />
               <Select
@@ -157,6 +186,18 @@ export default function CreateEvent() {
               />
             </SimpleGrid>
 
+            <MultiSelect
+              label="Etiquetas"
+              description="Podés clasificar el evento en más de un tema."
+              placeholder="Ej: Tecnología, Ciencia"
+              data={[...EVENT_CATEGORIES].filter((item) => item !== category)}
+              value={tags}
+              onChange={setTags}
+              searchable
+              clearable
+              mb="lg"
+            />
+
             <Textarea
               label="Descripción"
               placeholder="Detalles sobre las actividades, artistas, etc."
@@ -165,6 +206,16 @@ export default function CreateEvent() {
               mb="lg"
               value={description}
               onChange={(event) => setDescription(event.currentTarget.value)}
+            />
+
+            <Textarea
+              label="Requisitos e información"
+              description="Opcional. Escribí un requisito por línea."
+              placeholder={'Ej:\nPresentar DNI\nLlegar 15 minutos antes'}
+              minRows={3}
+              mb="lg"
+              value={requirements}
+              onChange={(event) => setRequirements(event.currentTarget.value)}
             />
 
             <Text fw={600} mb={6}>Imagen del evento</Text>
@@ -211,12 +262,13 @@ export default function CreateEvent() {
         <Box style={{ gridColumn: 'span 4' }}>
           <Card withBorder shadow="sm" radius="md" p="xl" mb="xl">
             <Title order={3} fz={20} mb="xl" style={{ borderBottom: '1px solid #E2E8F0', paddingBottom: 16 }}>
-              Fechas
+              Fecha y horario
             </Title>
             
             <TextInput
               label="Fecha de Inicio"
               type="date"
+              min={getLocalDateValue()}
               required
               mb="md"
               value={startDate}
@@ -225,10 +277,27 @@ export default function CreateEvent() {
             <TextInput
               label="Fecha de Fin"
               type="date"
+              min={startDate || getLocalDateValue()}
               mb="md"
               value={endDate}
               onChange={(event) => setEndDate(event.currentTarget.value)}
             />
+            <SimpleGrid cols={1}>
+              <TextInput
+                label="Hora de inicio"
+                type="time"
+                required
+                value={startTime}
+                onChange={(event) => setStartTime(event.currentTarget.value)}
+              />
+              <TextInput
+                label="Hora de fin"
+                type="time"
+                required
+                value={endTime}
+                onChange={(event) => setEndTime(event.currentTarget.value)}
+              />
+            </SimpleGrid>
           </Card>
 
           <Card withBorder shadow="sm" radius="md" p="xl">
@@ -243,6 +312,12 @@ export default function CreateEvent() {
               value={capacity}
               onChange={(event) => setCapacity(event.currentTarget.value)}
               required
+              mb="lg"
+            />
+            <Switch
+              label="Requiere inscripción previa"
+              checked={requiresRegistration}
+              onChange={(event) => setRequiresRegistration(event.currentTarget.checked)}
             />
           </Card>
         </Box>

@@ -13,6 +13,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:status": "prisma migrate status",
     "prisma:push": "prisma db push",
+    "prisma:seed": "node prisma/seed.js",
     "prisma:studio": "prisma studio"
   },
   "keywords": [

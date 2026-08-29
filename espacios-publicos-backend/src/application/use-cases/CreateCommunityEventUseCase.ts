@@ -23,6 +23,8 @@ export class CreateCommunityEventUseCase {
   async execute(input: CreateCommunityEventInput): Promise<CommunityEvent> {
     const startDate = new Date(input.startDate);
     const endDate = new Date(input.endDate);
+    const tags = this.normalizeStringList(input.tags);
+    const requirements = this.normalizeStringList(input.requirements);
 
     if (!input.title || !input.description || !input.publicSpaceId) {
       throw new ValidationError("Titulo, descripcion y espacio publico son obligatorios.");
@@ -50,6 +52,10 @@ export class CreateCommunityEventUseCase {
 
     if (startDate >= endDate) {
       throw new ValidationError("La fecha de inicio debe ser anterior a la fecha de fin.");
+    }
+
+    if (startDate.getTime() < Date.now()) {
+      throw new ValidationError("El evento no puede comenzar en una fecha u horario pasado.");
     }
 
     const publicSpace = await this.publicSpaceRepository.findById(input.publicSpaceId);
@@ -89,7 +95,9 @@ export class CreateCommunityEventUseCase {
     const communityEvent = await this.communityEventRepository.create({
       title: input.title,
       category: input.category,
+      tags,
       description: input.description,
+      requirements,
       publicSpaceId: input.publicSpaceId,
       organizerName: input.organizerName,
       capacity: input.capacity,
@@ -107,6 +115,7 @@ export class CreateCommunityEventUseCase {
         publicSpaceId: communityEvent.publicSpaceId,
         title: communityEvent.title,
         category: communityEvent.category,
+        tags: communityEvent.tags,
         organizerName: communityEvent.organizerName,
         status: communityEvent.status,
         capacity: communityEvent.capacity,
@@ -122,5 +131,19 @@ export class CreateCommunityEventUseCase {
     await this.eventBus.publish(event);
 
     return communityEvent;
+  }
+
+  private normalizeStringList(value?: string[]): string[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const normalized = value
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    return normalized.filter((item, index) => {
+      return normalized.findIndex((candidate) => candidate.toLowerCase() === item.toLowerCase()) === index;
+    });
   }
 }
