@@ -1,9 +1,13 @@
 import { Box, NavLink, Flex, Text } from '@mantine/core';
-import { IconHome, IconCalendarEvent, IconSettings, IconPlus, IconDashboard, IconLogout } from '@tabler/icons-react';
+import { IconHome, IconCalendarEvent, IconSettings, IconPlus, IconDashboard, IconLogout, IconMapPin } from '@tabler/icons-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export default function Sidebar() {
+interface SidebarProps {
+  onNavigate?: () => void;
+}
+
+export default function Sidebar({ onNavigate }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -17,11 +21,18 @@ export default function Sidebar() {
     { icon: IconDashboard, label: 'Panel Admin', path: '/admin' },
     { icon: IconPlus, label: 'Nuevo Evento', path: '/admin/create-event' },
     { icon: IconCalendarEvent, label: 'Gestión de Eventos', path: '/admin/events' },
+    { icon: IconMapPin, label: 'Espacios Públicos', path: '/admin/public-spaces' },
   ];
 
   const handleLogout = () => {
     logout();
+    onNavigate?.();
     navigate('/login');
+  };
+
+  const handleNavigate = (path: string) => {
+    navigate(path);
+    onNavigate?.();
   };
 
   return (
@@ -38,7 +49,7 @@ export default function Sidebar() {
             label={<Text fw={600} fz="sm">{link.label}</Text>}
             leftSection={<link.icon size="1.2rem" stroke={1.5} />}
             active={location.pathname === link.path}
-            onClick={() => navigate(link.path)}
+            onClick={() => handleNavigate(link.path)}
             color="white"
             variant="filled"
             style={{
@@ -59,7 +70,7 @@ export default function Sidebar() {
                 label={<Text fw={600} fz="sm">{link.label}</Text>}
                 leftSection={<link.icon size="1.2rem" stroke={1.5} />}
                 active={location.pathname === link.path}
-                onClick={() => navigate(link.path)}
+                onClick={() => handleNavigate(link.path)}
                 color="white"
                 variant="filled"
                 style={{
@@ -78,7 +89,7 @@ export default function Sidebar() {
         <NavLink
           label={<Text fw={600} fz="sm">Ajustes</Text>}
           leftSection={<IconSettings size="1.2rem" stroke={1.5} />}
-          onClick={() => navigate('/profile')}
+          onClick={() => handleNavigate('/profile')}
           active={location.pathname === '/profile'}
           style={{
             color: location.pathname === '/profile' ? 'white' : 'rgba(255,255,255,0.7)',

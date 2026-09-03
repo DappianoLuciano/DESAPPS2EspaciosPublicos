@@ -9,19 +9,43 @@ export interface User {
   role: UserRole;
 }
 
+export interface AdminProfile {
+  id: string;
+  username: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  department?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateAdminProfilePayload {
+  name: string;
+  email: string;
+  phone?: string | null;
+  department?: string | null;
+}
+
 export interface PublicSpace {
   id: string;
   name: string;
+  description: string;
   address: string;
   zone?: string;
   capacity: number;
+  status: 'ENABLED' | 'DISABLED';
+  imageUrl?: string | null;
+  createdAt: string;
 }
 
 export interface CommunityEventCatalogItem {
   id: string;
   title: string;
   category: string;
+  tags: string[];
   description: string;
+  requirements: string[];
   organizerName: string;
   capacity: number;
   registeredCount: number;
@@ -42,7 +66,9 @@ export interface CommunityEventCatalogItem {
 export interface CreateCommunityEventPayload {
   title: string;
   category: string;
+  tags: string[];
   description: string;
+  requirements: string[];
   publicSpaceId: string;
   organizerName: string;
   organizerProfileEnabled: boolean;
@@ -57,7 +83,9 @@ export interface CommunityEvent {
   id: string;
   title: string;
   category: string;
+  tags: string[];
   description: string;
+  requirements: string[];
   publicSpaceId: string;
   organizerName: string;
   capacity: number;
@@ -79,7 +107,9 @@ export interface CitizenCommunityEventRegistration {
     id: string;
     title: string;
     category: string;
+    tags: string[];
     description: string;
+    requirements: string[];
     capacity: number;
     requiresRegistration: boolean;
     startDate: string;
@@ -93,6 +123,14 @@ export interface CitizenCommunityEventRegistration {
       zone: string;
     };
   };
+}
+
+export interface CommunityEventRegistration {
+  id: string;
+  communityEventId: string;
+  citizenName: string;
+  citizenEmail: string;
+  createdAt: string;
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -110,6 +148,23 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     throw new Error(data?.message || 'No se pudo completar la operación.');
+  }
+
+  return data as T;
+}
+
+async function uploadRequest<T>(path: string, formData: FormData): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    headers: getMockIdentityHeaders(),
+    body: formData,
+  });
+
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+
+  if (!response.ok) {
+    throw new Error(data?.message || 'No se pudo subir la imagen.');
   }
 
   return data as T;
@@ -139,19 +194,87 @@ export function mockLogin(payload: { email: string; password: string }) {
   });
 }
 
-export function listPublicSpaces() {
-  return request<PublicSpace[]>('/api/public-spaces');
+export function getAdminProfile() {
+  return request<AdminProfile>('/api/admin/profile');
 }
 
-export function listCommunityEvents(params?: { category?: string; availableOnly?: boolean }) {
+export function updateAdminProfile(payload: UpdateAdminProfilePayload) {
+  return request<AdminProfile>('/api/admin/profile', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function uploadEventImage(file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return uploadRequest<{ imageUrl: string }>('/api/uploads/event-image', formData);
+}
+
+export interface PublicSpacePayload {
+  name: string;
+  description: string;
+  address: string;
+  zone: string;
+  capacity: number;
+  status: 'ENABLED' | 'DISABLED';
+  imageUrl?: string | null;
+}
+
+export function listPublicSpaces(params?: { status?: 'ENABLED' | 'DISABLED' }) {
+  const searchParams = new URLSearchParams();
+
+  if (params?.status) {
+    searchParams.set('status', params.status);
+  }
+
+  const query = searchParams.toString();
+  return request<PublicSpace[]>(`/api/public-spaces${query ? `?${query}` : ''}`);
+}
+
+export function createPublicSpace(payload: PublicSpacePayload) {
+  return request<PublicSpace>('/api/public-spaces', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updatePublicSpace(id: string, payload: PublicSpacePayload) {
+  return request<PublicSpace>(`/api/public-spaces/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deletePublicSpace(id: string) {
+  return request<void>(`/api/public-spaces/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export function listCommunityEvents(params?: {
+  category?: string;
+  search?: string;
+  availableOnly?: boolean;
+  upcomingOnly?: boolean;
+}) {
   const searchParams = new URLSearchParams();
 
   if (params?.category) {
     searchParams.set('category', params.category);
   }
 
+  if (params?.search) {
+    searchParams.set('search', params.search);
+  }
+
   if (params?.availableOnly) {
     searchParams.set('availableOnly', 'true');
+  }
+
+  if (params?.upcomingOnly) {
+    searchParams.set('upcomingOnly', 'true');
   }
 
   const query = searchParams.toString();
@@ -182,6 +305,10 @@ export function registerToCommunityEvent(
       body: JSON.stringify(payload),
     }
   );
+}
+
+export function listCommunityEventRegistrations(id: string) {
+  return request<CommunityEventRegistration[]>(`/api/community-events/${id}/registrations`);
 }
 
 export function listMyCommunityEventRegistrations() {

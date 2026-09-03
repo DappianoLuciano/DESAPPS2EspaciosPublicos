@@ -36,6 +36,10 @@ export class RegisterCitizenToCommunityEventUseCase {
       throw new ValidationError("El evento es de libre acceso y no requiere inscripcion previa.");
     }
 
+    if (communityEvent.startDate.getTime() <= Date.now()) {
+      throw new ValidationError("La inscripcion cerro porque el evento ya comenzo.");
+    }
+
     const existingRegistration =
       await this.communityEventRegistrationRepository.findByEventAndCitizenEmail(
         input.communityEventId,

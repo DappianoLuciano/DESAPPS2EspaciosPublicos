@@ -45,6 +45,10 @@ export class RequestReservationUseCase {
       throw new NotFoundError("El espacio publico indicado no existe.");
     }
 
+    if (publicSpace.status !== "ENABLED") {
+      throw new ValidationError("El espacio publico indicado no esta habilitado para nuevas reservas.");
+    }
+
     if (input.estimatedAttendees > publicSpace.capacity) {
       throw new ValidationError("La cantidad de asistentes supera la capacidad del espacio.");
     }

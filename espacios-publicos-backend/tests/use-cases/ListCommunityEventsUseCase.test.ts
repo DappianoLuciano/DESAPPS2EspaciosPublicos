@@ -44,7 +44,9 @@ const catalogItem: CommunityEventCatalogItem = {
   id: "event-1",
   title: "Feria de emprendedores",
   category: "Cultura",
+  tags: ["Arte"],
   description: "Encuentro comunitario.",
+  requirements: [],
   organizerName: "Comuna 6",
   capacity: 100,
   registeredCount: 40,
@@ -70,6 +72,7 @@ describe("ListCommunityEventsUseCase", () => {
 
     const result = await useCase.execute({
       category: "Cultura",
+      search: "feria",
       zone: "Caballito",
       date: "2026-09-15",
       availableOnly: true
@@ -78,6 +81,7 @@ describe("ListCommunityEventsUseCase", () => {
     expect(result.items).toHaveLength(1);
     expect(result.items[0].availableCapacity).toBe(60);
     expect(repository.lastFilters?.category).toBe("Cultura");
+    expect(repository.lastFilters?.search).toBe("feria");
     expect(repository.lastFilters?.zone).toBe("Caballito");
     expect(repository.lastFilters?.availableOnly).toBe(true);
   });

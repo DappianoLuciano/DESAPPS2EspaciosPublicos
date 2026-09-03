@@ -1,7 +1,9 @@
 export interface CreateCommunityEventInput {
   title: string;
   category: string;
+  tags?: string[];
   description: string;
+  requirements?: string[];
   publicSpaceId: string;
   organizerName: string;
   organizerProfileEnabled?: boolean;

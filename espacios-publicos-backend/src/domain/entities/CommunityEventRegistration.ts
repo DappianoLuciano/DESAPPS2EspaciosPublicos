@@ -22,7 +22,9 @@ export interface CitizenCommunityEventRegistration {
     id: string;
     title: string;
     category: string;
+    tags: string[];
     description: string;
+    requirements: string[];
     capacity: number;
     requiresRegistration: boolean;
     startDate: Date;

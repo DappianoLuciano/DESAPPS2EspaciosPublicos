@@ -3,9 +3,11 @@ import { CommunityEventCatalogItem } from "../entities/CommunityEventCatalogItem
 
 export interface CommunityEventCatalogFilters {
   category?: string;
+  search?: string;
   zone?: string;
   date?: Date;
   availableOnly?: boolean;
+  upcomingOnly?: boolean;
 }
 
 export interface CommunityEventRepository {

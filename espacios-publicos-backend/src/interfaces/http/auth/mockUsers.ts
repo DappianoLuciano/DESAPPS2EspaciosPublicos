@@ -14,7 +14,7 @@ interface MockUserCredentials extends MockUser {
 export const mockUsers: MockUserCredentials[] = [
   {
     id: "citizen-1",
-    name: "Didier Ciudadano",
+    name: "Ciudadano de prueba",
     email: "ciudadano",
     password: "1234",
     role: "citizen"

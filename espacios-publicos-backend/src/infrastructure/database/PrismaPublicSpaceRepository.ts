@@ -1,5 +1,5 @@
-import { CreatePublicSpaceData, PublicSpace } from "../../domain/entities/PublicSpace";
-import { PublicSpaceRepository } from "../../domain/repositories/PublicSpaceRepository";
+import { CreatePublicSpaceData, PublicSpace, UpdatePublicSpaceData } from "../../domain/entities/PublicSpace";
+import { PublicSpaceFilters, PublicSpaceRepository } from "../../domain/repositories/PublicSpaceRepository";
 import { prisma } from "./prismaClient";
 
 export class PrismaPublicSpaceRepository implements PublicSpaceRepository {
@@ -11,7 +11,25 @@ export class PrismaPublicSpaceRepository implements PublicSpaceRepository {
     return prisma.publicSpace.findUnique({ where: { id } });
   }
 
-  async findAll(): Promise<PublicSpace[]> {
-    return prisma.publicSpace.findMany({ orderBy: { createdAt: "desc" } });
+  async findAll(filters?: PublicSpaceFilters): Promise<PublicSpace[]> {
+    return prisma.publicSpace.findMany({
+      where: {
+        status: filters?.status
+      },
+      orderBy: { createdAt: "desc" }
+    });
+  }
+
+  async update(id: string, data: UpdatePublicSpaceData): Promise<PublicSpace> {
+    return prisma.publicSpace.update({
+      where: { id },
+      data
+    });
+  }
+
+  async delete(id: string): Promise<void> {
+    await prisma.publicSpace.delete({
+      where: { id }
+    });
   }
 }
