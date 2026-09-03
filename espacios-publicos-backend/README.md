@@ -1,76 +1,79 @@
-# CityPass+ - Espacios Publicos y Cultura
+# CityPass+ Backend
 
-Backend inicial para gestionar espacios publicos, reservas y eventos comunitarios.
-
-La estrategia sigue el documento base: primero se construye el backend principal, luego el frontend y despues se agregan eventos con un broker real. En este Sprint 1 el proyecto usa un `EventBus` propio con implementacion en consola/memoria para aprender el flujo EDA sin sumar Kafka o RabbitMQ demasiado pronto.
+API para gestionar espacios publicos, eventos culturales, reservas, inscripciones y perfiles administrativos.
 
 ## Stack
 
-- Node.js + Express + TypeScript
-- Prisma + PostgreSQL
-- EventBus propio preparado para reemplazar por RabbitMQ o Kafka
-- Jest + Supertest para pruebas
-- Docker Compose para levantar PostgreSQL local
+- Node.js, Express y TypeScript.
+- Prisma y PostgreSQL alojado en Supabase.
+- Supabase Storage para imagenes de eventos.
+- Jest y Supertest.
 
-## Arquitectura
-
-- `domain`: entidades, contratos de repositorios y servicios del negocio.
-- `application`: casos de uso que coordinan reglas, persistencia y eventos.
-- `infrastructure`: implementaciones concretas, como Prisma y EventBus en consola.
-- `interfaces/http`: controladores, rutas y middlewares de Express.
-
-## Primer hito
-
-- Crear espacios publicos.
-- Listar espacios publicos.
-- Solicitar reservas evitando superposiciones.
-- Listar reservas.
-- Crear eventos comunitarios.
-- Listar agenda cultural.
-- Consultar eventos por categoria, zona, fecha y cupo disponible.
-- Inscribir ciudadanos a eventos comunitarios.
-- Consultar inscriptos de un evento.
-- Registrar eventos de dominio en `event_outbox`.
-
-## Comandos
+## Instalacion
 
 ```bash
-cd espacios-publicos-backend
 npm install
 cp .env.example .env
-docker compose up -d
-npm run prisma:migrate
-npm run dev
 ```
 
-Para pruebas:
+Solicitar al responsable del proyecto los valores privados y completar `.env`:
 
-```bash
-npm test
+```env
+PORT=3000
+DATABASE_URL="..."
+DIRECT_URL="..."
+SUPABASE_URL="..."
+SUPABASE_SERVICE_ROLE_KEY="..."
+SUPABASE_EVENT_IMAGES_BUCKET="event-images"
 ```
 
-## Cambios en la base de datos
-
-Cuando agregamos o modificamos campos del modelo Prisma, cada maquina local debe aplicar las migraciones:
+Generar Prisma y comprobar la conexion:
 
 ```bash
-npm run prisma:migrate
-```
-
-Para revisar si faltan migraciones:
-
-```bash
+npm run prisma:generate
 npm run prisma:status
 ```
 
-Si la API responde que la base no esta sincronizada, normalmente falta correr `npm run prisma:migrate`.
+Levantar la API:
 
-`npm run prisma:push` queda disponible solo para desarrollo rapido, pero para el proyecto conviene preferir migraciones versionadas.
+```bash
+npm run dev
+```
 
-## Eventos de dominio previstos
+- API: `http://localhost:3000`
+- Healthcheck: `http://localhost:3000/health`
 
-- `espacios.reserva_confirmada`
-- `cultura.evento_comunitario_publicado`
-- `cultura.ciudadano_inscripto`
+## Comandos habituales
 
-Mas adelante, la interfaz `EventBus` permite cambiar la implementacion actual por RabbitMQ, Kafka u otro broker sin reescribir los casos de uso.
+```bash
+npm run dev
+npm test
+npm run build
+npm run prisma:generate
+npm run prisma:status
+npm run prisma:studio
+```
+
+## Base de datos compartida
+
+Supabase ya tiene aplicadas las migraciones y los datos de demostracion. Para desarrollar y probar la aplicacion no hace falta volver a migrar ni ejecutar el seed.
+
+Los siguientes comandos modifican la estructura o los datos compartidos y deben ejecutarse solamente de forma coordinada:
+
+```bash
+npm run prisma:migrate
+npm run prisma:deploy
+npm run prisma:push
+npm run prisma:seed
+```
+
+## Arquitectura
+
+- `domain`: entidades y contratos.
+- `application`: casos de uso y DTOs.
+- `infrastructure`: Prisma, Storage y EventBus.
+- `interfaces/http`: rutas, controladores y middlewares.
+
+## Variables y secretos
+
+`.env.example` documenta el formato esperado, pero no contiene valores funcionales. El archivo `.env` real no debe subirse a Git. La `SUPABASE_SERVICE_ROLE_KEY` permite acceso elevado y debe permanecer exclusivamente en el backend.
