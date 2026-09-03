@@ -1,4 +1,4 @@
-import { Box, NavLink, Flex, Text, Avatar } from '@mantine/core';
+import { Box, NavLink, Flex, Text } from '@mantine/core';
 import { IconHome, IconCalendarEvent, IconSettings, IconPlus, IconDashboard, IconLogout } from '@tabler/icons-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -27,7 +27,7 @@ export default function Sidebar() {
   return (
     <Box w={280} h="100vh" bg="#000A24" c="white" style={{ borderRight: '1px solid #C5C6CE', display: 'flex', flexDirection: 'column' }}>
       <Flex p="lg" align="center" gap="md" style={{ borderBottom: '1px solid rgba(197, 198, 206, 0.2)' }}>
-        <Avatar src="https://flagcdn.com/w40/ar.png" radius="xl" size="sm" />
+        <img src="/logo.png" alt="Logo" style={{ width: 40, height: 40, objectFit: 'contain' }} />
         <Text fw={700} fz="xl">Espacios Publicos</Text>
       </Flex>
 

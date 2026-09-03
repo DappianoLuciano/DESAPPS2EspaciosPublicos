@@ -29,6 +29,9 @@ export default function Login() {
   return (
     <Box bg="gray.0" h="100vh" style={{ display: 'flex', alignItems: 'center' }}>
       <Container size={420} w="100%">
+        <Box style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
+          <img src="/logo.png" alt="Logo" style={{ width: 80, height: 80, objectFit: 'contain' }} />
+        </Box>
         <Title ta="center">
           ¡Bienvenido de nuevo!
         </Title>
