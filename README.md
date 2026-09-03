@@ -1,15 +1,13 @@
 # CityPass+ Espacios Publicos y Cultura
 
-[![CI Pipeline](https://github.com/USUARIO/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/USUARIO/REPO/actions/workflows/ci.yml)
-[![CD Pipeline](https://github.com/USUARIO/REPO/actions/workflows/cd.yml/badge.svg)](https://github.com/USUARIO/REPO/actions/workflows/cd.yml)
-[![PR Checks](https://github.com/USUARIO/REPO/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/USUARIO/REPO/actions/workflows/pr-checks.yml)
-[![SonarQube](https://github.com/USUARIO/REPO/actions/workflows/sonarqube.yml/badge.svg)](https://github.com/USUARIO/REPO/actions/workflows/sonarqube.yml)
+[![CI Pipeline](https://github.com/DappianoLuciano/DESAPPS2EspaciosPublicos/actions/workflows/ci.yml/badge.svg)](https://github.com/DappianoLuciano/DESAPPS2EspaciosPublicos/actions/workflows/ci.yml)
+[![CD Pipeline](https://github.com/DappianoLuciano/DESAPPS2EspaciosPublicos/actions/workflows/cd.yml/badge.svg)](https://github.com/DappianoLuciano/DESAPPS2EspaciosPublicos/actions/workflows/cd.yml)
+[![PR Checks](https://github.com/DappianoLuciano/DESAPPS2EspaciosPublicos/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/DappianoLuciano/DESAPPS2EspaciosPublicos/actions/workflows/pr-checks.yml)
+[![SonarQube](https://github.com/DappianoLuciano/DESAPPS2EspaciosPublicos/actions/workflows/sonarqube.yml/badge.svg)](https://github.com/DappianoLuciano/DESAPPS2EspaciosPublicos/actions/workflows/sonarqube.yml)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=DappianoLuciano_DESAPPS2EspaciosPublicos&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=DappianoLuciano_DESAPPS2EspaciosPublicos)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=DappianoLuciano_DESAPPS2EspaciosPublicos&metric=coverage)](https://sonarcloud.io/summary/new_code?id=DappianoLuciano_DESAPPS2EspaciosPublicos)
 
 Aplicacion para publicar eventos culturales, administrar espacios publicos y gestionar reservas ciudadanas.
-
-> **Nota:** Reemplazar `USUARIO/REPO` en los badges de GitHub Actions con tu usuario y repositorio real.
 
 ## Estructura
 
