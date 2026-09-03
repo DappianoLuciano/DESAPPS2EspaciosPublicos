@@ -1,0 +1,133 @@
+name: SonarQube Analysis
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch: # Permite ejecutar manualmente
+
+jobs:
+  sonarqube-backend:
+    name: SonarQube Backend Analysis
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./espacios-publicos-backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for better analysis
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: espacios-publicos-backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npm run prisma:generate
+
+      - name: Run tests with coverage
+        run: npm test -- --coverage --coverageReporters=lcov
+        env:
+          NODE_ENV: test
+        continue-on-error: true
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          projectBaseDir: ./espacios-publicos-backend
+          args: >
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY_BACKEND }}
+            -Dsonar.sources=src
+            -Dsonar.tests=src
+            -Dsonar.test.inclusions=**/*.test.ts,**/*.spec.ts
+            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.test.ts,**/*.spec.ts
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.typescript.tsconfigPath=tsconfig.json
+
+      - name: SonarQube Quality Gate check
+        uses: sonarsource/sonarqube-quality-gate-action@master
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        continue-on-error: true
+
+  sonarqube-frontend:
+    name: SonarQube Frontend Analysis
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./espacios-publicos-frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: espacios-publicos-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+        continue-on-error: true
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          projectBaseDir: ./espacios-publicos-frontend
+          args: >
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY_FRONTEND }}
+            -Dsonar.sources=src
+            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx
+            -Dsonar.typescript.tsconfigPath=tsconfig.json
+
+      - name: SonarQube Quality Gate check
+        uses: sonarsource/sonarqube-quality-gate-action@master
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        continue-on-error: true
+
+  sonarqube-summary:
+    name: SonarQube Summary
+    runs-on: ubuntu-latest
+    needs: [sonarqube-backend, sonarqube-frontend]
+    if: always()
+
+    steps:
+      - name: Analysis Summary
+        run: |
+          echo "## 📊 SonarQube Analysis Summary"
+          echo ""
+          echo "| Component | Status |"
+          echo "|-----------|--------|"
+          echo "| Backend | ${{ needs.sonarqube-backend.result }} |"
+          echo "| Frontend | ${{ needs.sonarqube-frontend.result }} |"
+          echo ""
+          echo "View detailed results in SonarQube dashboard"

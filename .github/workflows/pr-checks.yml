@@ -1,0 +1,191 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  pr-validation:
+    name: PR Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Para poder comparar con la branch base
+
+      - name: Validate PR title
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          echo "PR Title: $PR_TITLE"
+
+          # Validar que el título siga conventional commits
+          if echo "$PR_TITLE" | grep -qE '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore)(\(.+\))?: .+'; then
+            echo "✅ PR title follows conventional commits format"
+          else
+            echo "❌ PR title should follow format: type(scope): description"
+            echo "Examples:"
+            echo "  - feat: add user authentication"
+            echo "  - fix(backend): resolve database connection issue"
+            echo "  - docs: update README with setup instructions"
+            exit 1
+          fi
+
+      - name: Check for merge conflicts
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          if git merge-tree $(git merge-base HEAD origin/${{ github.event.pull_request.base.ref }}) HEAD origin/${{ github.event.pull_request.base.ref }} | grep -q '<<<<<'; then
+            echo "❌ This PR has merge conflicts. Please resolve them."
+            exit 1
+          else
+            echo "✅ No merge conflicts detected"
+          fi
+
+      - name: Check file changes
+        run: |
+          echo "Files changed in this PR:"
+          git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD
+
+          # Advertir si se modificaron archivos sensibles
+          SENSITIVE_FILES=".env .env.local .env.production"
+          for file in $SENSITIVE_FILES; do
+            if git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD | grep -q "^$file$"; then
+              echo "⚠️ WARNING: Sensitive file '$file' was modified!"
+              echo "Make sure no secrets are being committed."
+            fi
+          done
+
+      - name: Check for large files
+        run: |
+          LARGE_FILES=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD | xargs -I {} sh -c 'du -k "{}" 2>/dev/null | awk '\''$1 > 1024 {print $2}'\''' || echo "")
+          if [ -n "$LARGE_FILES" ]; then
+            echo "⚠️ Large files detected (>1MB):"
+            echo "$LARGE_FILES"
+            echo "Consider using Git LFS or reducing file size"
+          else
+            echo "✅ No large files detected"
+          fi
+
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check for console.log in frontend
+        working-directory: ./espacios-publicos-frontend
+        run: |
+          if grep -r "console\.log" src/ --include="*.ts" --include="*.tsx" 2>/dev/null; then
+            echo "⚠️ Found console.log statements in source code"
+            echo "Consider removing them or using a proper logger"
+          else
+            echo "✅ No console.log found"
+          fi
+
+      - name: Check for TODO comments
+        run: |
+          TODO_COUNT=$(grep -r "TODO\|FIXME\|XXX" . --include="*.ts" --include="*.tsx" --include="*.js" --exclude-dir=node_modules --exclude-dir=dist 2>/dev/null | wc -l || echo "0")
+          if [ "$TODO_COUNT" -gt 0 ]; then
+            echo "ℹ️ Found $TODO_COUNT TODO/FIXME comments:"
+            grep -r "TODO\|FIXME\|XXX" . --include="*.ts" --include="*.tsx" --include="*.js" --exclude-dir=node_modules --exclude-dir=dist 2>/dev/null || true
+          else
+            echo "✅ No TODO comments found"
+          fi
+
+  dependency-check:
+    name: Dependency Security Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check backend dependencies
+        working-directory: ./espacios-publicos-backend
+        run: |
+          echo "Checking backend dependencies for vulnerabilities..."
+          npm audit --audit-level=moderate || echo "⚠️ Found vulnerabilities in backend dependencies"
+
+      - name: Check frontend dependencies
+        working-directory: ./espacios-publicos-frontend
+        run: |
+          echo "Checking frontend dependencies for vulnerabilities..."
+          npm audit --audit-level=moderate || echo "⚠️ Found vulnerabilities in frontend dependencies"
+
+  size-check:
+    name: Bundle Size Check
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./espacios-publicos-frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: espacios-publicos-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and check size
+        run: |
+          npm run build
+          echo "📦 Build size:"
+          du -sh dist/
+
+          TOTAL_SIZE=$(du -sb dist/ | awk '{print $1}')
+          MAX_SIZE=$((10 * 1024 * 1024)) # 10MB
+
+          if [ "$TOTAL_SIZE" -gt "$MAX_SIZE" ]; then
+            echo "⚠️ WARNING: Build size ($(($TOTAL_SIZE / 1024 / 1024))MB) exceeds recommended limit (10MB)"
+          else
+            echo "✅ Build size is acceptable ($(($TOTAL_SIZE / 1024 / 1024))MB)"
+          fi
+
+  pr-summary:
+    name: PR Summary
+    runs-on: ubuntu-latest
+    needs: [pr-validation, code-quality, dependency-check, size-check]
+    if: always()
+
+    steps:
+      - name: Summary
+        run: |
+          echo "## 📊 PR Checks Summary"
+          echo ""
+          echo "| Check | Status |"
+          echo "|-------|--------|"
+          echo "| PR Validation | ${{ needs.pr-validation.result }} |"
+          echo "| Code Quality | ${{ needs.code-quality.result }} |"
+          echo "| Dependencies | ${{ needs.dependency-check.result }} |"
+          echo "| Bundle Size | ${{ needs.size-check.result }} |"
+          echo ""
+
+          if [ "${{ needs.pr-validation.result }}" == "success" ] && \
+             [ "${{ needs.code-quality.result }}" == "success" ] && \
+             [ "${{ needs.dependency-check.result }}" == "success" ] && \
+             [ "${{ needs.size-check.result }}" == "success" ]; then
+            echo "✅ All PR checks passed!"
+          else
+            echo "⚠️ Some checks failed or have warnings"
+          fi

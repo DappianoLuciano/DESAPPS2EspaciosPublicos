@@ -1,0 +1,83 @@
+version: 2
+updates:
+  # Backend dependencies
+  - package-ecosystem: "npm"
+    directory: "/espacios-publicos-backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "TU-USUARIO" # Reemplazar con tu usuario de GitHub
+    assignees:
+      - "TU-USUARIO"
+    commit-message:
+      prefix: "chore(backend)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "backend"
+    # Agrupar actualizaciones menores y patches
+    groups:
+      development-dependencies:
+        patterns:
+          - "@types/*"
+          - "typescript"
+          - "jest"
+          - "ts-jest"
+          - "supertest"
+        update-types:
+          - "minor"
+          - "patch"
+      production-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+
+  # Frontend dependencies
+  - package-ecosystem: "npm"
+    directory: "/espacios-publicos-frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "TU-USUARIO"
+    assignees:
+      - "TU-USUARIO"
+    commit-message:
+      prefix: "chore(frontend)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "frontend"
+    groups:
+      development-dependencies:
+        patterns:
+          - "@types/*"
+          - "typescript"
+          - "vite"
+          - "@vitejs/*"
+          - "oxlint"
+        update-types:
+          - "minor"
+          - "patch"
+      production-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+
+  # GitHub Actions workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "dependencies"
+      - "ci"

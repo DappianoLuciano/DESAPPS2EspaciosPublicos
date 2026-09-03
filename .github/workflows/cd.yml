@@ -1,0 +1,150 @@
+name: CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: # Permite ejecutar manualmente desde GitHub
+
+jobs:
+  deploy-backend:
+    name: Deploy Backend
+    runs-on: ubuntu-latest
+    environment: production
+
+    defaults:
+      run:
+        working-directory: ./espacios-publicos-backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: espacios-publicos-backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npm run prisma:generate
+
+      - name: Run tests
+        run: npm test
+        env:
+          NODE_ENV: test
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Build backend
+        run: npm run build
+
+      - name: Deploy to production (Railway)
+        if: vars.DEPLOY_BACKEND == 'true'
+        run: |
+          echo " Deploying backend to Railway..."
+          # Descomentar y configurar cuando tengas Railway CLI
+          # npm install -g @railway/cli
+          # railway up --service backend
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      # Alternativa: Deploy a Render
+      # - name: Deploy to Render
+      #   if: vars.DEPLOY_PLATFORM == 'render'
+      #   run: |
+      #     curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}
+
+      - name: Run database migrations
+        if: vars.RUN_MIGRATIONS == 'true'
+        run: npm run prisma:deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Deployment success notification
+        if: success()
+        run: echo "Backend deployed successfully!"
+
+  deploy-frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    environment: production
+
+    defaults:
+      run:
+        working-directory: ./espacios-publicos-frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: espacios-publicos-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          # Variables de entorno para el build
+          VITE_API_URL: ${{ secrets.VITE_API_URL || 'https://api.citypass.com' }}
+
+      - name: Deploy to Vercel
+        if: vars.DEPLOY_FRONTEND == 'true'
+        run: |
+          echo "🚀 Deploying frontend to Vercel..."
+          # Descomentar cuando tengas Vercel CLI configurado
+          # npm install -g vercel
+          # vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      # Alternativa: Deploy a Netlify
+      # - name: Deploy to Netlify
+      #   if: vars.DEPLOY_PLATFORM == 'netlify'
+      #   uses: nwtgck/actions-netlify@v2
+      #   with:
+      #     publish-dir: './espacios-publicos-frontend/dist'
+      #     production-deploy: true
+      #   env:
+      #     NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+      #     NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+
+      - name: Deployment success notification
+        if: success()
+        run: echo "✅ Frontend deployed successfully!"
+
+  post-deployment:
+    name: Post Deployment Checks
+    runs-on: ubuntu-latest
+    needs: [deploy-backend, deploy-frontend]
+    if: always()
+
+    steps:
+      - name: Check deployment status
+        run: |
+          echo "Backend deployment: ${{ needs.deploy-backend.result }}"
+          echo "Frontend deployment: ${{ needs.deploy-frontend.result }}"
+
+          if [ "${{ needs.deploy-backend.result }}" == "success" ] && \
+             [ "${{ needs.deploy-frontend.result }}" == "success" ]; then
+            echo "✅ Deployment completed successfully!"
+          else
+            echo "⚠️ Some deployments may have failed or been skipped"
+          fi
+
+      # Opcional: Health check de la API
+      - name: Health check API
+        if: vars.API_URL != ''
+        run: |
+          echo "Checking API health..."
+          curl -f ${{ vars.API_URL }}/health || echo "⚠️ Health check failed"

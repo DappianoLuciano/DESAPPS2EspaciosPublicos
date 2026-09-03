@@ -1,0 +1,151 @@
+name: Security Checks
+
+on:
+  schedule:
+    # Ejecutar todos los lunes a las 9 AM
+    - cron: '0 9 * * 1'
+  workflow_dispatch: # Permitir ejecución manual
+  push:
+    branches: [ main ]
+
+jobs:
+  dependency-audit:
+    name: Dependency Security Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Audit backend dependencies
+        working-directory: ./espacios-publicos-backend
+        run: |
+          echo "🔍 Auditing backend dependencies..."
+          npm audit --json > backend-audit.json || true
+          npm audit
+
+      - name: Audit frontend dependencies
+        working-directory: ./espacios-publicos-frontend
+        run: |
+          echo "🔍 Auditing frontend dependencies..."
+          npm audit --json > frontend-audit.json || true
+          npm audit
+
+      - name: Upload audit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-audit-results
+          path: |
+            espacios-publicos-backend/backend-audit.json
+            espacios-publicos-frontend/frontend-audit.json
+          retention-days: 30
+
+  secret-scanning:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Obtener todo el historial
+
+      - name: Check for exposed secrets in code
+        run: |
+          echo "🔍 Scanning for potential secrets..."
+
+          # Patrones comunes de secrets
+          PATTERNS=(
+            "password\s*=\s*['\"][^'\"]+['\"]"
+            "api[_-]?key\s*=\s*['\"][^'\"]+['\"]"
+            "secret\s*=\s*['\"][^'\"]+['\"]"
+            "token\s*=\s*['\"][^'\"]+['\"]"
+            "SUPABASE_SERVICE_ROLE_KEY"
+            "DATABASE_URL.*@.*"
+          )
+
+          FOUND_ISSUES=0
+          for pattern in "${PATTERNS[@]}"; do
+            if git grep -iE "$pattern" -- ':!*.md' ':!.github/*' ':!*.example' ':!*.json' 2>/dev/null; then
+              echo "⚠️ Potential secret found matching pattern: $pattern"
+              FOUND_ISSUES=1
+            fi
+          done
+
+          if [ $FOUND_ISSUES -eq 1 ]; then
+            echo "❌ Potential secrets detected in code!"
+            echo "Please review and remove any hardcoded credentials"
+            exit 1
+          else
+            echo "✅ No secrets detected"
+          fi
+
+      - name: Check .env files are not committed
+        run: |
+          if git ls-files | grep -E '^\.env$|^.*\.env\.local$'; then
+            echo "❌ ERROR: .env files should not be committed!"
+            exit 1
+          else
+            echo "✅ No .env files in repository"
+          fi
+
+  code-scanning:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'javascript' ]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [dependency-audit, secret-scanning, code-scanning]
+    if: always()
+
+    steps:
+      - name: Summary
+        run: |
+          echo "## 🔒 Security Checks Summary"
+          echo ""
+          echo "| Check | Status |"
+          echo "|-------|--------|"
+          echo "| Dependency Audit | ${{ needs.dependency-audit.result }} |"
+          echo "| Secret Scanning | ${{ needs.secret-scanning.result }} |"
+          echo "| Code Scanning | ${{ needs.code-scanning.result }} |"
+          echo ""
+
+          if [ "${{ needs.dependency-audit.result }}" == "success" ] && \
+             [ "${{ needs.secret-scanning.result }}" == "success" ] && \
+             [ "${{ needs.code-scanning.result }}" == "success" ]; then
+            echo "✅ All security checks passed!"
+          else
+            echo "⚠️ Some security checks failed - review required"
+          fi

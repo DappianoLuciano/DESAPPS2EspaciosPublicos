@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+enum CommunityEventStatus {
+  ACTIVE
+  ACTIVE_FULL
+  CANCELLED
+}
+
+enum PublicSpaceStatus {
+  ENABLED
+  DISABLED
+}
+
+model Admin {
+  id         String   @id @default(uuid())
+  username   String   @unique
+  name       String
+  email      String   @unique
+  phone      String?
+  department String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("admins")
+}
+
+model PublicSpace {
+  id          String           @id @default(uuid())
+  name        String
+  description String
+  address     String
+  zone        String           @default("Sin definir")
+  capacity    Int
+  status      PublicSpaceStatus @default(ENABLED)
+  imageUrl    String?
+  createdAt   DateTime         @default(now())
+  reservations Reservation[]
+  events      CommunityEvent[]
+
+  @@map("public_spaces")
+}
+
+model Reservation {
+  id            String            @id @default(uuid())
+  publicSpaceId String
+  requesterName String
+  requesterEmail String
+  estimatedAttendees Int
+  startDate     DateTime
+  endDate       DateTime
+  status        ReservationStatus @default(CONFIRMED)
+  createdAt     DateTime          @default(now())
+  publicSpace   PublicSpace       @relation(fields: [publicSpaceId], references: [id])
+
+  @@index([publicSpaceId, startDate, endDate])
+  @@map("reservations")
+}
+
+model CommunityEvent {
+  id            String      @id @default(uuid())
+  title         String
+  category      String
+  tags          String[]    @default([])
+  description   String
+  requirements  String[]    @default([])
+  publicSpaceId String
+  organizerName String
+  capacity      Int
+  requiresRegistration Boolean @default(true)
+  startDate     DateTime
+  endDate       DateTime
+  status        CommunityEventStatus @default(ACTIVE)
+  imageUrl      String?
+  createdAt     DateTime    @default(now())
+  publicSpace   PublicSpace @relation(fields: [publicSpaceId], references: [id])
+  registrations CommunityEventRegistration[]
+
+  @@index([publicSpaceId, startDate, endDate])
+  @@map("community_events")
+}
+
+model CommunityEventRegistration {
+  id               String         @id @default(uuid())
+  communityEventId String
+  citizenName      String
+  citizenEmail     String
+  createdAt        DateTime       @default(now())
+  communityEvent   CommunityEvent @relation(fields: [communityEventId], references: [id])
+
+  @@unique([communityEventId, citizenEmail])
+  @@index([communityEventId])
+  @@map("community_event_registrations")
+}
+
+model EventOutbox {
+  id          String    @id
+  name        String
+  payload     Json
+  occurredAt  DateTime
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([name])
+  @@map("event_outbox")
+}
