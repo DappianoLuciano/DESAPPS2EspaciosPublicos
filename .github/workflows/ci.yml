@@ -43,7 +43,7 @@ jobs:
         run: npm run build
 
       - name: Upload backend build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-build
           path: espacios-publicos-backend/dist/
@@ -78,7 +78,7 @@ jobs:
         run: npm run build
 
       - name: Upload frontend build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-build
           path: espacios-publicos-frontend/dist/
