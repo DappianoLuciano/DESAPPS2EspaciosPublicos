@@ -26,6 +26,11 @@ import { AdminController } from "./interfaces/http/controllers/AdminController";
 import { PublicSpaceController } from "./interfaces/http/controllers/PublicSpaceController";
 import { ReservationController } from "./interfaces/http/controllers/ReservationController";
 
+import { NodeQrGenerator } from "./infrastructure/qr/NodeQrGenerator";
+import { NodemailerEmailSender } from "./infrastructure/email/NodemailerEmailSender";
+
+import { GetReservationUseCase } from "./application/use-cases/GetReservationUseCase";
+
 // Este archivo arma las dependencias en un solo lugar para que los controllers no creen objetos por su cuenta.
 export function createContainer() {
   const adminRepository = new PrismaAdminRepository();
@@ -36,6 +41,8 @@ export function createContainer() {
   const eventOutboxRepository = new PrismaEventOutboxRepository();
   const eventBus = new ConsoleEventBus();
   const storageService = new SupabaseStorageService();
+  const qrGenerator = new NodeQrGenerator();
+  const emailSender = new NodemailerEmailSender();
 
   const getAdminProfileUseCase = new GetAdminProfileUseCase(adminRepository);
   const updateAdminProfileUseCase = new UpdateAdminProfileUseCase(adminRepository);
@@ -50,9 +57,12 @@ export function createContainer() {
     reservationRepository,
     communityEventRepository,
     eventOutboxRepository,
-    eventBus
+    eventBus,
+    qrGenerator,
+    emailSender
   );
   const listReservationsUseCase = new ListReservationsUseCase(reservationRepository);
+  const getReservationUseCase = new GetReservationUseCase(reservationRepository);
 
   const createCommunityEventUseCase = new CreateCommunityEventUseCase(
     publicSpaceRepository,
@@ -92,7 +102,8 @@ export function createContainer() {
     ),
     reservationController: new ReservationController(
       requestReservationUseCase,
-      listReservationsUseCase
+      listReservationsUseCase,
+      getReservationUseCase
     ),
     communityEventController: new CommunityEventController(
       createCommunityEventUseCase,

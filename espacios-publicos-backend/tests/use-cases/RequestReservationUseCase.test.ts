@@ -41,6 +41,10 @@ class FakePublicSpaceRepository implements PublicSpaceRepository {
 class FakeReservationRepository implements ReservationRepository {
   public reservations: Reservation[] = [];
 
+  async findById(id: string): Promise<Reservation | null> {
+    return this.reservations.find(r => r.id === id) || null;
+  }
+
   async create(data: RequestReservationData): Promise<Reservation> {
     const reservation: Reservation = {
       id: `reservation-${this.reservations.length + 1}`,
@@ -134,12 +138,27 @@ class FakeEventBus implements EventBus {
   }
 }
 
+class FakeQrGenerator {
+  async generate(_data: string): Promise<string> {
+    return "fake-qr-data-uri";
+  }
+}
+
+class FakeEmailSender {
+  public emails: any[] = [];
+  async send(to: string, subject: string, html: string): Promise<void> {
+    this.emails.push({ to, subject, html });
+  }
+}
+
 function createUseCase() {
   const publicSpaceRepository = new FakePublicSpaceRepository();
   const reservationRepository = new FakeReservationRepository();
   const communityEventRepository = new FakeCommunityEventRepository();
   const eventOutboxRepository = new FakeEventOutboxRepository();
   const eventBus = new FakeEventBus();
+  const qrGenerator = new FakeQrGenerator();
+  const emailSender = new FakeEmailSender();
 
   publicSpaceRepository.spaces.push({
     id: "space-1",
@@ -156,10 +175,12 @@ function createUseCase() {
     reservationRepository,
     communityEventRepository,
     eventOutboxRepository,
-    eventBus
+    eventBus,
+    qrGenerator,
+    emailSender
   );
 
-  return { useCase, reservationRepository, communityEventRepository, eventOutboxRepository, eventBus };
+  return { useCase, reservationRepository, communityEventRepository, eventOutboxRepository, eventBus, qrGenerator, emailSender };
 }
 
 describe("RequestReservationUseCase", () => {

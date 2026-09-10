@@ -187,11 +187,16 @@ function getMockIdentityHeaders(): Record<string, string> {
   };
 }
 
-export function mockLogin(payload: { email: string; password: string }) {
-  return request<{ user: User }>('/api/auth/mock-login', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+export async function mockLogin(payload: { email: string; password: string }) {
+  // Bypass backend per user request
+  return {
+    user: {
+      id: payload.email === 'admin' ? 'admin-1' : 'citizen-1',
+      name: payload.email === 'admin' ? 'Administrador' : 'Ciudadano',
+      email: payload.email,
+      role: payload.email === 'admin' ? 'municipal_admin' as UserRole : 'citizen' as UserRole,
+    }
+  };
 }
 
 export function getAdminProfile() {
@@ -320,4 +325,20 @@ export function cancelCommunityEventRegistration(registrationId: string) {
     `/api/community-events/registrations/${registrationId}`,
     { method: 'DELETE' }
   );
+}
+
+export interface Reservation {
+  id: string;
+  publicSpaceId: string;
+  requesterName: string;
+  requesterEmail: string;
+  estimatedAttendees: number;
+  startDate: string;
+  endDate: string;
+  status: 'CONFIRMED' | 'CANCELLED';
+  createdAt: string;
+}
+
+export function getReservationById(id: string) {
+  return request<Reservation>(`/api/reservations/${id}`);
 }

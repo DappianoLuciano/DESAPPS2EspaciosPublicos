@@ -3,6 +3,10 @@ import { ReservationRepository } from "../../domain/repositories/ReservationRepo
 import { prisma } from "./prismaClient";
 
 export class PrismaReservationRepository implements ReservationRepository {
+  async findById(id: string): Promise<Reservation | null> {
+    return prisma.reservation.findUnique({ where: { id } });
+  }
+
   async create(data: RequestReservationData): Promise<Reservation> {
     return prisma.reservation.create({ data });
   }

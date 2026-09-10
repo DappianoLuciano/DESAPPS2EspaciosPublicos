@@ -8,6 +8,7 @@ export function createReservationRoutes(controller: ReservationController): Rout
 
   router.post("/", requireRole("citizen"), asyncHandler(controller.create));
   router.get("/", requireRole("municipal_admin"), asyncHandler(controller.list));
+  router.get("/:id", asyncHandler(controller.getById));
 
   return router;
 }

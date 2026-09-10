@@ -1,4 +1,6 @@
-import { Alert, Badge, Box, Button, Card, Container, Flex, Group, Image, List, Loader, Modal, SimpleGrid, Text, ThemeIcon, Title } from '@mantine/core';
+import { Alert, Badge, Box, Button, Card, Container, Flex, Group, Image, List, Loader, Modal, SimpleGrid, Skeleton, Text, ThemeIcon, Title } from '@mantine/core';
+import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import { IconCalendar, IconCheck, IconClock, IconMapPin, IconUsers } from '@tabler/icons-react';
 import { useDisclosure } from '@mantine/hooks';
 import { useEffect, useState } from 'react';
@@ -17,6 +19,27 @@ export default function EventDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [mapCoordinates, setMapCoordinates] = useState<[number, number] | null>(null);
+  const [mapLoading, setMapLoading] = useState(true);
+
+  useEffect(() => {
+    if (event?.publicSpace?.address) {
+      setMapLoading(true);
+      fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(event.publicSpace.address)}&format=json`, {
+        headers: {
+          'User-Agent': 'DesarrolloApp2/1.0 (local@example.com)'
+        }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.length > 0) {
+            setMapCoordinates([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
+          }
+        })
+        .catch(console.error)
+        .finally(() => setMapLoading(false));
+    }
+  }, [event?.publicSpace?.address]);
 
   useEffect(() => {
     if (!id) {
@@ -245,9 +268,23 @@ export default function EventDetail() {
             )}
 
             <Title order={3} mt={40} mb="md">Ubicación</Title>
-            <Card withBorder radius="md" p={0} h={250} style={{ overflow: 'hidden', position: 'relative' }}>
-              <Box h="100%" bg="gray.2" style={{ background: 'url(https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&q=80) center/cover' }} />
-              <Card shadow="sm" p="sm" radius="md" style={{ position: 'absolute', bottom: 16, left: 16 }}>
+            <Card withBorder radius="md" p={0} h={250} style={{ overflow: 'hidden', position: 'relative', zIndex: 1 }}>
+              {mapLoading ? (
+                <Skeleton height="100%" width="100%" />
+              ) : mapCoordinates ? (
+                <Box h="100%">
+                  <MapContainer center={mapCoordinates} zoom={15} style={{ height: '100%', width: '100%', zIndex: 1 }}>
+                    <TileLayer
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    <Marker position={mapCoordinates} />
+                  </MapContainer>
+                </Box>
+              ) : (
+                <Box h="100%" bg="gray.2" style={{ background: 'url(https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&q=80) center/cover' }} />
+              )}
+              <Card shadow="sm" p="sm" radius="md" style={{ position: 'absolute', bottom: 16, left: 16, zIndex: 1000 }}>
                 <Group gap="xs">
                   <IconMapPin size="1rem" color="gray" />
                   <Text fw={700} fz="sm">{event.publicSpace.name} - {event.publicSpace.zone}</Text>

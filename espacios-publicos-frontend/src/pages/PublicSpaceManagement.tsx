@@ -1,5 +1,5 @@
-import { Alert, Badge, Box, Button, Card, Flex, Group, Modal, NumberInput, Select, Table, Text, TextInput, Textarea, Title, Container } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { Alert, Autocomplete, Badge, Box, Button, Card, Flex, Group, Modal, NumberInput, Select, Table, Text, TextInput, Textarea, Title, Container } from '@mantine/core';
+import { useDisclosure, useDebouncedValue } from '@mantine/hooks';
 import { IconEdit, IconMapPin, IconPlus, IconTrash } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { createPublicSpace, deletePublicSpace, listPublicSpaces, updatePublicSpace } from '../lib/api';
@@ -24,6 +24,29 @@ export default function PublicSpaceManagement() {
   const [submitting, setSubmitting] = useState(false);
   const [opened, { open, close }] = useDisclosure(false);
 
+  const [addressSearch, setAddressSearch] = useState('');
+  const [debouncedSearch] = useDebouncedValue(addressSearch, 500);
+  const [addressOptions, setAddressOptions] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (debouncedSearch.trim().length < 3) {
+      setAddressOptions([]);
+      return;
+    }
+    const controller = new AbortController();
+    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(debouncedSearch)}&format=json&addressdetails=1`, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'DesarrolloApp2/1.0 (local@example.com)'
+      }
+    })
+      .then(res => res.json())
+      .then(data => setAddressOptions(data))
+      .catch(console.error);
+
+    return () => controller.abort();
+  }, [debouncedSearch]);
+
   const loadSpaces = () => {
     setLoading(true);
     listPublicSpaces()
@@ -39,6 +62,7 @@ export default function PublicSpaceManagement() {
   const openCreateModal = () => {
     setEditingSpaceId(null);
     setForm(emptyForm);
+    setAddressSearch('');
     setError(null);
     open();
   };
@@ -54,6 +78,7 @@ export default function PublicSpaceManagement() {
       status: space.status,
       imageUrl: space.imageUrl || '',
     });
+    setAddressSearch(space.address);
     setError(null);
     open();
   };
@@ -129,12 +154,23 @@ export default function PublicSpaceManagement() {
             value={form.name}
             onChange={(event) => setForm({ ...form, name: event.currentTarget.value })}
           />
-          <TextInput
+          <Autocomplete
             label="Dirección exacta"
-            placeholder="Ej: Av. Díaz Vélez 4800, CABA"
+            placeholder="Buscá una dirección..."
             required
             value={form.address}
-            onChange={(event) => setForm({ ...form, address: event.currentTarget.value })}
+            onChange={(val) => {
+              setForm({ ...form, address: val });
+              setAddressSearch(val);
+            }}
+            onOptionSubmit={(val) => {
+              const selected = addressOptions.find(opt => opt.display_name === val);
+              if (selected && selected.address) {
+                const newZone = selected.address.suburb || selected.address.neighbourhood || selected.address.city_district || selected.address.city || selected.address.town || form.zone;
+                setForm(prev => ({ ...prev, address: val, zone: newZone }));
+              }
+            }}
+            data={addressOptions.map(opt => opt.display_name)}
           />
           <TextInput
             label="Zona / barrio"
