@@ -73,7 +73,7 @@ Write-Host "========================================" -ForegroundColor Cyan
 Push-Location espacios-publicos-backend
 
 # Install dependencies
-if (-not (Run-Check "Backend: Install dependencies" { npm ci })) {
+if (-not (Run-Check "Backend: Install dependencies" { npm ci --ignore-scripts })) {
     $FailedChecks++
 }
 
@@ -115,7 +115,7 @@ Write-Host "========================================" -ForegroundColor Cyan
 Push-Location espacios-publicos-frontend
 
 # Install dependencies
-if (-not (Run-Check "Frontend: Install dependencies" { npm ci })) {
+if (-not (Run-Check "Frontend: Install dependencies" { npm ci --ignore-scripts })) {
     $FailedChecks++
 }
 

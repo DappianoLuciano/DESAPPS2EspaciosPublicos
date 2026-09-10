@@ -63,7 +63,7 @@ describe("seguridad de la autenticacion simulada", () => {
     process.env.NODE_ENV = "production";
     const app = createApp();
 
-    await request(app)
+    const response = await request(app)
       .post("/api/public-spaces")
       .set("x-forwarded-proto", "https")
       .set("x-user-id", "attacker")
@@ -72,6 +72,8 @@ describe("seguridad de la autenticacion simulada", () => {
       .set("x-user-role", "municipal_admin")
       .send({})
       .expect(401);
+
+    expect(response.body.message).toBe("Tenes que iniciar sesion para realizar esta accion.");
   });
 
   it("aplica el modo seguro si NODE_ENV falta fuera de npm run dev", async () => {

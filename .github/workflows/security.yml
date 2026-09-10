@@ -66,21 +66,19 @@ jobs:
 
       - name: Check for exposed secrets in code
         run: |
-          echo "🔍 Scanning for potential secrets..."
+          echo "🔍 Scanning for high-confidence secret formats..."
 
-          # Patrones comunes de secrets
+          # Gitleaks realiza el escaneo general. Estos patrones complementarios
+          # buscan valores de credenciales, no nombres legitimos de variables.
           PATTERNS=(
-            "password\s*=\s*['\"][^'\"]+['\"]"
-            "api[_-]?key\s*=\s*['\"][^'\"]+['\"]"
-            "secret\s*=\s*['\"][^'\"]+['\"]"
-            "token\s*=\s*['\"][^'\"]+['\"]"
-            "SUPABASE_SERVICE_ROLE_KEY"
-            "DATABASE_URL.*@.*"
+            "sb_secret_[[:alnum:]_]{16,}"
+            "postgres(ql)?://[^[:space:]:]+:[^[:space:]@]+@"
+            "-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----"
           )
 
           FOUND_ISSUES=0
           for pattern in "${PATTERNS[@]}"; do
-            if git grep --quiet -iE "$pattern" -- ':!*.md' ':!.github/*' ':!*.example' 2>/dev/null; then
+            if git grep --quiet -iE -e "$pattern" -- ':!*.md' ':!.github/*' ':!*.example' 2>/dev/null; then
               echo "⚠️ Potential secret found matching pattern: $pattern"
               FOUND_ISSUES=1
             fi

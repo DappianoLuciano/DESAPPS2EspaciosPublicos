@@ -133,13 +133,13 @@ jobs:
       - name: Check backend dependencies
         working-directory: ./espacios-publicos-backend
         run: |
-          npm ci
+          npm ci --ignore-scripts
           npm audit --omit=dev --audit-level=high
 
       - name: Check frontend dependencies
         working-directory: ./espacios-publicos-frontend
         run: |
-          npm ci
+          npm ci --ignore-scripts
           npm audit --omit=dev --audit-level=high
 
   size-check:
@@ -162,7 +162,7 @@ jobs:
           cache-dependency-path: espacios-publicos-frontend/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Build and check size
         run: |

@@ -69,7 +69,7 @@ echo "========================================"
 cd espacios-publicos-backend
 
 # Install dependencies
-if ! run_check "Backend: Install dependencies" npm ci; then
+if ! run_check "Backend: Install dependencies" npm ci --ignore-scripts; then
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
 fi
 
@@ -110,7 +110,7 @@ echo "========================================"
 cd espacios-publicos-frontend
 
 # Install dependencies
-if ! run_check "Frontend: Install dependencies" npm ci; then
+if ! run_check "Frontend: Install dependencies" npm ci --ignore-scripts; then
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
 fi
 

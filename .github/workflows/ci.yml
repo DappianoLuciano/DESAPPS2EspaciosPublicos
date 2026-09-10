@@ -30,7 +30,7 @@ jobs:
           cache-dependency-path: espacios-publicos-backend/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
@@ -75,7 +75,7 @@ jobs:
           cache-dependency-path: espacios-publicos-frontend/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
