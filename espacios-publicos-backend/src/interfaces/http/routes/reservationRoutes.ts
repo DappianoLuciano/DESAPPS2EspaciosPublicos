@@ -22,6 +22,7 @@ export function createReservationRoutes(controller: ReservationController): Rout
     auditAction(permissions.LIST_RESERVATIONS, "reservation"),
     asyncHandler(controller.list)
   );
+  router.get("/:id", asyncHandler(controller.getById));
 
   return router;
 }

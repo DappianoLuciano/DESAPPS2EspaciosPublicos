@@ -12,6 +12,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import CreateEvent from './pages/CreateEvent';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ReservationVerify from './pages/ReservationVerify';
 import MyReservations from './pages/MyReservations';
 import CategoryEvents from './pages/CategoryEvents';
 import CancelReservation from './pages/CancelReservation';
@@ -35,6 +36,7 @@ function App() {
               path="/register"
               element={import.meta.env.DEV ? <Register /> : <Navigate to="/login" replace />}
             />
+            <Route path="/reservations/verify/:id" element={<ReservationVerify />} />
             
             <Route element={<PrivateRoute />}>
               <Route element={<Layout />}>

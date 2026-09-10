@@ -14,6 +14,8 @@ import {
   requireText
 } from "../../shared/validation/inputValidation";
 import { RequestReservationInput } from "../dtos/RequestReservationInput";
+import { EmailSender } from "../../domain/services/EmailSender";
+import { QrGenerator } from "../../domain/services/QrGenerator";
 
 export class RequestReservationUseCase {
   constructor(
@@ -21,7 +23,9 @@ export class RequestReservationUseCase {
     private readonly reservationRepository: ReservationRepository,
     private readonly communityEventRepository: CommunityEventRepository,
     private readonly eventOutboxRepository: EventOutboxRepository,
-    private readonly eventBus: EventBus
+    private readonly eventBus: EventBus,
+    private readonly qrGenerator: QrGenerator,
+    private readonly emailSender: EmailSender
   ) {}
 
   async execute(input: RequestReservationInput): Promise<Reservation> {
@@ -107,6 +111,25 @@ export class RequestReservationUseCase {
     // Outbox primero: si luego falla el broker, queda trazabilidad para reintentar.
     await this.eventOutboxRepository.save(event);
     await this.eventBus.publish(event);
+
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const verificationUrl = `${frontendUrl}/reservations/verify/${reservation.id}`;
+    const qrCodeDataUri = await this.qrGenerator.generate(verificationUrl);
+
+    const emailHtml = `
+      <h1>Reserva Confirmada</h1>
+      <p>Hola ${reservation.requesterName},</p>
+      <p>Tu reserva para el espacio ha sido aceptada.</p>
+      <p>Por favor, presenta el siguiente código QR al momento de asistir:</p>
+      <img src="${qrCodeDataUri}" alt="Código QR de la reserva" />
+      <p>O puedes usar el siguiente enlace para ver el estado: <a href="${verificationUrl}">${verificationUrl}</a></p>
+    `;
+
+    await this.emailSender.send(
+      reservation.requesterEmail,
+      "Reserva Confirmada - Código QR",
+      emailHtml
+    );
 
     return reservation;
   }

@@ -8,6 +8,7 @@ import { CancelCommunityEventRegistrationUseCase } from "../../src/application/u
 import { RegisterCitizenToCommunityEventUseCase } from "../../src/application/use-cases/RegisterCitizenToCommunityEventUseCase";
 import { ListReservationsUseCase } from "../../src/application/use-cases/ListReservationsUseCase";
 import { RequestReservationUseCase } from "../../src/application/use-cases/RequestReservationUseCase";
+import { GetReservationUseCase } from "../../src/application/use-cases/GetReservationUseCase";
 import { CommunityEventController } from "../../src/interfaces/http/controllers/CommunityEventController";
 import { ReservationController } from "../../src/interfaces/http/controllers/ReservationController";
 import { mockUsers, sanitizeMockUser } from "../../src/interfaces/http/auth/mockUsers";
@@ -31,7 +32,8 @@ describe("identidad mock en operaciones ciudadanas", () => {
     } as unknown as RequestReservationUseCase;
     const controller = new ReservationController(
       createReservation,
-      {} as ListReservationsUseCase
+      {} as ListReservationsUseCase,
+      {} as GetReservationUseCase
     );
     const request = {
       user: citizen,

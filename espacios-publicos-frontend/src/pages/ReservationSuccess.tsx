@@ -1,12 +1,26 @@
-import { Badge, Box, Button, Card, Center, Container, Flex, Text, Title } from '@mantine/core';
+import { Badge, Box, Button, Card, Center, Container, Flex, Text, Title, Image } from '@mantine/core';
 import { IconCalendarEvent, IconCheck, IconDownload, IconHome } from '@tabler/icons-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import QRCode from 'qrcode';
 import type { CommunityEventCatalogItem } from '../lib/api';
 
 export default function ReservationSuccess() {
   const navigate = useNavigate();
   const location = useLocation();
   const event = location.state?.event as CommunityEventCatalogItem | undefined;
+  const [qrCodeDataUri, setQrCodeDataUri] = useState<string>('');
+
+  useEffect(() => {
+    if (event?.id) {
+      // Usamos el ID del evento o registro para generar la URL de validación.
+      // Siguiendo el requerimiento de validación:
+      const verificationUrl = `${window.location.origin}/reservations/verify/${event.id}`;
+      QRCode.toDataURL(verificationUrl, { width: 360, margin: 1 })
+        .then(url => setQrCodeDataUri(url))
+        .catch(console.error);
+    }
+  }, [event?.id]);
 
   const formatDate = (date?: string) => {
     if (!date) {
@@ -69,7 +83,11 @@ export default function ReservationSuccess() {
             </Flex>
           </Box>
           <Center p="xl" style={{ flexDirection: 'column' }}>
-            <Box w={180} h={180} bg="gray.2" style={{ backgroundImage: 'url(https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg)', backgroundSize: 'contain' }} mb="lg" />
+            {qrCodeDataUri ? (
+              <Image src={qrCodeDataUri} alt="Código QR de la entrada" w={180} h={180} fit="contain" mb="lg" />
+            ) : (
+              <Box w={180} h={180} bg="gray.2" mb="lg" />
+            )}
             <Badge color="gray" variant="light" size="lg">#{event?.id.slice(0, 8).toUpperCase() || 'RESERVA'}</Badge>
           </Center>
         </Card>

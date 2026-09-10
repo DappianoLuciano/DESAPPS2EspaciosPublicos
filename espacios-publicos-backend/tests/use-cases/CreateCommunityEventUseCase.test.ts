@@ -41,6 +41,10 @@ class FakePublicSpaceRepository implements PublicSpaceRepository {
 class FakeReservationRepository implements ReservationRepository {
   public reservations: Reservation[] = [];
 
+  async findById(id: string): Promise<Reservation | null> {
+    return this.reservations.find(r => r.id === id) || null;
+  }
+
   async create(data: RequestReservationData): Promise<Reservation> {
     const reservation: Reservation = {
       id: `reservation-${this.reservations.length + 1}`,
