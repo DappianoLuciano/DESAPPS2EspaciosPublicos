@@ -6,6 +6,11 @@ export class ConsoleEventBus implements EventBus {
 
   async publish(event: DomainEvent): Promise<void> {
     this.publishedEvents.push(event);
-    console.log("[EventBus]", event.name, event.payload);
+
+    console.log("[EventBus]", {
+      id: event.id,
+      name: event.name,
+      occurredAt: event.occurredAt.toISOString()
+    });
   }
 }

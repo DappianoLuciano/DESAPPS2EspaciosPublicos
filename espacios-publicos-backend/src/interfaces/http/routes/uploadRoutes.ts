@@ -2,8 +2,10 @@ import { Router } from "express";
 import multer from "multer";
 import { SupabaseStorageService } from "../../../infrastructure/storage/SupabaseStorageService";
 import { ValidationError } from "../../../shared/errors/ValidationError";
+import { permissions } from "../auth/permissions";
 import { asyncHandler } from "../middlewares/asyncHandler";
-import { requireRole } from "../middlewares/mockIdentity";
+import { requirePermission } from "../middlewares/mockIdentity";
+import { auditAction } from "../middlewares/securityAudit";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -17,7 +19,8 @@ export function createUploadRoutes(storageService: SupabaseStorageService): Rout
 
   router.post(
     "/event-image",
-    requireRole("municipal_admin"),
+    requirePermission(permissions.UPLOAD_EVENT_IMAGE),
+    auditAction(permissions.UPLOAD_EVENT_IMAGE, "community-event-image"),
     upload.single("file"),
     asyncHandler(async (request, response) => {
       if (!request.file) {

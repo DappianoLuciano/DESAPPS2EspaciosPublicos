@@ -112,8 +112,6 @@ export default function CreateEvent() {
           .map((requirement) => requirement.trim())
           .filter(Boolean),
         publicSpaceId,
-        organizerName: 'Gestión Municipal',
-        organizerProfileEnabled: true,
         capacity: Number(capacity),
         requiresRegistration,
         startDate: startDateTime.toISOString(),

@@ -8,6 +8,9 @@ on:
   push:
     branches: [ main ]
 
+permissions:
+  contents: read
+
 jobs:
   dependency-audit:
     name: Dependency Security Audit
@@ -15,10 +18,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
 
@@ -37,7 +40,7 @@ jobs:
           npm audit
 
       - name: Upload audit results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: security-audit-results
           path: |
@@ -51,9 +54,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0 # Obtener todo el historial
+
+      - name: Scan repository history with Gitleaks
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
 
       - name: Check for exposed secrets in code
         run: |
@@ -71,7 +80,7 @@ jobs:
 
           FOUND_ISSUES=0
           for pattern in "${PATTERNS[@]}"; do
-            if git grep -iE "$pattern" -- ':!*.md' ':!.github/*' ':!*.example' ':!*.json' 2>/dev/null; then
+            if git grep --quiet -iE "$pattern" -- ':!*.md' ':!.github/*' ':!*.example' 2>/dev/null; then
               echo "⚠️ Potential secret found matching pattern: $pattern"
               FOUND_ISSUES=1
             fi
@@ -87,7 +96,7 @@ jobs:
 
       - name: Check .env files are not committed
         run: |
-          if git ls-files | grep -E '^\.env$|^.*\.env\.local$'; then
+          if git ls-files | grep -E '(^|/)\.env($|\.)' | grep -vE '(^|/)\.env\.example$'; then
             echo "❌ ERROR: .env files should not be committed!"
             exit 1
           else
@@ -109,18 +118,18 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@6f5948dfacef28e207b48d0905cf90c03365536d # v3
         with:
           languages: ${{ matrix.language }}
 
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+        uses: github/codeql-action/autobuild@6f5948dfacef28e207b48d0905cf90c03365536d # v3
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@6f5948dfacef28e207b48d0905cf90c03365536d # v3
         with:
           category: "/language:${{ matrix.language }}"
 

@@ -1,4 +1,55 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+function resolveApiUrl(): string {
+  const configuredUrl = import.meta.env.VITE_API_URL?.trim();
+
+  if (!configuredUrl) {
+    if (import.meta.env.DEV) {
+      return 'http://localhost:3000';
+    }
+
+    throw new Error('VITE_API_URL es obligatoria en compilaciones de producción.');
+  }
+
+  let url: URL;
+
+  try {
+    url = new URL(configuredUrl);
+  } catch {
+    throw new Error('VITE_API_URL debe ser una URL válida.');
+  }
+
+  if (import.meta.env.PROD && url.protocol !== 'https:') {
+    throw new Error('VITE_API_URL debe utilizar HTTPS en producción.');
+  }
+
+  if (url.username || url.password) {
+    throw new Error('VITE_API_URL no debe contener credenciales.');
+  }
+
+  if (url.search || url.hash || url.pathname !== '/') {
+    throw new Error('VITE_API_URL debe contener solamente el origen del backend.');
+  }
+
+  return url.origin;
+}
+
+const API_URL = resolveApiUrl();
+const API_TIMEOUT_MS = 15_000;
+
+export class ApiError extends Error {
+  public readonly status?: number;
+  public readonly requestId?: string;
+
+  constructor(
+    message: string,
+    status?: number,
+    requestId?: string
+  ) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.requestId = requestId;
+  }
+}
 
 export type UserRole = 'citizen' | 'municipal_admin';
 
@@ -70,8 +121,6 @@ export interface CreateCommunityEventPayload {
   description: string;
   requirements: string[];
   publicSpaceId: string;
-  organizerName: string;
-  organizerProfileEnabled: boolean;
   capacity: number;
   requiresRegistration: boolean;
   startDate: string;
@@ -134,7 +183,7 @@ export interface CommunityEventRegistration {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetchWithTimeout(`${API_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -143,48 +192,117 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     },
   });
 
-  const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
-
-  if (!response.ok) {
-    throw new Error(data?.message || 'No se pudo completar la operación.');
-  }
-
-  return data as T;
+  return parseResponse<T>(response, 'No se pudo completar la operación.');
 }
 
 async function uploadRequest<T>(path: string, formData: FormData): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetchWithTimeout(`${API_URL}${path}`, {
     method: 'POST',
     headers: getMockIdentityHeaders(),
     body: formData,
   });
 
+  return parseResponse<T>(response, 'No se pudo subir la imagen.');
+}
+
+async function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: options.signal ?? AbortSignal.timeout(API_TIMEOUT_MS),
+    });
+  } catch (error) {
+    if (error instanceof DOMException && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
+      throw new ApiError('El servidor tardó demasiado en responder.');
+    }
+
+    throw new ApiError('No se pudo establecer conexión con el servidor.');
+  }
+}
+
+async function parseResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  const headerRequestId = response.headers.get('x-request-id') || undefined;
+  let data: unknown = null;
+
+  if (text) {
+    try {
+      data = JSON.parse(text) as unknown;
+    } catch {
+      throw new ApiError(
+        'El servidor devolvió una respuesta que no es válida.',
+        response.status,
+        headerRequestId
+      );
+    }
+  }
+
+  const bodyRequestId = getStringProperty(data, 'requestId');
+  const requestId = headerRequestId || bodyRequestId;
 
   if (!response.ok) {
-    throw new Error(data?.message || 'No se pudo subir la imagen.');
+    throw new ApiError(
+      getStringProperty(data, 'message') || fallbackMessage,
+      response.status,
+      requestId
+    );
   }
 
   return data as T;
 }
 
+function getStringProperty(value: unknown, property: string): string | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+
+  const candidate = (value as Record<string, unknown>)[property];
+  return typeof candidate === 'string' ? candidate : undefined;
+}
+
 function getMockIdentityHeaders(): Record<string, string> {
+  if (!import.meta.env.DEV) {
+    return {};
+  }
+
   const saved = localStorage.getItem('mock_user');
 
   if (!saved) {
     return {};
   }
 
-  const user = JSON.parse(saved) as User;
+  try {
+    const user = JSON.parse(saved) as unknown;
 
-  return {
-    'x-user-id': user.id,
-    'x-user-name': user.name,
-    'x-user-email': user.email,
-    'x-user-role': user.role,
-  };
+    if (!isStoredMockUser(user)) {
+      localStorage.removeItem('mock_user');
+      return {};
+    }
+
+    return {
+      'x-user-id': user.id,
+      'x-user-name': user.name,
+      'x-user-email': user.email,
+      'x-user-role': user.role,
+    };
+  } catch {
+    localStorage.removeItem('mock_user');
+    return {};
+  }
+}
+
+function isStoredMockUser(value: unknown): value is User {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const user = value as Partial<User>;
+  return (
+    typeof user.id === 'string' &&
+    typeof user.name === 'string' &&
+    typeof user.email === 'string' &&
+    (user.role === 'citizen' || user.role === 'municipal_admin')
+  );
 }
 
 export function mockLogin(payload: { email: string; password: string }) {
@@ -241,14 +359,14 @@ export function createPublicSpace(payload: PublicSpacePayload) {
 }
 
 export function updatePublicSpace(id: string, payload: PublicSpacePayload) {
-  return request<PublicSpace>(`/api/public-spaces/${id}`, {
+  return request<PublicSpace>(`/api/public-spaces/${encodeURIComponent(id)}`, {
     method: 'PUT',
     body: JSON.stringify(payload),
   });
 }
 
 export function deletePublicSpace(id: string) {
-  return request<void>(`/api/public-spaces/${id}`, {
+  return request<void>(`/api/public-spaces/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
 }
@@ -291,24 +409,22 @@ export function createCommunityEvent(payload: CreateCommunityEventPayload) {
 }
 
 export function getCommunityEvent(id: string) {
-  return request<CommunityEventCatalogItem>(`/api/community-events/${id}`);
+  return request<CommunityEventCatalogItem>(`/api/community-events/${encodeURIComponent(id)}`);
 }
 
-export function registerToCommunityEvent(
-  id: string,
-  payload: { citizenName: string; citizenEmail: string }
-) {
+export function registerToCommunityEvent(id: string) {
   return request<{ id: string; communityEventId: string; citizenName: string; citizenEmail: string }>(
-    `/api/community-events/${id}/registrations`,
+    `/api/community-events/${encodeURIComponent(id)}/registrations`,
     {
       method: 'POST',
-      body: JSON.stringify(payload),
     }
   );
 }
 
 export function listCommunityEventRegistrations(id: string) {
-  return request<CommunityEventRegistration[]>(`/api/community-events/${id}/registrations`);
+  return request<CommunityEventRegistration[]>(
+    `/api/community-events/${encodeURIComponent(id)}/registrations`
+  );
 }
 
 export function listMyCommunityEventRegistrations() {
@@ -317,7 +433,7 @@ export function listMyCommunityEventRegistrations() {
 
 export function cancelCommunityEventRegistration(registrationId: string) {
   return request<void>(
-    `/api/community-events/registrations/${registrationId}`,
+    `/api/community-events/registrations/${encodeURIComponent(registrationId)}`,
     { method: 'DELETE' }
   );
 }

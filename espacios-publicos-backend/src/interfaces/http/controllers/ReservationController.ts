@@ -9,7 +9,11 @@ export class ReservationController {
   ) {}
 
   create = async (request: Request, response: Response): Promise<void> => {
-    const reservation = await this.requestReservationUseCase.execute(request.body);
+    const reservation = await this.requestReservationUseCase.execute({
+      ...request.body,
+      requesterName: request.user?.name || "",
+      requesterEmail: request.user?.email || ""
+    });
     response.status(201).json(reservation);
   };
 

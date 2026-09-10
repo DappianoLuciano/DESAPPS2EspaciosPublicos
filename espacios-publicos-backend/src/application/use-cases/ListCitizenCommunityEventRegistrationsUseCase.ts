@@ -1,6 +1,6 @@
 import { CitizenCommunityEventRegistration } from "../../domain/entities/CommunityEventRegistration";
 import { CommunityEventRegistrationRepository } from "../../domain/repositories/CommunityEventRegistrationRepository";
-import { ValidationError } from "../../shared/errors/ValidationError";
+import { requireEmail } from "../../shared/validation/inputValidation";
 
 export class ListCitizenCommunityEventRegistrationsUseCase {
   constructor(
@@ -8,10 +8,6 @@ export class ListCitizenCommunityEventRegistrationsUseCase {
   ) {}
 
   async execute(citizenEmail?: string): Promise<CitizenCommunityEventRegistration[]> {
-    if (!citizenEmail) {
-      throw new ValidationError("El email del ciudadano es obligatorio.");
-    }
-
-    return this.communityEventRegistrationRepository.findByCitizenEmail(citizenEmail);
+    return this.communityEventRegistrationRepository.findByCitizenEmail(requireEmail(citizenEmail));
   }
 }

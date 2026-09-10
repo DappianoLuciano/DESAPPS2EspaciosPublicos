@@ -12,13 +12,46 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function loadSavedUser(): User | null {
+  if (!import.meta.env.DEV) {
+    localStorage.removeItem('mock_user');
+    return null;
+  }
+
+  const saved = localStorage.getItem('mock_user');
+
+  if (!saved) {
+    return null;
+  }
+
+  try {
+    const user = JSON.parse(saved) as Partial<User>;
+    const hasValidIdentity =
+      typeof user.id === 'string' &&
+      typeof user.name === 'string' &&
+      typeof user.email === 'string' &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.email) &&
+      (user.role === 'citizen' || user.role === 'municipal_admin');
+
+    if (hasValidIdentity) {
+      return user as User;
+    }
+  } catch {
+    // La sesion local corrupta o de una version anterior se descarta abajo.
+  }
+
+  localStorage.removeItem('mock_user');
+  return null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('mock_user');
-    return saved ? JSON.parse(saved) as User : null;
-  });
+  const [user, setUser] = useState<User | null>(loadSavedUser);
 
   const login = async (email: string, password: string) => {
+    if (!import.meta.env.DEV) {
+      throw new Error('El acceso simulado no está disponible en producción.');
+    }
+
     const response = await mockLogin({ email, password });
     setUser(response.user);
     localStorage.setItem('mock_user', JSON.stringify(response.user));
@@ -31,6 +64,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updateUser = (updates: Partial<Pick<User, 'name' | 'email'>>) => {
+    if (!import.meta.env.DEV) {
+      return;
+    }
+
     setUser((currentUser) => {
       if (!currentUser) {
         return currentUser;

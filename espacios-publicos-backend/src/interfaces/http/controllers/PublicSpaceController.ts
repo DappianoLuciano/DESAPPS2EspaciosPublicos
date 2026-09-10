@@ -3,6 +3,7 @@ import { CreatePublicSpaceUseCase } from "../../../application/use-cases/CreateP
 import { DeletePublicSpaceUseCase } from "../../../application/use-cases/DeletePublicSpaceUseCase";
 import { ListPublicSpacesUseCase } from "../../../application/use-cases/ListPublicSpacesUseCase";
 import { UpdatePublicSpaceUseCase } from "../../../application/use-cases/UpdatePublicSpaceUseCase";
+import { ValidationError } from "../../../shared/errors/ValidationError";
 
 export class PublicSpaceController {
   constructor(
@@ -18,9 +19,7 @@ export class PublicSpaceController {
   };
 
   list = async (request: Request, response: Response): Promise<void> => {
-    const status = request.query.status === "ENABLED" || request.query.status === "DISABLED"
-      ? request.query.status
-      : undefined;
+    const status = this.getStatusQuery(request.query.status);
     const publicSpaces = await this.listPublicSpacesUseCase.execute({ status });
     response.json(publicSpaces);
   };
@@ -34,4 +33,16 @@ export class PublicSpaceController {
     await this.deletePublicSpaceUseCase.execute(request.params.id);
     response.status(204).send();
   };
+
+  private getStatusQuery(value: unknown): "ENABLED" | "DISABLED" | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    if (value === "ENABLED" || value === "DISABLED") {
+      return value;
+    }
+
+    throw new ValidationError("El parametro status debe ser ENABLED o DISABLED.");
+  }
 }

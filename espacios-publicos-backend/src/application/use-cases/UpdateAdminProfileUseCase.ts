@@ -2,34 +2,34 @@ import { Admin } from "../../domain/entities/Admin";
 import { AdminRepository } from "../../domain/repositories/AdminRepository";
 import { NotFoundError } from "../../shared/errors/NotFoundError";
 import { ValidationError } from "../../shared/errors/ValidationError";
+import {
+  nullableText,
+  requireEmail,
+  requireText
+} from "../../shared/validation/inputValidation";
 import { UpdateAdminProfileInput } from "../dtos/UpdateAdminProfileInput";
 
 export class UpdateAdminProfileUseCase {
   constructor(private readonly adminRepository: AdminRepository) {}
 
   async execute(input: UpdateAdminProfileInput): Promise<Admin> {
-    const name = input.name?.trim();
-    const email = input.email?.trim().toLowerCase();
+    const adminId = requireText(input.adminId, "El administrador", 128);
+    const name = requireText(input.name, "El nombre", 120);
+    const email = requireEmail(input.email);
+    const phone = nullableText(input.phone, "El telefono", 50);
+    const department = nullableText(input.department, "El departamento", 120);
 
-    if (!name || !email) {
-      throw new ValidationError("Nombre y correo electrónico son obligatorios.");
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      throw new ValidationError("Ingresá un correo electrónico válido.");
-    }
-
-    const existingAdmin = await this.adminRepository.findById(input.adminId);
+    const existingAdmin = await this.adminRepository.findById(adminId);
 
     if (!existingAdmin) {
       throw new NotFoundError("El perfil administrativo no existe.");
     }
 
-    return this.adminRepository.update(input.adminId, {
+    return this.adminRepository.update(adminId, {
       name,
       email,
-      phone: input.phone?.trim() || null,
-      department: input.department?.trim() || null
+      phone: phone ?? null,
+      department: department ?? null
     });
   }
 }

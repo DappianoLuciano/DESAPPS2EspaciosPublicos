@@ -8,6 +8,7 @@ export interface MockUser {
 }
 
 interface MockUserCredentials extends MockUser {
+  username: string;
   password: string;
 }
 
@@ -15,14 +16,16 @@ export const mockUsers: MockUserCredentials[] = [
   {
     id: "citizen-1",
     name: "Ciudadano de prueba",
-    email: "ciudadano",
+    username: "ciudadano",
+    email: "ciudadano@citypass.test",
     password: "1234",
     role: "citizen"
   },
   {
     id: "admin-1",
     name: "Gestion Municipal",
-    email: "admin",
+    username: "admin",
+    email: "admin@citypass.test",
     password: "1234",
     role: "municipal_admin"
   }

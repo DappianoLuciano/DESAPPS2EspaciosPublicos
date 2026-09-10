@@ -1,12 +1,8 @@
-import { TextInput, PasswordInput, Anchor, Paper, Title, Text, Container, Button, Box } from '@mantine/core';
-import { useState } from 'react';
+import { Anchor, Paper, Title, Text, Container, Button, Box } from '@mantine/core';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Register() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -22,9 +18,7 @@ export default function Register() {
         <Box style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
           <img src="/logo.png" alt="Logo" style={{ width: 80, height: 80, objectFit: 'contain' }} />
         </Box>
-        <Title ta="center">
-          Crear una cuenta
-        </Title>
+        <Title ta="center">Acceso ciudadano de demostración</Title>
         <Text c="dimmed" size="sm" ta="center" mt={5}>
           ¿Ya tienes cuenta?{' '}
           <Anchor size="sm" component="button" onClick={() => navigate('/login')}>
@@ -33,33 +27,13 @@ export default function Register() {
         </Text>
 
         <Paper withBorder shadow="md" p={30} mt={30} radius="md">
+          <Text size="sm" c="dimmed">
+            Esta pantalla no crea una cuenta real. En desarrollo permite ingresar con el perfil
+            ciudadano utilizado para probar la aplicación.
+          </Text>
           <form onSubmit={handleRegister}>
-            <TextInput 
-              label="Nombre completo" 
-              placeholder="Juan Pérez" 
-              required 
-              value={name}
-              onChange={(e) => setName(e.currentTarget.value)}
-              mb="md"
-            />
-            <TextInput 
-              label="Correo electrónico" 
-              placeholder="tu@email.com" 
-              required 
-              value={email}
-              onChange={(e) => setEmail(e.currentTarget.value)}
-              mb="md"
-            />
-            <PasswordInput 
-              label="Contraseña" 
-              placeholder="Tu contraseña" 
-              required 
-              value={password}
-              onChange={(e) => setPassword(e.currentTarget.value)}
-            />
-            
             <Button fullWidth mt="xl" type="submit" color="blue">
-              Registrarse
+              Ingresar como ciudadano de prueba
             </Button>
           </form>
         </Paper>

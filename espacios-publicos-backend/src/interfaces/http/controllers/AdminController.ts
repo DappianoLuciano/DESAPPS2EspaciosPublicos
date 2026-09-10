@@ -15,8 +15,8 @@ export class AdminController {
 
   updateProfile = async (request: Request, response: Response): Promise<void> => {
     const admin = await this.updateAdminProfileUseCase.execute({
-      adminId: request.user?.id || "",
-      ...request.body
+      ...request.body,
+      adminId: request.user?.id || ""
     });
 
     response.json(admin);

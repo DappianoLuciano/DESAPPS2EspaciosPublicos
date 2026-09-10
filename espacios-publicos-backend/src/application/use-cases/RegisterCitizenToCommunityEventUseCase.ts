@@ -7,6 +7,7 @@ import { EventOutboxRepository } from "../../domain/repositories/EventOutboxRepo
 import { EventBus } from "../../domain/services/EventBus";
 import { NotFoundError } from "../../shared/errors/NotFoundError";
 import { ValidationError } from "../../shared/errors/ValidationError";
+import { requireEmail, requireText } from "../../shared/validation/inputValidation";
 import { RegisterCitizenToCommunityEventInput } from "../dtos/RegisterCitizenToCommunityEventInput";
 
 export class RegisterCitizenToCommunityEventUseCase {
@@ -18,11 +19,11 @@ export class RegisterCitizenToCommunityEventUseCase {
   ) {}
 
   async execute(input: RegisterCitizenToCommunityEventInput): Promise<CommunityEventRegistration> {
-    if (!input.communityEventId || !input.citizenName || !input.citizenEmail) {
-      throw new ValidationError("Evento, nombre y email del ciudadano son obligatorios.");
-    }
+    const communityEventId = requireText(input.communityEventId, "El evento", 128);
+    const citizenName = requireText(input.citizenName, "El nombre del ciudadano", 120);
+    const citizenEmail = requireEmail(input.citizenEmail);
 
-    const communityEvent = await this.communityEventRepository.findById(input.communityEventId);
+    const communityEvent = await this.communityEventRepository.findById(communityEventId);
 
     if (!communityEvent) {
       throw new NotFoundError("El evento comunitario indicado no existe.");
@@ -42,8 +43,8 @@ export class RegisterCitizenToCommunityEventUseCase {
 
     const existingRegistration =
       await this.communityEventRegistrationRepository.findByEventAndCitizenEmail(
-        input.communityEventId,
-        input.citizenEmail
+        communityEventId,
+        citizenEmail
       );
 
     if (existingRegistration) {
@@ -51,7 +52,7 @@ export class RegisterCitizenToCommunityEventUseCase {
     }
 
     const currentRegistrations = await this.communityEventRegistrationRepository.countByEventId(
-      input.communityEventId
+      communityEventId
     );
 
     if (currentRegistrations >= communityEvent.capacity) {
@@ -60,9 +61,9 @@ export class RegisterCitizenToCommunityEventUseCase {
     }
 
     const registration = await this.communityEventRegistrationRepository.create({
-      communityEventId: input.communityEventId,
-      citizenName: input.citizenName,
-      citizenEmail: input.citizenEmail
+      communityEventId,
+      citizenName,
+      citizenEmail
     });
 
     const remainingCapacity = communityEvent.capacity - (currentRegistrations + 1);

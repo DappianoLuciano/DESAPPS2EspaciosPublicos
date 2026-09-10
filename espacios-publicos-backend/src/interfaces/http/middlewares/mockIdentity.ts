@@ -1,7 +1,10 @@
 import { NextFunction, Request, Response } from "express";
 import { ForbiddenError } from "../../../shared/errors/ForbiddenError";
 import { UnauthorizedError } from "../../../shared/errors/UnauthorizedError";
+import { isMockAuthEnabled } from "../auth/mockAuthMode";
 import { MockUser, MockUserRole } from "../auth/mockUsers";
+import { hasPermission, Permission } from "../auth/permissions";
+import { logSecurityAudit } from "./securityAudit";
 
 declare global {
   namespace Express {
@@ -14,6 +17,11 @@ declare global {
 const validRoles: MockUserRole[] = ["citizen", "municipal_admin"];
 
 export function mockIdentity(request: Request, _response: Response, next: NextFunction): void {
+  if (!isMockAuthEnabled()) {
+    next();
+    return;
+  }
+
   const id = getHeader(request, "x-user-id");
   const name = getHeader(request, "x-user-name");
   const email = getHeader(request, "x-user-email");
@@ -34,13 +42,23 @@ export function requireMockAuth(request: Request, _response: Response, next: Nex
   next();
 }
 
-export function requireRole(role: MockUserRole) {
+export function requirePermission(permission: Permission) {
   return (request: Request, _response: Response, next: NextFunction): void => {
     if (!request.user) {
+      logSecurityAudit(request, {
+        action: permission,
+        outcome: "denied",
+        statusCode: 401
+      });
       throw new UnauthorizedError("Tenes que iniciar sesion para realizar esta accion.");
     }
 
-    if (request.user.role !== role) {
+    if (!hasPermission(request.user.role, permission)) {
+      logSecurityAudit(request, {
+        action: permission,
+        outcome: "denied",
+        statusCode: 403
+      });
       throw new ForbiddenError("Tu perfil no tiene permisos para realizar esta accion.");
     }
 

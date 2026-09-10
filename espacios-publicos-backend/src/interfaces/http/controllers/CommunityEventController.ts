@@ -6,6 +6,7 @@ import { ListCitizenCommunityEventRegistrationsUseCase } from "../../../applicat
 import { ListCommunityEventsUseCase } from "../../../application/use-cases/ListCommunityEventsUseCase";
 import { ListCommunityEventRegistrationsUseCase } from "../../../application/use-cases/ListCommunityEventRegistrationsUseCase";
 import { RegisterCitizenToCommunityEventUseCase } from "../../../application/use-cases/RegisterCitizenToCommunityEventUseCase";
+import { ValidationError } from "../../../shared/errors/ValidationError";
 
 export class CommunityEventController {
   constructor(
@@ -29,12 +30,12 @@ export class CommunityEventController {
 
   list = async (request: Request, response: Response): Promise<void> => {
     const communityEvents = await this.listCommunityEventsUseCase.execute({
-      category: this.getStringQuery(request.query.category),
-      search: this.getStringQuery(request.query.search),
-      zone: this.getStringQuery(request.query.zone),
-      date: this.getStringQuery(request.query.date),
-      availableOnly: request.query.availableOnly === "true",
-      upcomingOnly: request.query.upcomingOnly === "true"
+      category: this.getStringQuery(request.query.category, "category"),
+      search: this.getStringQuery(request.query.search, "search"),
+      zone: this.getStringQuery(request.query.zone, "zone"),
+      date: this.getStringQuery(request.query.date, "date"),
+      availableOnly: this.getBooleanQuery(request.query.availableOnly, "availableOnly"),
+      upcomingOnly: this.getBooleanQuery(request.query.upcomingOnly, "upcomingOnly")
     });
 
     response.json(communityEvents);
@@ -77,7 +78,31 @@ export class CommunityEventController {
     response.status(204).send();
   };
 
-  private getStringQuery(value: unknown): string | undefined {
-    return typeof value === "string" && value.trim() ? value.trim() : undefined;
+  private getStringQuery(value: unknown, field: string): string | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    if (typeof value !== "string") {
+      throw new ValidationError(`El parametro ${field} no es valido.`);
+    }
+
+    return value.trim() || undefined;
+  }
+
+  private getBooleanQuery(value: unknown, field: string): boolean | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    if (value === "true") {
+      return true;
+    }
+
+    if (value === "false") {
+      return false;
+    }
+
+    throw new ValidationError(`El parametro ${field} debe ser true o false.`);
   }
 }

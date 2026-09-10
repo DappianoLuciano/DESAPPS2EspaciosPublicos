@@ -9,6 +9,12 @@ import { EventBus } from "../../domain/services/EventBus";
 import { ForbiddenError } from "../../shared/errors/ForbiddenError";
 import { NotFoundError } from "../../shared/errors/NotFoundError";
 import { ValidationError } from "../../shared/errors/ValidationError";
+import {
+  normalizeStringList,
+  optionalHttpsUrl,
+  requirePositiveInteger,
+  requireText
+} from "../../shared/validation/inputValidation";
 import { CreateCommunityEventInput } from "../dtos/CreateCommunityEventInput";
 
 export class CreateCommunityEventUseCase {
@@ -21,25 +27,20 @@ export class CreateCommunityEventUseCase {
   ) {}
 
   async execute(input: CreateCommunityEventInput): Promise<CommunityEvent> {
-    const startDate = new Date(input.startDate);
-    const endDate = new Date(input.endDate);
-    const tags = this.normalizeStringList(input.tags);
-    const requirements = this.normalizeStringList(input.requirements);
-
-    if (!input.title || !input.description || !input.publicSpaceId) {
-      throw new ValidationError("Titulo, descripcion y espacio publico son obligatorios.");
-    }
-
-    if (!input.category || !input.organizerName) {
-      throw new ValidationError("Categoria y organizador son obligatorios.");
-    }
+    const title = requireText(input.title, "El titulo", 160);
+    const description = requireText(input.description, "La descripcion", 5000);
+    const publicSpaceId = requireText(input.publicSpaceId, "El espacio publico", 128);
+    const category = requireText(input.category, "La categoria", 80);
+    const organizerName = requireText(input.organizerName, "El organizador", 120);
+    const startDate = new Date(requireText(input.startDate, "La fecha de inicio", 64));
+    const endDate = new Date(requireText(input.endDate, "La fecha de fin", 64));
+    const capacity = requirePositiveInteger(input.capacity, "El cupo del evento");
+    const tags = normalizeStringList(input.tags, "Las etiquetas", 20, 60);
+    const requirements = normalizeStringList(input.requirements, "Los requisitos", 20, 240);
+    const imageUrl = optionalHttpsUrl(input.imageUrl);
 
     if (input.organizerProfileEnabled !== true) {
       throw new ForbiddenError("El organizador no cuenta con perfil habilitado para publicar eventos.");
-    }
-
-    if (!Number.isFinite(input.capacity) || input.capacity <= 0) {
-      throw new ValidationError("El cupo del evento debe ser mayor a cero.");
     }
 
     if (typeof input.requiresRegistration !== "boolean") {
@@ -58,7 +59,7 @@ export class CreateCommunityEventUseCase {
       throw new ValidationError("El evento no puede comenzar en una fecha u horario pasado.");
     }
 
-    const publicSpace = await this.publicSpaceRepository.findById(input.publicSpaceId);
+    const publicSpace = await this.publicSpaceRepository.findById(publicSpaceId);
 
     if (!publicSpace) {
       throw new NotFoundError("El espacio publico indicado no existe.");
@@ -68,12 +69,12 @@ export class CreateCommunityEventUseCase {
       throw new ValidationError("El espacio publico indicado no esta habilitado para nuevos eventos.");
     }
 
-    if (input.capacity > publicSpace.capacity) {
+    if (capacity > publicSpace.capacity) {
       throw new ValidationError("El cupo del evento supera la capacidad del espacio.");
     }
 
     const overlappingReservations = await this.reservationRepository.findOverlapping(
-      input.publicSpaceId,
+      publicSpaceId,
       startDate,
       endDate
     );
@@ -83,7 +84,7 @@ export class CreateCommunityEventUseCase {
     }
 
     const overlappingEvents = await this.communityEventRepository.findOverlapping(
-      input.publicSpaceId,
+      publicSpaceId,
       startDate,
       endDate
     );
@@ -93,18 +94,18 @@ export class CreateCommunityEventUseCase {
     }
 
     const communityEvent = await this.communityEventRepository.create({
-      title: input.title,
-      category: input.category,
+      title,
+      category,
       tags,
-      description: input.description,
+      description,
       requirements,
-      publicSpaceId: input.publicSpaceId,
-      organizerName: input.organizerName,
-      capacity: input.capacity,
+      publicSpaceId,
+      organizerName,
+      capacity,
       requiresRegistration: input.requiresRegistration,
       startDate,
       endDate,
-      imageUrl: input.imageUrl
+      imageUrl
     });
 
     const event: DomainEvent = {
@@ -131,19 +132,5 @@ export class CreateCommunityEventUseCase {
     await this.eventBus.publish(event);
 
     return communityEvent;
-  }
-
-  private normalizeStringList(value?: string[]): string[] {
-    if (!Array.isArray(value)) {
-      return [];
-    }
-
-    const normalized = value
-      .map((item) => item.trim())
-      .filter(Boolean);
-
-    return normalized.filter((item, index) => {
-      return normalized.findIndex((candidate) => candidate.toLowerCase() === item.toLowerCase()) === index;
-    });
   }
 }

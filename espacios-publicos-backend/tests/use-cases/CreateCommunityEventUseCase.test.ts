@@ -264,7 +264,7 @@ describe("CreateCommunityEventUseCase", () => {
         ...validInput,
         title: ""
       })
-    ).rejects.toThrow("Titulo, descripcion y espacio publico son obligatorios.");
+    ).rejects.toThrow("El titulo es obligatorio.");
   });
 
   it("rechaza eventos que comienzan en el pasado", async () => {

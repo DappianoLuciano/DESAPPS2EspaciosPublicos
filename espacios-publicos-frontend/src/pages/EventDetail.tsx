@@ -48,10 +48,7 @@ export default function EventDetail() {
     setSubmitting(true);
 
     try {
-      await registerToCommunityEvent(event.id, {
-        citizenName: user.name,
-        citizenEmail: user.email,
-      });
+      await registerToCommunityEvent(event.id);
 
       close();
       navigate('/reservation-success', { state: { event } });

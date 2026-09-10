@@ -31,7 +31,10 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+            <Route
+              path="/register"
+              element={import.meta.env.DEV ? <Register /> : <Navigate to="/login" replace />}
+            />
             
             <Route element={<PrivateRoute />}>
               <Route element={<Layout />}>

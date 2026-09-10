@@ -6,8 +6,9 @@ import loginCulturalEvent from '../assets/login-cultural-event.png';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
-  const [username, setUsername] = useState('ciudadano');
-  const [password, setPassword] = useState('1234');
+  const isDemoMode = import.meta.env.DEV;
+  const [username, setUsername] = useState(isDemoMode ? 'ciudadano' : '');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const { login } = useAuth();
@@ -15,6 +16,12 @@ export default function Login() {
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    if (!isDemoMode) {
+      setError('El acceso real todavía no está integrado en este módulo.');
+      return;
+    }
+
     setError(null);
     setSubmitting(true);
 
@@ -37,9 +44,13 @@ export default function Login() {
             <Text fw={800} fz="xl">Espacios Públicos</Text>
           </Flex>
 
-          <Title order={1} fz={36} mb="xs">Iniciar sesión</Title>
+          <Title order={1} fz={36} mb="xs">
+            {isDemoMode ? 'Acceso de demostración' : 'Acceso no disponible'}
+          </Title>
           <Text c="dimmed" mb={32}>
-            Accedé a la agenda cultural y gestioná tus actividades.
+            {isDemoMode
+              ? 'Usá uno de los perfiles locales para probar la aplicación.'
+              : 'La autenticación real todavía no está integrada en este módulo.'}
           </Text>
 
           {error && <Alert color="red" mb="lg">{error}</Alert>}
@@ -49,6 +60,7 @@ export default function Login() {
               label="Usuario"
               placeholder="ciudadano o admin"
               required
+              disabled={!isDemoMode}
               size="md"
               value={username}
               onChange={(event) => setUsername(event.currentTarget.value)}
@@ -57,29 +69,42 @@ export default function Login() {
               label="Contraseña"
               placeholder="Tu contraseña"
               required
+              disabled={!isDemoMode}
               size="md"
               mt="lg"
               value={password}
               onChange={(event) => setPassword(event.currentTarget.value)}
             />
 
-            <Button fullWidth mt={28} type="submit" color="dark" size="md" leftSection={<IconLogin size="1.1rem" />} loading={submitting}>
-              Ingresar
+            <Button
+              fullWidth
+              mt={28}
+              type="submit"
+              color="dark"
+              size="md"
+              leftSection={<IconLogin size="1.1rem" />}
+              loading={submitting}
+              disabled={!isDemoMode}
+            >
+              {isDemoMode ? 'Ingresar a la demostración' : 'Acceso pendiente'}
             </Button>
           </form>
 
-          <Divider my={28} />
-
-          <Flex justify="space-between" align="flex-end" gap="md">
-            <Box>
-              <Text fw={700} size="sm">Perfiles de prueba</Text>
-              <Text size="sm" c="dimmed">ciudadano / 1234</Text>
-              <Text size="sm" c="dimmed">admin / 1234</Text>
-            </Box>
-            <Anchor size="sm" component="button" onClick={() => navigate('/register')}>
-              Crear cuenta
-            </Anchor>
-          </Flex>
+          {isDemoMode && (
+            <>
+              <Divider my={28} />
+              <Flex justify="space-between" align="flex-end" gap="md">
+              <Box>
+                <Text fw={700} size="sm">Perfiles de prueba</Text>
+                <Text size="sm" c="dimmed">ciudadano / 1234</Text>
+                <Text size="sm" c="dimmed">admin / 1234</Text>
+              </Box>
+                <Anchor size="sm" component="button" onClick={() => navigate('/register')}>
+                  Acceso ciudadano de prueba
+                </Anchor>
+              </Flex>
+            </>
+          )}
         </Box>
       </Flex>
 

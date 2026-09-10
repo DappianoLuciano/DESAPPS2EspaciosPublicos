@@ -60,6 +60,6 @@ describe("UpdateAdminProfileUseCase", () => {
         name: "Coordinación Cultural",
         email: "correo-invalido"
       })
-    ).rejects.toThrow("Ingresá un correo electrónico válido.");
+    ).rejects.toThrow("El correo electronico no es valido.");
   });
 });

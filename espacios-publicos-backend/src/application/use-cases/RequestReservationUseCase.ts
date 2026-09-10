@@ -8,6 +8,11 @@ import { ReservationRepository } from "../../domain/repositories/ReservationRepo
 import { EventBus } from "../../domain/services/EventBus";
 import { NotFoundError } from "../../shared/errors/NotFoundError";
 import { ValidationError } from "../../shared/errors/ValidationError";
+import {
+  requireEmail,
+  requirePositiveInteger,
+  requireText
+} from "../../shared/validation/inputValidation";
 import { RequestReservationInput } from "../dtos/RequestReservationInput";
 
 export class RequestReservationUseCase {
@@ -20,16 +25,15 @@ export class RequestReservationUseCase {
   ) {}
 
   async execute(input: RequestReservationInput): Promise<Reservation> {
-    const startDate = new Date(input.startDate);
-    const endDate = new Date(input.endDate);
-
-    if (!input.publicSpaceId || !input.requesterName || !input.requesterEmail) {
-      throw new ValidationError("Espacio, solicitante y email son obligatorios.");
-    }
-
-    if (!Number.isFinite(input.estimatedAttendees) || input.estimatedAttendees <= 0) {
-      throw new ValidationError("La cantidad estimada de asistentes debe ser mayor a cero.");
-    }
+    const publicSpaceId = requireText(input.publicSpaceId, "El espacio publico", 128);
+    const requesterName = requireText(input.requesterName, "El solicitante", 120);
+    const requesterEmail = requireEmail(input.requesterEmail);
+    const estimatedAttendees = requirePositiveInteger(
+      input.estimatedAttendees,
+      "La cantidad estimada de asistentes"
+    );
+    const startDate = new Date(requireText(input.startDate, "La fecha de inicio", 64));
+    const endDate = new Date(requireText(input.endDate, "La fecha de fin", 64));
 
     if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
       throw new ValidationError("Las fechas de la reserva no son validas.");
@@ -39,7 +43,7 @@ export class RequestReservationUseCase {
       throw new ValidationError("La fecha de inicio debe ser anterior a la fecha de fin.");
     }
 
-    const publicSpace = await this.publicSpaceRepository.findById(input.publicSpaceId);
+    const publicSpace = await this.publicSpaceRepository.findById(publicSpaceId);
 
     if (!publicSpace) {
       throw new NotFoundError("El espacio publico indicado no existe.");
@@ -49,12 +53,12 @@ export class RequestReservationUseCase {
       throw new ValidationError("El espacio publico indicado no esta habilitado para nuevas reservas.");
     }
 
-    if (input.estimatedAttendees > publicSpace.capacity) {
+    if (estimatedAttendees > publicSpace.capacity) {
       throw new ValidationError("La cantidad de asistentes supera la capacidad del espacio.");
     }
 
     const overlappingReservations = await this.reservationRepository.findOverlapping(
-      input.publicSpaceId,
+      publicSpaceId,
       startDate,
       endDate
     );
@@ -63,12 +67,12 @@ export class RequestReservationUseCase {
       return total + reservation.estimatedAttendees;
     }, 0);
 
-    if (reservedAttendees + input.estimatedAttendees > publicSpace.capacity) {
+    if (reservedAttendees + estimatedAttendees > publicSpace.capacity) {
       throw new ValidationError("El espacio no tiene cupo disponible para ese rango horario.");
     }
 
     const overlappingEvents = await this.communityEventRepository.findOverlapping(
-      input.publicSpaceId,
+      publicSpaceId,
       startDate,
       endDate
     );
@@ -78,10 +82,10 @@ export class RequestReservationUseCase {
     }
 
     const reservation = await this.reservationRepository.create({
-      publicSpaceId: input.publicSpaceId,
-      requesterName: input.requesterName,
-      requesterEmail: input.requesterEmail,
-      estimatedAttendees: input.estimatedAttendees,
+      publicSpaceId,
+      requesterName,
+      requesterEmail,
+      estimatedAttendees,
       startDate,
       endDate
     });

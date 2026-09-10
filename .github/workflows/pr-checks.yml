@@ -4,6 +4,9 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+permissions:
+  contents: read
+
 jobs:
   pr-validation:
     name: PR Validation
@@ -11,14 +14,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0 # Para poder comparar con la branch base
 
       - name: Validate PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          echo "PR Title: $PR_TITLE"
+          printf 'PR Title: %s\n' "$PR_TITLE"
 
           # Validar que el título siga conventional commits
           if echo "$PR_TITLE" | grep -qE '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore)(\(.+\))?: .+'; then
@@ -33,9 +37,12 @@ jobs:
           fi
 
       - name: Check for merge conflicts
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
-          git fetch origin ${{ github.event.pull_request.base.ref }}
-          if git merge-tree $(git merge-base HEAD origin/${{ github.event.pull_request.base.ref }}) HEAD origin/${{ github.event.pull_request.base.ref }} | grep -q '<<<<<'; then
+          git fetch origin "refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+          BASE_COMMIT="$(git merge-base HEAD "origin/$BASE_REF")"
+          if git merge-tree "$BASE_COMMIT" HEAD "origin/$BASE_REF" | grep -q '<<<<<'; then
             echo "❌ This PR has merge conflicts. Please resolve them."
             exit 1
           else
@@ -43,25 +50,35 @@ jobs:
           fi
 
       - name: Check file changes
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           echo "Files changed in this PR:"
-          git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD
+          git diff --name-only "origin/$BASE_REF...HEAD"
 
           # Advertir si se modificaron archivos sensibles
-          SENSITIVE_FILES=".env .env.local .env.production"
-          for file in $SENSITIVE_FILES; do
-            if git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD | grep -q "^$file$"; then
-              echo "⚠️ WARNING: Sensitive file '$file' was modified!"
-              echo "Make sure no secrets are being committed."
-            fi
-          done
+          while IFS= read -r -d '' file; do
+            case "${file##*/}" in
+              .env|.env.local|.env.production)
+                printf '⚠️ WARNING: Sensitive environment file was modified: %s\n' "$file"
+                ;;
+            esac
+          done < <(git diff --name-only -z "origin/$BASE_REF...HEAD")
 
       - name: Check for large files
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
-          LARGE_FILES=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD | xargs -I {} sh -c 'du -k "{}" 2>/dev/null | awk '\''$1 > 1024 {print $2}'\''' || echo "")
-          if [ -n "$LARGE_FILES" ]; then
+          FOUND_LARGE_FILE=0
+          while IFS= read -r -d '' file; do
+            if [ -f "$file" ] && [ "$(stat -c '%s' -- "$file")" -gt 1048576 ]; then
+              printf '%s\n' "$file"
+              FOUND_LARGE_FILE=1
+            fi
+          done < <(git diff --name-only -z "origin/$BASE_REF...HEAD")
+
+          if [ "$FOUND_LARGE_FILE" -eq 1 ]; then
             echo "⚠️ Large files detected (>1MB):"
-            echo "$LARGE_FILES"
             echo "Consider using Git LFS or reducing file size"
           else
             echo "✅ No large files detected"
@@ -73,10 +90,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
 
@@ -106,24 +123,24 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
 
       - name: Check backend dependencies
         working-directory: ./espacios-publicos-backend
         run: |
-          echo "Checking backend dependencies for vulnerabilities..."
-          npm audit --audit-level=moderate || echo "⚠️ Found vulnerabilities in backend dependencies"
+          npm ci
+          npm audit --omit=dev --audit-level=high
 
       - name: Check frontend dependencies
         working-directory: ./espacios-publicos-frontend
         run: |
-          echo "Checking frontend dependencies for vulnerabilities..."
-          npm audit --audit-level=moderate || echo "⚠️ Found vulnerabilities in frontend dependencies"
+          npm ci
+          npm audit --omit=dev --audit-level=high
 
   size-check:
     name: Bundle Size Check
@@ -135,10 +152,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'npm'
