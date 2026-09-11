@@ -30,7 +30,7 @@ function loadSavedUser(): User | null {
       typeof user.id === 'string' &&
       typeof user.name === 'string' &&
       typeof user.email === 'string' &&
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.email) &&
+      isStoredEmailValid(user.email) &&
       (user.role === 'citizen' || user.role === 'municipal_admin');
 
     if (hasValidIdentity) {
@@ -42,6 +42,17 @@ function loadSavedUser(): User | null {
 
   localStorage.removeItem('mock_user');
   return null;
+}
+
+function isStoredEmailValid(email: string): boolean {
+  const parts = email.split('@');
+
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    return false;
+  }
+
+  const domainParts = parts[1].split('.');
+  return domainParts.length > 1 && domainParts.every(Boolean) && !Array.from(email).some((character) => character.trim() === '');
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

@@ -20,10 +20,12 @@ describe("seguridad HTTP", () => {
   });
 
   it("rechaza origenes no autorizados", async () => {
-    await request(createApp())
+    const response = await request(createApp())
       .get("/health")
       .set("Origin", "https://sitio-malicioso.example")
       .expect(403);
+
+    expect(response.body.message).toBe("Origen no permitido por CORS.");
   });
 
   it("rechaza cuerpos JSON mayores a 100 KB", async () => {

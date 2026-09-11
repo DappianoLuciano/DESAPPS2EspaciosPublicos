@@ -45,11 +45,25 @@ export function nullableText(
 export function requireEmail(value: unknown, field = "El correo electronico"): string {
   const email = requireText(value, field, 254).toLowerCase();
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  if (!isEmailFormatValid(email)) {
     throw new ValidationError(`${field} no es valido.`);
   }
 
   return email;
+}
+
+function isEmailFormatValid(email: string): boolean {
+  const separator = email.indexOf("@");
+
+  if (separator <= 0 || separator !== email.lastIndexOf("@")) {
+    return false;
+  }
+
+  const domain = email.slice(separator + 1);
+  const dot = domain.indexOf(".");
+  const containsWhitespace = Array.from(email).some((character) => character.trim() === "");
+
+  return !containsWhitespace && dot > 0 && dot < domain.length - 1;
 }
 
 export function requirePositiveInteger(

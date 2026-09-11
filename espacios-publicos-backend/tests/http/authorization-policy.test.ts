@@ -40,11 +40,13 @@ describe("politica de autorizacion", () => {
   });
 
   it("rechaza a un administrador en operaciones exclusivas del ciudadano", async () => {
-    await request(createApp())
+    const response = await request(createApp())
       .post("/api/reservations")
       .set(adminHeaders())
       .send({})
       .expect(403);
+
+    expect(response.body.message).toBe("Tu perfil no tiene permisos para realizar esta accion.");
   });
 
   it("responde 401 cuando falta identidad", async () => {

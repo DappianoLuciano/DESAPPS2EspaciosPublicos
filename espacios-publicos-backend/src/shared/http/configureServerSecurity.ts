@@ -1,4 +1,4 @@
-import { Server } from "http";
+import { Server } from "node:http";
 
 export function configureServerSecurity(server: Server): void {
   server.headersTimeout = 15_000;

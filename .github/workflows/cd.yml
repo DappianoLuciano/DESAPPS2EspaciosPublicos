@@ -30,7 +30,7 @@ jobs:
           cache-dependency-path: espacios-publicos-backend/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Generate Prisma Client
         run: npm run prisma:generate
@@ -74,6 +74,7 @@ jobs:
     name: Deploy Frontend
     runs-on: ubuntu-latest
     environment: production
+    if: vars.DEPLOY_FRONTEND == 'true'
 
     defaults:
       run:
@@ -91,7 +92,7 @@ jobs:
           cache-dependency-path: espacios-publicos-frontend/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Build frontend
         run: npm run build

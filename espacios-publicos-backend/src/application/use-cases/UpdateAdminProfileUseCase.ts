@@ -1,7 +1,6 @@
 import { Admin } from "../../domain/entities/Admin";
 import { AdminRepository } from "../../domain/repositories/AdminRepository";
 import { NotFoundError } from "../../shared/errors/NotFoundError";
-import { ValidationError } from "../../shared/errors/ValidationError";
 import {
   nullableText,
   requireEmail,
