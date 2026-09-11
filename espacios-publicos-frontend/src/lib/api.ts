@@ -458,3 +458,16 @@ export interface Reservation {
 export function getReservationById(id: string) {
   return request<Reservation>(`/api/reservations/${id}`);
 }
+
+export interface ChatMessage {
+  role: 'user' | 'model';
+  content: string;
+}
+
+export function askChatbot(message: string, history?: ChatMessage[]) {
+  return request<{ reply: string }>('/api/chat', {
+    method: 'POST',
+    body: JSON.stringify({ message, history }),
+    signal: AbortSignal.timeout(30_000),
+  });
+}

@@ -18,6 +18,7 @@ import { createCommunityEventRoutes } from "./interfaces/http/routes/communityEv
 import { createPublicSpaceRoutes } from "./interfaces/http/routes/publicSpaceRoutes";
 import { createReservationRoutes } from "./interfaces/http/routes/reservationRoutes";
 import { createUploadRoutes } from "./interfaces/http/routes/uploadRoutes";
+import { createChatbotRoutes } from "./interfaces/http/routes/chatbotRoutes";
 import { isProductionRuntime } from "./shared/runtime/runtimeMode";
 
 export function createApp() {
@@ -51,6 +52,7 @@ export function createApp() {
   app.use("/api/public-spaces", createPublicSpaceRoutes(container.publicSpaceController));
   app.use("/api/reservations", createReservationRoutes(container.reservationController));
   app.use("/api/community-events", createCommunityEventRoutes(container.communityEventController));
+  app.use("/api/chat", createChatbotRoutes(container.chatbotController));
 
   app.use((request, response) => {
     response.status(404).json({

@@ -30,6 +30,9 @@ import { NodeQrGenerator } from "./infrastructure/qr/NodeQrGenerator";
 import { NodemailerEmailSender } from "./infrastructure/email/NodemailerEmailSender";
 
 import { GetReservationUseCase } from "./application/use-cases/GetReservationUseCase";
+import { GeminiChatService } from "./infrastructure/ai/GeminiChatService";
+import { AskEventsChatbotUseCase } from "./application/use-cases/AskEventsChatbotUseCase";
+import { ChatbotController } from "./interfaces/http/controllers/ChatbotController";
 
 // Este archivo arma las dependencias en un solo lugar para que los controllers no creen objetos por su cuenta.
 export function createContainer() {
@@ -90,6 +93,13 @@ export function createContainer() {
     communityEventRegistrationRepository
   );
 
+  const aiChatService = new GeminiChatService();
+  const askEventsChatbotUseCase = new AskEventsChatbotUseCase(
+    communityEventRepository,
+    aiChatService
+  );
+  const chatbotController = new ChatbotController(askEventsChatbotUseCase);
+
   return {
     adminRepository,
     storageService,
@@ -113,6 +123,7 @@ export function createContainer() {
       listCommunityEventRegistrationsUseCase,
       listCitizenCommunityEventRegistrationsUseCase,
       cancelCommunityEventRegistrationUseCase
-    )
+    ),
+    chatbotController
   };
 }
