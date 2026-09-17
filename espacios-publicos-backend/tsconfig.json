@@ -10,6 +10,6 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true
   },
-  "include": ["src", "tests", "jest.config.ts"],
+  "include": ["src", "tests", "api", "jest.config.ts"],
   "exclude": ["node_modules", "dist"]
 }
