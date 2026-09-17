@@ -187,7 +187,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...getMockIdentityHeaders(),
+      ...getAuthHeaders(),
       ...options?.headers,
     },
   });
@@ -198,7 +198,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 async function uploadRequest<T>(path: string, formData: FormData): Promise<T> {
   const response = await fetchWithTimeout(`${API_URL}${path}`, {
     method: 'POST',
-    headers: getMockIdentityHeaders(),
+    headers: getAuthHeaders(),
     body: formData,
   });
 
@@ -260,6 +260,16 @@ function getStringProperty(value: unknown, property: string): string | undefined
   return typeof candidate === 'string' ? candidate : undefined;
 }
 
+function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem('auth_token');
+
+  if (token) {
+    return { Authorization: `Bearer ${token}` };
+  }
+
+  return getMockIdentityHeaders();
+}
+
 function getMockIdentityHeaders(): Record<string, string> {
   if (!import.meta.env.DEV) {
     return {};
@@ -315,6 +325,13 @@ export async function mockLogin(payload: { email: string; password: string }) {
       role: payload.email === 'admin' ? 'municipal_admin' as UserRole : 'citizen' as UserRole,
     }
   };
+}
+
+export function googleLogin(credential: string) {
+  return request<{ user: User; token: string }>('/api/auth/google', {
+    method: 'POST',
+    body: JSON.stringify({ credential }),
+  });
 }
 
 export function getAdminProfile() {

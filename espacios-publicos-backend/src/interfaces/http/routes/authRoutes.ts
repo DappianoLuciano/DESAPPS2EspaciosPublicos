@@ -7,9 +7,32 @@ import { mockUsers, sanitizeMockUser } from "../auth/mockUsers";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { allowBodyFields } from "../middlewares/validateRequest";
 import { logSecurityAudit } from "../middlewares/securityAudit";
+import { AuthController } from "../controllers/AuthController";
 
-export function createAuthRoutes(adminRepository: AdminRepository): Router {
+export function createAuthRoutes(adminRepository: AdminRepository, authController: AuthController): Router {
   const router = Router();
+
+  router.post(
+    "/google",
+    allowBodyFields(["credential"]),
+    asyncHandler(async (request, response, next) => {
+      try {
+        await authController.loginWithGoogle(request, response);
+        logSecurityAudit(request, {
+          action: "auth.google-login",
+          outcome: "succeeded",
+          statusCode: 200
+        });
+      } catch (error) {
+        logSecurityAudit(request, {
+          action: "auth.google-login",
+          outcome: "denied",
+          statusCode: error instanceof UnauthorizedError ? 401 : 400
+        });
+        next(error);
+      }
+    })
+  );
 
   router.post(
     "/mock-login",

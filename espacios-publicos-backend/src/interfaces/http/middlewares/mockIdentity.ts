@@ -17,7 +17,7 @@ declare global {
 const validRoles: MockUserRole[] = ["citizen", "municipal_admin"];
 
 export function mockIdentity(request: Request, _response: Response, next: NextFunction): void {
-  if (!isMockAuthEnabled()) {
+  if (request.user || !isMockAuthEnabled()) {
     next();
     return;
   }

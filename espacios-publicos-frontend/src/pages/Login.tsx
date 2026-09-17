@@ -1,5 +1,6 @@
 import { Alert, Anchor, Box, Button, Divider, Flex, PasswordInput, SimpleGrid, Text, TextInput, Title } from '@mantine/core';
 import { IconLogin } from '@tabler/icons-react';
+import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import loginCulturalEvent from '../assets/login-cultural-event.png';
@@ -11,7 +12,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const handleLogin = async (event: React.FormEvent) => {
@@ -30,6 +31,25 @@ export default function Login() {
       navigate(user.role === 'municipal_admin' ? '/admin' : '/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo iniciar sesión.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
+    if (!credentialResponse.credential) {
+      setError('No se pudo completar el inicio de sesión con Google.');
+      return;
+    }
+
+    setError(null);
+    setSubmitting(true);
+
+    try {
+      const user = await loginWithGoogle(credentialResponse.credential);
+      navigate(user.role === 'municipal_admin' ? '/admin' : '/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo iniciar sesión con Google.');
     } finally {
       setSubmitting(false);
     }
@@ -54,6 +74,17 @@ export default function Login() {
           </Text>
 
           {error && <Alert color="red" mb="lg">{error}</Alert>}
+
+          <Box mb={28}>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => setError('No se pudo completar el inicio de sesión con Google.')}
+              text="signin_with"
+              width="100%"
+            />
+          </Box>
+
+          <Divider label="o con tu cuenta local" labelPosition="center" mb={28} />
 
           <form onSubmit={handleLogin}>
             <TextInput

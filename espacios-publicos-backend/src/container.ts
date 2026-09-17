@@ -14,6 +14,10 @@ import { UpdatePublicSpaceUseCase } from "./application/use-cases/UpdatePublicSp
 import { GetAdminProfileUseCase } from "./application/use-cases/GetAdminProfileUseCase";
 import { UpdateAdminProfileUseCase } from "./application/use-cases/UpdateAdminProfileUseCase";
 import { PrismaAdminRepository } from "./infrastructure/database/PrismaAdminRepository";
+import { PrismaUserRepository } from "./infrastructure/database/PrismaUserRepository";
+import { LoginWithGoogleUseCase } from "./application/use-cases/LoginWithGoogleUseCase";
+import { GoogleTokenVerifier } from "./infrastructure/auth/GoogleTokenVerifier";
+import { AuthController } from "./interfaces/http/controllers/AuthController";
 import { PrismaCommunityEventRegistrationRepository } from "./infrastructure/database/PrismaCommunityEventRegistrationRepository";
 import { PrismaCommunityEventRepository } from "./infrastructure/database/PrismaCommunityEventRepository";
 import { PrismaEventOutboxRepository } from "./infrastructure/database/PrismaEventOutboxRepository";
@@ -37,6 +41,7 @@ import { ChatbotController } from "./interfaces/http/controllers/ChatbotControll
 // Este archivo arma las dependencias en un solo lugar para que los controllers no creen objetos por su cuenta.
 export function createContainer() {
   const adminRepository = new PrismaAdminRepository();
+  const userRepository = new PrismaUserRepository();
   const publicSpaceRepository = new PrismaPublicSpaceRepository();
   const reservationRepository = new PrismaReservationRepository();
   const communityEventRepository = new PrismaCommunityEventRepository();
@@ -49,6 +54,10 @@ export function createContainer() {
 
   const getAdminProfileUseCase = new GetAdminProfileUseCase(adminRepository);
   const updateAdminProfileUseCase = new UpdateAdminProfileUseCase(adminRepository);
+
+  const googleTokenVerifier = new GoogleTokenVerifier(process.env.GOOGLE_CLIENT_ID || "");
+  const loginWithGoogleUseCase = new LoginWithGoogleUseCase(userRepository, googleTokenVerifier);
+  const authController = new AuthController(loginWithGoogleUseCase);
 
   const createPublicSpaceUseCase = new CreatePublicSpaceUseCase(publicSpaceRepository);
   const listPublicSpacesUseCase = new ListPublicSpacesUseCase(publicSpaceRepository);
@@ -103,6 +112,7 @@ export function createContainer() {
   return {
     adminRepository,
     storageService,
+    authController,
     adminController: new AdminController(getAdminProfileUseCase, updateAdminProfileUseCase),
     publicSpaceController: new PublicSpaceController(
       createPublicSpaceUseCase,

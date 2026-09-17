@@ -3,6 +3,7 @@ import express from "express";
 import helmet from "helmet";
 import { createContainer } from "./container";
 import { errorHandler } from "./interfaces/http/middlewares/errorHandler";
+import { jwtIdentity } from "./interfaces/http/middlewares/jwtIdentity";
 import { mockIdentity } from "./interfaces/http/middlewares/mockIdentity";
 import { requestContext } from "./interfaces/http/middlewares/requestContext";
 import {
@@ -39,6 +40,7 @@ export function createApp() {
   app.use(cors(buildCorsOptions()));
   app.use(requireHttps);
   app.use(express.json({ limit: "100kb" }));
+  app.use(jwtIdentity);
   app.use(mockIdentity);
 
   app.get("/health", (_request, response) => {
@@ -46,7 +48,11 @@ export function createApp() {
   });
 
   app.use("/api", apiRateLimiter);
-  app.use("/api/auth", authRateLimiter, createAuthRoutes(container.adminRepository));
+  app.use(
+    "/api/auth",
+    authRateLimiter,
+    createAuthRoutes(container.adminRepository, container.authController)
+  );
   app.use("/api/admin", createAdminRoutes(container.adminController));
   app.use("/api/uploads", uploadRateLimiter, createUploadRoutes(container.storageService));
   app.use("/api/public-spaces", createPublicSpaceRoutes(container.publicSpaceController));

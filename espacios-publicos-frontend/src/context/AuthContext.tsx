@@ -1,18 +1,48 @@
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
-import { mockLogin } from '../lib/api';
+import { googleLogin, mockLogin } from '../lib/api';
 import type { User } from '../lib/api';
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<User>;
+  loginWithGoogle: (credential: string) => Promise<User>;
   updateUser: (updates: Partial<Pick<User, 'name' | 'email'>>) => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function isValidUser(user: Partial<User> | undefined | null): user is User {
+  return (
+    !!user &&
+    typeof user.id === 'string' &&
+    typeof user.name === 'string' &&
+    typeof user.email === 'string' &&
+    isStoredEmailValid(user.email) &&
+    (user.role === 'citizen' || user.role === 'municipal_admin')
+  );
+}
+
 function loadSavedUser(): User | null {
+  const savedAuthUser = localStorage.getItem('auth_user');
+  const savedToken = localStorage.getItem('auth_token');
+
+  if (savedAuthUser && savedToken) {
+    try {
+      const user = JSON.parse(savedAuthUser) as Partial<User>;
+
+      if (isValidUser(user)) {
+        return user;
+      }
+    } catch {
+      // La sesion real guardada esta corrupta, se descarta abajo.
+    }
+  }
+
+  localStorage.removeItem('auth_user');
+  localStorage.removeItem('auth_token');
+
   if (!import.meta.env.DEV) {
     localStorage.removeItem('mock_user');
     return null;
@@ -26,15 +56,9 @@ function loadSavedUser(): User | null {
 
   try {
     const user = JSON.parse(saved) as Partial<User>;
-    const hasValidIdentity =
-      typeof user.id === 'string' &&
-      typeof user.name === 'string' &&
-      typeof user.email === 'string' &&
-      isStoredEmailValid(user.email) &&
-      (user.role === 'citizen' || user.role === 'municipal_admin');
 
-    if (hasValidIdentity) {
-      return user as User;
+    if (isValidUser(user)) {
+      return user;
     }
   } catch {
     // La sesion local corrupta o de una version anterior se descarta abajo.
@@ -69,29 +93,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return response.user;
   };
 
+  const loginWithGoogle = async (credential: string) => {
+    const response = await googleLogin(credential);
+    setUser(response.user);
+    localStorage.setItem('auth_token', response.token);
+    localStorage.setItem('auth_user', JSON.stringify(response.user));
+    return response.user;
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem('mock_user');
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
   };
 
   const updateUser = (updates: Partial<Pick<User, 'name' | 'email'>>) => {
-    if (!import.meta.env.DEV) {
-      return;
-    }
-
     setUser((currentUser) => {
       if (!currentUser) {
         return currentUser;
       }
 
       const updatedUser = { ...currentUser, ...updates };
-      localStorage.setItem('mock_user', JSON.stringify(updatedUser));
+
+      if (localStorage.getItem('auth_token')) {
+        localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+      } else if (import.meta.env.DEV) {
+        localStorage.setItem('mock_user', JSON.stringify(updatedUser));
+      }
+
       return updatedUser;
     });
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, updateUser, logout }}>
+    <AuthContext.Provider value={{ user, login, loginWithGoogle, updateUser, logout }}>
       {children}
     </AuthContext.Provider>
   );

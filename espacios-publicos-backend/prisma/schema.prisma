@@ -24,6 +24,24 @@ enum PublicSpaceStatus {
   DISABLED
 }
 
+enum UserRole {
+  CITIZEN
+  MUNICIPAL_ADMIN
+}
+
+model User {
+  id        String   @id @default(uuid())
+  googleId  String   @unique
+  email     String   @unique
+  name      String
+  avatarUrl String?
+  role      UserRole @default(CITIZEN)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
 model Admin {
   id         String   @id @default(uuid())
   username   String   @unique
