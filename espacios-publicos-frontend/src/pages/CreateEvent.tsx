@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Card, Container, Flex, MultiSelect, Select, SimpleGrid, Switch, Text, Textarea, TextInput, Title } from '@mantine/core';
+import { Alert, Box, Button, Card, Container, Flex, Grid, MultiSelect, Select, SimpleGrid, Switch, Text, Textarea, TextInput, Title } from '@mantine/core';
 import { Dropzone, IMAGE_MIME_TYPE } from '@mantine/dropzone';
 import { IconPhoto, IconUpload, IconX } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
@@ -144,8 +144,8 @@ export default function CreateEvent() {
         </Alert>
       )}
 
-      <SimpleGrid cols={12} spacing="xl">
-        <Box style={{ gridColumn: 'span 8' }}>
+      <Grid gap="xl">
+        <Grid.Col span={{ base: 12, md: 8 }}>
           <Card withBorder shadow="sm" radius="md" p="xl">
             <Title order={3} fz={20} mb="xl" style={{ borderBottom: '1px solid #E2E8F0', paddingBottom: 16 }}>
               Detalles Generales
@@ -160,7 +160,7 @@ export default function CreateEvent() {
               onChange={(event) => setTitle(event.currentTarget.value)}
             />
 
-            <SimpleGrid cols={2} mb="lg">
+            <SimpleGrid cols={{ base: 1, sm: 2 }} mb="lg">
               <Select
                 label="Categoría principal"
                 placeholder="Seleccione categoría"
@@ -255,9 +255,9 @@ export default function CreateEvent() {
               />
             )}
           </Card>
-        </Box>
+        </Grid.Col>
 
-        <Box style={{ gridColumn: 'span 4' }}>
+        <Grid.Col span={{ base: 12, md: 4 }}>
           <Card withBorder shadow="sm" radius="md" p="xl" mb="xl">
             <Title order={3} fz={20} mb="xl" style={{ borderBottom: '1px solid #E2E8F0', paddingBottom: 16 }}>
               Fecha y horario
@@ -318,8 +318,8 @@ export default function CreateEvent() {
               onChange={(event) => setRequiresRegistration(event.currentTarget.checked)}
             />
           </Card>
-        </Box>
-      </SimpleGrid>
+        </Grid.Col>
+      </Grid>
 
       <Flex justify="flex-end" gap="md" mt={40}>
         <Button variant="default" onClick={() => navigate('/admin')}>Cancelar</Button>

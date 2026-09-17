@@ -6,7 +6,7 @@ export class GeminiChatService implements AiChatService {
 
   constructor(apiKey?: string, model?: string) {
     this.apiKey = apiKey || process.env.GEMINI_API_KEY || "";
-    this.model = model || process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    this.model = model || process.env.GEMINI_MODEL || "gemini-3.6-flash";
   }
 
   async generateResponse(

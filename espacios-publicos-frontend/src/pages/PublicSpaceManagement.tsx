@@ -233,6 +233,7 @@ export default function PublicSpaceManagement() {
       )}
 
       <Card shadow="sm" radius="md" withBorder p={0}>
+        <Table.ScrollContainer minWidth={640}>
         <Table verticalSpacing="md" horizontalSpacing="xl" striped>
           <Table.Thead>
             <Table.Tr>
@@ -288,6 +289,7 @@ export default function PublicSpaceManagement() {
             ))}
           </Table.Tbody>
         </Table>
+        </Table.ScrollContainer>
       </Card>
     </Container>
   );

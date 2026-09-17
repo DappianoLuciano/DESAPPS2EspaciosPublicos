@@ -88,7 +88,7 @@ export default function MyReservations() {
         <Text c="dimmed">Todavía no tenés reservas activas.</Text>
       )}
 
-      <SimpleGrid cols={3} spacing="lg">
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
         {reservations.map((reservation) => {
           const status = getStatus(reservation);
           const StatusIcon = status.icon;
