@@ -2,6 +2,7 @@ import { CorsOptions } from "cors";
 import { NextFunction, Request, Response } from "express";
 import { rateLimit } from "express-rate-limit";
 import { ForbiddenError } from "../../../shared/errors/ForbiddenError";
+import { isMockAuthEnabled } from "../auth/mockAuthMode";
 import {
   isProductionRuntime,
   isTestRuntime
@@ -30,16 +31,16 @@ export function buildCorsOptions(): CorsOptions {
       callback(new ForbiddenError("Origen no permitido por CORS."));
     },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: isProductionRuntime()
-      ? ["Content-Type", "Authorization"]
-      : [
+    allowedHeaders: isMockAuthEnabled()
+      ? [
           "Content-Type",
           "Authorization",
           "x-user-id",
           "x-user-name",
           "x-user-email",
           "x-user-role"
-        ],
+        ]
+      : ["Content-Type", "Authorization"],
     credentials: false,
     maxAge: 600
   };

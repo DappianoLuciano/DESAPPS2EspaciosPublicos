@@ -51,6 +51,9 @@ export class ApiError extends Error {
   }
 }
 
+export const isMockLoginEnabled =
+  import.meta.env.DEV || import.meta.env.VITE_ENABLE_MOCK_LOGIN === 'true';
+
 export type UserRole = 'citizen' | 'municipal_admin';
 
 export interface User {
@@ -271,7 +274,7 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 function getMockIdentityHeaders(): Record<string, string> {
-  if (!import.meta.env.DEV) {
+  if (!isMockLoginEnabled) {
     return {};
   }
 

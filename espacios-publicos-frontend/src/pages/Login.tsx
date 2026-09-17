@@ -5,9 +5,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import loginCulturalEvent from '../assets/login-cultural-event.png';
 import { useAuth } from '../context/AuthContext';
+import { isMockLoginEnabled } from '../lib/api';
 
 export default function Login() {
-  const isDemoMode = import.meta.env.DEV;
+  const isDemoMode = isMockLoginEnabled;
   const [username, setUsername] = useState(isDemoMode ? 'ciudadano' : '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);

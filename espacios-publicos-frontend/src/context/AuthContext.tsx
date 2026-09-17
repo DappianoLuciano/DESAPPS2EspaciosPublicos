@@ -1,6 +1,6 @@
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
-import { googleLogin, mockLogin } from '../lib/api';
+import { googleLogin, isMockLoginEnabled, mockLogin } from '../lib/api';
 import type { User } from '../lib/api';
 
 interface AuthContextType {
@@ -43,7 +43,7 @@ function loadSavedUser(): User | null {
   localStorage.removeItem('auth_user');
   localStorage.removeItem('auth_token');
 
-  if (!import.meta.env.DEV) {
+  if (!isMockLoginEnabled) {
     localStorage.removeItem('mock_user');
     return null;
   }
@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(loadSavedUser);
 
   const login = async (email: string, password: string) => {
-    if (!import.meta.env.DEV) {
+    if (!isMockLoginEnabled) {
       throw new Error('El acceso simulado no está disponible en producción.');
     }
 
@@ -118,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (localStorage.getItem('auth_token')) {
         localStorage.setItem('auth_user', JSON.stringify(updatedUser));
-      } else if (import.meta.env.DEV) {
+      } else if (isMockLoginEnabled) {
         localStorage.setItem('mock_user', JSON.stringify(updatedUser));
       }
 

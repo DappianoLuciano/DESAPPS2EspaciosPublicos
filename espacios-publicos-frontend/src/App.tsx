@@ -19,6 +19,7 @@ import CancelReservation from './pages/CancelReservation';
 import EventAttendees from './pages/EventAttendees';
 import EventManagement from './pages/EventManagement';
 import PublicSpaceManagement from './pages/PublicSpaceManagement';
+import { isMockLoginEnabled } from './lib/api';
 
 const theme = {
   fontFamily: 'Open Sans, sans-serif',
@@ -34,7 +35,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route
               path="/register"
-              element={import.meta.env.DEV ? <Register /> : <Navigate to="/login" replace />}
+              element={isMockLoginEnabled ? <Register /> : <Navigate to="/login" replace />}
             />
             <Route path="/reservations/verify/:id" element={<ReservationVerify />} />
             
