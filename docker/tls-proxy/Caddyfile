@@ -1,0 +1,31 @@
+# Proxy TLS local para docker-compose.
+#
+# El backend (ver espacios-publicos-backend/src/interfaces/http/middlewares/httpSecurity.ts)
+# rechaza con 400 cualquier request que no llegue por HTTPS cuando corre en modo
+# production, y el build del frontend (vite.config.ts / src/lib/api.ts) exige que
+# VITE_API_URL sea una URL https:// real. Como el docker-compose local no tiene un
+# dominio ni un certificado real, Caddy termina TLS aca con un certificado
+# autofirmado (su CA interna) y reenvia el trafico al backend por HTTP dentro de
+# la red de Docker, agregando "X-Forwarded-Proto: https" para que Express confie
+# en la conexion (el backend habilita "trust proxy" en modo production).
+#
+# Se usa 127.0.0.1 (en vez de "localhost") a proposito: el frontend se sirve sin
+# TLS en localhost:$FRONTEND_PORT, y si este proxy tambien usara "localhost" el
+# header HSTS que el backend envia (via helmet) podria hacer que el navegador
+# fuerce HTTPS para "localhost" en cualquier puerto, incluido el del frontend.
+# Al usar un host distinto (127.0.0.1) ese HSTS no afecta al frontend.
+{
+	auto_https disable_redirects
+	# Los clientes TLS (navegadores incluidos) no mandan SNI cuando el host es
+	# una IP literal (RFC 6066), asi que sin esto Caddy no puede elegir que
+	# certificado servir y corta la conexion con un "internal error".
+	default_sni 127.0.0.1
+}
+
+127.0.0.1:{$TLS_PROXY_PORT} {
+	tls internal
+
+	reverse_proxy backend:{$BACKEND_PORT} {
+		header_up X-Forwarded-Proto https
+	}
+}

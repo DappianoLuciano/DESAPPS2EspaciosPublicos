@@ -183,6 +183,18 @@ function createUseCase() {
   return { useCase, reservationRepository, communityEventRepository, eventOutboxRepository, eventBus, qrGenerator, emailSender };
 }
 
+// Siempre en el futuro respecto a "ahora", para que estos tests no queden
+// obsoletos con el correr del tiempo (ver #incidente CI: fechas fijas vencidas).
+const RESERVATION_START = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+RESERVATION_START.setUTCHours(15, 0, 0, 0);
+const RESERVATION_END = new Date(RESERVATION_START);
+RESERVATION_END.setUTCHours(18, 0, 0, 0);
+
+const OVERLAPPING_RESERVATION_START = new Date(RESERVATION_START);
+OVERLAPPING_RESERVATION_START.setUTCHours(17, 0, 0, 0);
+const OVERLAPPING_RESERVATION_END = new Date(RESERVATION_START);
+OVERLAPPING_RESERVATION_END.setUTCHours(20, 0, 0, 0);
+
 describe("RequestReservationUseCase", () => {
   it("crea una reserva y publica el evento de dominio", async () => {
     const { useCase, eventOutboxRepository, eventBus } = createUseCase();
@@ -192,8 +204,8 @@ describe("RequestReservationUseCase", () => {
       requesterName: "Centro Cultural Barrial",
       requesterEmail: "contacto@centro.test",
       estimatedAttendees: 80,
-      startDate: "2026-09-10T15:00:00.000Z",
-      endDate: "2026-09-10T18:00:00.000Z"
+      startDate: RESERVATION_START.toISOString(),
+      endDate: RESERVATION_END.toISOString()
     });
 
     expect(reservation.status).toBe("CONFIRMED");
@@ -210,8 +222,8 @@ describe("RequestReservationUseCase", () => {
       requesterName: "Primer solicitante",
       requesterEmail: "uno@test.com",
       estimatedAttendees: 450,
-      startDate: "2026-09-10T15:00:00.000Z",
-      endDate: "2026-09-10T18:00:00.000Z"
+      startDate: RESERVATION_START.toISOString(),
+      endDate: RESERVATION_END.toISOString()
     });
 
     await expect(
@@ -220,8 +232,8 @@ describe("RequestReservationUseCase", () => {
         requesterName: "Segundo solicitante",
         requesterEmail: "dos@test.com",
         estimatedAttendees: 100,
-        startDate: "2026-09-10T17:00:00.000Z",
-        endDate: "2026-09-10T20:00:00.000Z"
+        startDate: OVERLAPPING_RESERVATION_START.toISOString(),
+        endDate: OVERLAPPING_RESERVATION_END.toISOString()
       })
     ).rejects.toThrow("El espacio no tiene cupo disponible para ese rango horario.");
   });
