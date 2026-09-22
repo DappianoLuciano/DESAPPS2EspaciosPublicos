@@ -5,6 +5,7 @@ import { CommunityEventRegistrationRepository } from "../../domain/repositories/
 import { CommunityEventRepository } from "../../domain/repositories/CommunityEventRepository";
 import { EventOutboxRepository } from "../../domain/repositories/EventOutboxRepository";
 import { EventBus } from "../../domain/services/EventBus";
+import { EmailSender } from "../../domain/services/EmailSender";
 import { NotFoundError } from "../../shared/errors/NotFoundError";
 import { ValidationError } from "../../shared/errors/ValidationError";
 import { requireEmail, requireText } from "../../shared/validation/inputValidation";
@@ -15,7 +16,8 @@ export class RegisterCitizenToCommunityEventUseCase {
     private readonly communityEventRepository: CommunityEventRepository,
     private readonly communityEventRegistrationRepository: CommunityEventRegistrationRepository,
     private readonly eventOutboxRepository: EventOutboxRepository,
-    private readonly eventBus: EventBus
+    private readonly eventBus: EventBus,
+    private readonly emailSender: EmailSender
   ) {}
 
   async execute(input: RegisterCitizenToCommunityEventInput): Promise<CommunityEventRegistration> {
@@ -86,6 +88,27 @@ export class RegisterCitizenToCommunityEventUseCase {
 
     await this.eventOutboxRepository.save(event);
     await this.eventBus.publish(event);
+
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const eventUrl = `${frontendUrl}/event/${communityEvent.id}`;
+    const eventDate = communityEvent.startDate.toLocaleString("es-AR", {
+      dateStyle: "full",
+      timeStyle: "short"
+    });
+
+    const emailHtml = `
+      <h1>Inscripción Confirmada</h1>
+      <p>Hola ${registration.citizenName},</p>
+      <p>Tu lugar para <strong>${communityEvent.title}</strong> quedó reservado.</p>
+      <p>Fecha: ${eventDate}</p>
+      <p>Más detalles del evento: <a href="${eventUrl}">${eventUrl}</a></p>
+    `;
+
+    await this.emailSender.send(
+      registration.citizenEmail,
+      `Inscripción Confirmada - ${communityEvent.title}`,
+      emailHtml
+    );
 
     return registration;
   }
