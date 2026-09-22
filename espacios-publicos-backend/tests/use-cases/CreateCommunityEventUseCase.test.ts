@@ -191,6 +191,18 @@ function createUseCase() {
   };
 }
 
+// Siempre en el futuro respecto a "ahora", para que estos tests no queden
+// obsoletos con el correr del tiempo (ver #incidente CI: fechas fijas vencidas).
+const EVENT_START = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+EVENT_START.setUTCHours(13, 0, 0, 0);
+const EVENT_END = new Date(EVENT_START);
+EVENT_END.setUTCHours(20, 0, 0, 0);
+
+const OVERLAPPING_RESERVATION_START = new Date(EVENT_START);
+OVERLAPPING_RESERVATION_START.setUTCHours(14, 0, 0, 0);
+const OVERLAPPING_RESERVATION_END = new Date(EVENT_START);
+OVERLAPPING_RESERVATION_END.setUTCHours(16, 0, 0, 0);
+
 const validInput = {
   title: "Feria de emprendedores",
   category: "Cultura",
@@ -202,8 +214,8 @@ const validInput = {
   organizerProfileEnabled: true,
   capacity: 300,
   requiresRegistration: true,
-  startDate: "2026-09-15T13:00:00.000Z",
-  endDate: "2026-09-15T20:00:00.000Z",
+  startDate: EVENT_START.toISOString(),
+  endDate: EVENT_END.toISOString(),
   imageUrl: "https://example.com/feria.jpg"
 };
 
@@ -240,8 +252,8 @@ describe("CreateCommunityEventUseCase", () => {
       requesterName: "Centro barrial",
       requesterEmail: "centro@test.com",
       estimatedAttendees: 80,
-      startDate: new Date("2026-09-15T14:00:00.000Z"),
-      endDate: new Date("2026-09-15T16:00:00.000Z")
+      startDate: OVERLAPPING_RESERVATION_START,
+      endDate: OVERLAPPING_RESERVATION_END
     });
 
     await expect(useCase.execute(validInput)).rejects.toThrow(

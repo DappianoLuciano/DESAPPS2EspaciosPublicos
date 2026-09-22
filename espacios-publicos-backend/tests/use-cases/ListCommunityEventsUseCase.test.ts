@@ -40,6 +40,13 @@ class FakeCommunityEventRepository implements CommunityEventRepository {
   }
 }
 
+// Siempre en el futuro respecto a "ahora", para que estos tests no queden
+// obsoletos con el correr del tiempo (ver #incidente CI: fechas fijas vencidas).
+const EVENT_START = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+EVENT_START.setUTCHours(13, 0, 0, 0);
+const EVENT_END = new Date(EVENT_START);
+EVENT_END.setUTCHours(20, 0, 0, 0);
+
 const catalogItem: CommunityEventCatalogItem = {
   id: "event-1",
   title: "Feria de emprendedores",
@@ -52,8 +59,8 @@ const catalogItem: CommunityEventCatalogItem = {
   registeredCount: 40,
   availableCapacity: 60,
   requiresRegistration: true,
-  startDate: new Date("2026-09-15T13:00:00.000Z"),
-  endDate: new Date("2026-09-15T20:00:00.000Z"),
+  startDate: EVENT_START,
+  endDate: EVENT_END,
   status: "ACTIVE",
   imageUrl: null,
   publicSpace: {
