@@ -120,11 +120,26 @@ class FakeEventBus implements EventBus {
   }
 }
 
+class FakeEmailSender {
+  public emails: any[] = [];
+  async send(to: string, subject: string, html: string): Promise<void> {
+    this.emails.push({ to, subject, html });
+  }
+}
+
+// Siempre en el futuro respecto a "ahora", para que estos tests no queden
+// obsoletos con el correr del tiempo (ver #incidente CI: fechas fijas vencidas).
+const EVENT_START = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+EVENT_START.setUTCHours(13, 0, 0, 0);
+const EVENT_END = new Date(EVENT_START);
+EVENT_END.setUTCHours(20, 0, 0, 0);
+
 function createUseCase(capacity = 2, requiresRegistration = true) {
   const communityEventRepository = new FakeCommunityEventRepository();
   const communityEventRegistrationRepository = new FakeCommunityEventRegistrationRepository();
   const eventOutboxRepository = new FakeEventOutboxRepository();
   const eventBus = new FakeEventBus();
+  const emailSender = new FakeEmailSender();
 
   communityEventRepository.events.push({
     id: "event-1",
@@ -137,8 +152,8 @@ function createUseCase(capacity = 2, requiresRegistration = true) {
     organizerName: "Comuna 6",
     capacity,
     requiresRegistration,
-    startDate: new Date("2026-09-15T13:00:00.000Z"),
-    endDate: new Date("2026-09-15T20:00:00.000Z"),
+    startDate: EVENT_START,
+    endDate: EVENT_END,
     status: "ACTIVE",
     createdAt: new Date()
   });
@@ -147,7 +162,8 @@ function createUseCase(capacity = 2, requiresRegistration = true) {
     communityEventRepository,
     communityEventRegistrationRepository,
     eventOutboxRepository,
-    eventBus
+    eventBus,
+    emailSender
   );
 
   return {
@@ -155,13 +171,14 @@ function createUseCase(capacity = 2, requiresRegistration = true) {
     communityEventRepository,
     communityEventRegistrationRepository,
     eventOutboxRepository,
-    eventBus
+    eventBus,
+    emailSender
   };
 }
 
 describe("RegisterCitizenToCommunityEventUseCase", () => {
   it("inscribe un ciudadano y publica evento de dominio", async () => {
-    const { useCase, eventBus, eventOutboxRepository } = createUseCase();
+    const { useCase, eventBus, eventOutboxRepository, emailSender } = createUseCase();
 
     const registration = await useCase.execute({
       communityEventId: "event-1",
@@ -172,6 +189,9 @@ describe("RegisterCitizenToCommunityEventUseCase", () => {
     expect(registration.id).toBe("registration-1");
     expect(eventOutboxRepository.events).toHaveLength(1);
     expect(eventBus.events[0].name).toBe("cultura.ciudadano_inscripto");
+    expect(emailSender.emails).toHaveLength(1);
+    expect(emailSender.emails[0].to).toBe("ana@test.com");
+    expect(emailSender.emails[0].subject).toContain("Feria de emprendedores");
   });
 
   it("rechaza inscripciones duplicadas al mismo evento", async () => {

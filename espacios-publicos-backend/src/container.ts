@@ -89,7 +89,8 @@ export function createContainer() {
     communityEventRepository,
     communityEventRegistrationRepository,
     eventOutboxRepository,
-    eventBus
+    eventBus,
+    emailSender
   );
   const listCommunityEventRegistrationsUseCase = new ListCommunityEventRegistrationsUseCase(
     communityEventRepository,
