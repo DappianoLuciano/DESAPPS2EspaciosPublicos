@@ -6,6 +6,7 @@ import { errorHandler } from "./interfaces/http/middlewares/errorHandler";
 import { jwtIdentity } from "./interfaces/http/middlewares/jwtIdentity";
 import { mockIdentity } from "./interfaces/http/middlewares/mockIdentity";
 import { requestContext } from "./interfaces/http/middlewares/requestContext";
+import { requestLogger } from "./interfaces/http/middlewares/requestLogger";
 import {
   apiRateLimiter,
   authRateLimiter,
@@ -32,6 +33,7 @@ export function createApp() {
 
   app.disable("x-powered-by");
   app.use(requestContext);
+  app.use(requestLogger);
   app.use(
     helmet({
       strictTransportSecurity: isProductionRuntime() ? undefined : false

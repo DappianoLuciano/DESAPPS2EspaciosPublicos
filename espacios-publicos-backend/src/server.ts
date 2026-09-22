@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { createApp } from "./app";
 import { configureServerSecurity } from "./shared/http/configureServerSecurity";
+import { logger } from "./shared/logging/logger";
 import { getListenHost } from "./shared/runtime/runtimeMode";
 
 const port = Number(process.env.PORT || 3000);
@@ -8,8 +9,9 @@ const host = getListenHost();
 const app = createApp();
 
 const onListening = () => {
-  console.log(
-    `CityPass+ Espacios y Cultura escuchando en ${host || "la interfaz configurada"}:${port}`
+  logger.info(
+    { host: host || "la interfaz configurada", port },
+    "CityPass+ Espacios y Cultura escuchando"
   );
 };
 

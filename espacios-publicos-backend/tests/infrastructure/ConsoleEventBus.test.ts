@@ -1,8 +1,9 @@
 import { ConsoleEventBus } from "../../src/infrastructure/events/ConsoleEventBus";
+import { readLoggedLines } from "../helpers/logSpy";
 
 describe("logs del bus de eventos", () => {
   it("registra metadatos sin exponer el contenido del evento", async () => {
-    const log = jest.spyOn(console, "log").mockImplementation();
+    const write = jest.spyOn(process.stdout, "write").mockImplementation(() => true);
     const eventBus = new ConsoleEventBus();
 
     await eventBus.publish({
@@ -12,15 +13,17 @@ describe("logs del bus de eventos", () => {
       payload: { citizenEmail: "persona@example.com" }
     });
 
-    expect(log).toHaveBeenCalledWith("[EventBus]", {
-      id: "event-1",
-      name: "evento.prueba",
-      occurredAt: "2030-01-01T00:00:00.000Z"
-    });
-    expect(log).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-      citizenEmail: expect.anything()
-    }));
+    const lines = readLoggedLines(write);
+    expect(lines).toContainEqual(
+      expect.objectContaining({
+        msg: "[EventBus]",
+        id: "event-1",
+        name: "evento.prueba",
+        occurredAt: "2030-01-01T00:00:00.000Z"
+      })
+    );
+    expect(JSON.stringify(lines)).not.toContain("persona@example.com");
 
-    log.mockRestore();
+    write.mockRestore();
   });
 });

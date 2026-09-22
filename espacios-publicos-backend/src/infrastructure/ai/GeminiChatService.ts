@@ -1,4 +1,5 @@
 import { AiChatMessage, AiChatService } from "../../domain/services/AiChatService";
+import { logger } from "../../shared/logging/logger";
 
 export class GeminiChatService implements AiChatService {
   private readonly apiKey: string;
@@ -60,7 +61,10 @@ export class GeminiChatService implements AiChatService {
 
       if (!response.ok) {
         const errorData = await response.text();
-        console.error(`[GeminiChatService] Error en llamada a Gemini (${response.status}):`, errorData);
+        logger.error(
+          { statusCode: response.status, errorData },
+          "[GeminiChatService] Error en llamada a Gemini"
+        );
         throw new Error(`Error de la API de Gemini: ${response.statusText}`);
       }
 
@@ -79,7 +83,7 @@ export class GeminiChatService implements AiChatService {
 
       return candidateText.trim();
     } catch (error) {
-      console.error("[GeminiChatService] Excepción al comunicarse con Gemini:", error);
+      logger.error({ err: error }, "[GeminiChatService] Excepción al comunicarse con Gemini");
       return "Hubo un inconveniente temporal de conectividad con el asistente inteligente. Por favor intentá más tarde.";
     }
   }

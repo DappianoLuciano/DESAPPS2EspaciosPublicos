@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { MockUserRole } from "../auth/mockUsers";
+import { logger } from "../../../shared/logging/logger";
 
 type SecurityAuditOutcome = "succeeded" | "failed" | "denied";
 
@@ -14,16 +15,19 @@ interface SecurityAuditEntry {
 }
 
 export function logSecurityAudit(request: Request, entry: SecurityAuditEntry): void {
-  console.info("[SecurityAudit]", {
-    requestId: request.requestId,
-    actorId: entry.actorId || request.user?.id || null,
-    actorRole: entry.actorRole || request.user?.role || null,
-    action: entry.action,
-    outcome: entry.outcome,
-    statusCode: entry.statusCode,
-    resourceType: entry.resourceType || null,
-    resourceId: entry.resourceId || null
-  });
+  logger.info(
+    {
+      requestId: request.requestId,
+      actorId: entry.actorId || request.user?.id || null,
+      actorRole: entry.actorRole || request.user?.role || null,
+      action: entry.action,
+      outcome: entry.outcome,
+      statusCode: entry.statusCode,
+      resourceType: entry.resourceType || null,
+      resourceId: entry.resourceId || null
+    },
+    "[SecurityAudit]"
+  );
 }
 
 export function auditAction(action: string, resourceType: string) {
