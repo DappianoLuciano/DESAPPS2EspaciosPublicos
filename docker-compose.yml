@@ -1,0 +1,111 @@
+# Stack local completo: Postgres + backend + frontend, mas un proxy TLS local
+# (ver docker/tls-proxy/Caddyfile) requerido porque el backend exige HTTPS en
+# modo production y el build del frontend exige un VITE_API_URL https://.
+#
+# Uso:
+#   cp .env.example .env   # una sola vez, y completar si hace falta
+#   docker compose up --build
+#
+# Este flujo usa un Postgres local descartable, independiente de la Supabase
+# compartida que usa el modo "dos terminales" documentado en el README.
+#
+# docker compose carga ".env" (en esta misma carpeta) automaticamente para
+# resolver los ${VARIABLE} de este archivo.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: citypass_espacios_cultura_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-citypass_espacios_cultura}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-citypass_espacios_cultura}"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  backend:
+    build:
+      context: ./espacios-publicos-backend
+      args:
+        PORT: ${PORT:-3000}
+    container_name: citypass_espacios_cultura_backend
+    env_file:
+      - ./.env
+    expose:
+      - "${PORT:-3000}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS -H \"X-Forwarded-Proto: https\" http://127.0.0.1:${PORT:-3000}/health || exit 1"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  tls-proxy:
+    image: caddy:2-alpine
+    container_name: citypass_espacios_cultura_tls_proxy
+    environment:
+      TLS_PROXY_PORT: ${TLS_PROXY_PORT:-8443}
+      BACKEND_PORT: ${PORT:-3000}
+    volumes:
+      - ./docker/tls-proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    ports:
+      - "${TLS_PROXY_PORT:-8443}:${TLS_PROXY_PORT:-8443}"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-check-certificate -qO- https://127.0.0.1:${TLS_PROXY_PORT:-8443}/health || exit 1"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./espacios-publicos-frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
+        VITE_ENABLE_MOCK_LOGIN: ${VITE_ENABLE_MOCK_LOGIN:-true}
+    container_name: citypass_espacios_cultura_frontend
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      tls-proxy:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
