@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextFunction, Request, Response } from "express";
 import multer from "multer";
 import { AppError } from "../../../shared/errors/AppError";
+import { logger } from "../../../shared/logging/logger";
 import { isProductionRuntime } from "../../../shared/runtime/runtimeMode";
 
 function sendError(response: Response, statusCode: number, message: string, requestId: string): void {
@@ -69,14 +70,17 @@ export function errorHandler(
   }
 
   if (isProductionRuntime()) {
-    console.error("Unhandled request error", {
-      requestId: request.requestId,
-      method: request.method,
-      path: request.path,
-      errorName: error.name
-    });
+    logger.error(
+      {
+        requestId: request.requestId,
+        method: request.method,
+        path: request.path,
+        errorName: error.name
+      },
+      "Unhandled request error"
+    );
   } else {
-    console.error(error);
+    logger.error(error);
   }
 
   sendError(response, 500, "Error interno del servidor.", request.requestId);

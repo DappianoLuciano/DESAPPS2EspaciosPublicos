@@ -1,12 +1,13 @@
 import request from "supertest";
 import { createApp } from "../../src/app";
 import { hasPermission, permissions } from "../../src/interfaces/http/auth/permissions";
+import { readLoggedLines } from "../helpers/logSpy";
 
 describe("politica de autorizacion", () => {
   let auditLog: jest.SpyInstance;
 
   beforeEach(() => {
-    auditLog = jest.spyOn(console, "info").mockImplementation();
+    auditLog = jest.spyOn(process.stdout, "write").mockImplementation(() => true);
   });
 
   afterEach(() => {
@@ -28,9 +29,9 @@ describe("politica de autorizacion", () => {
       .expect(403);
 
     expect(response.body.message).toBe("Tu perfil no tiene permisos para realizar esta accion.");
-    expect(auditLog).toHaveBeenCalledWith(
-      "[SecurityAudit]",
+    expect(readLoggedLines(auditLog)).toContainEqual(
       expect.objectContaining({
+        msg: "[SecurityAudit]",
         actorId: "citizen-1",
         action: permissions.CREATE_COMMUNITY_EVENT,
         outcome: "denied",
