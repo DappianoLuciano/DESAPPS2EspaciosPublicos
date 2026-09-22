@@ -120,6 +120,13 @@ class FakeEventBus implements EventBus {
   }
 }
 
+// Siempre en el futuro respecto a "ahora", para que estos tests no queden
+// obsoletos con el correr del tiempo (ver #incidente CI: fechas fijas vencidas).
+const EVENT_START = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+EVENT_START.setUTCHours(13, 0, 0, 0);
+const EVENT_END = new Date(EVENT_START);
+EVENT_END.setUTCHours(20, 0, 0, 0);
+
 function createUseCase(capacity = 2, requiresRegistration = true) {
   const communityEventRepository = new FakeCommunityEventRepository();
   const communityEventRegistrationRepository = new FakeCommunityEventRegistrationRepository();
@@ -137,8 +144,8 @@ function createUseCase(capacity = 2, requiresRegistration = true) {
     organizerName: "Comuna 6",
     capacity,
     requiresRegistration,
-    startDate: new Date("2026-09-15T13:00:00.000Z"),
-    endDate: new Date("2026-09-15T20:00:00.000Z"),
+    startDate: EVENT_START,
+    endDate: EVENT_END,
     status: "ACTIVE",
     createdAt: new Date()
   });
