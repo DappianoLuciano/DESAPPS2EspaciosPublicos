@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   deploy-backend:
-    name: Deploy Backend
+    name: Deploy Backend (Vercel)
     runs-on: ubuntu-latest
     environment: production
 
@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0 # necesario para poder diffear contra el commit anterior
 
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -44,37 +46,46 @@ jobs:
       - name: Build backend
         run: npm run build
 
-      - name: Deploy to production (Railway)
-        if: vars.DEPLOY_BACKEND == 'true'
+      - name: Detect Prisma schema changes
+        id: schema-changed
         run: |
-          echo " Deploying backend to Railway..."
-          # Descomentar y configurar cuando tengas Railway CLI
-          # npm install -g @railway/cli
-          # railway up --service backend
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          run_migrations=true
+          base_sha="${{ github.event.before }}"
 
-      # Alternativa: Deploy a Render
-      # - name: Deploy to Render
-      #   if: vars.DEPLOY_PLATFORM == 'render'
-      #   run: |
-      #     curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}
+          if [ -n "$base_sha" ] && [ "$base_sha" != "0000000000000000000000000000000000000000" ] \
+            && git cat-file -e "${base_sha}^{commit}" 2>/dev/null; then
+            if git diff --quiet "$base_sha" "${{ github.sha }}" -- prisma; then
+              run_migrations=false
+            fi
+          fi
+          # Si no se puede determinar el commit anterior (workflow_dispatch, primer
+          # push, historial no disponible), se asume que hay cambios: prisma migrate
+          # deploy es idempotente y no hace nada si no hay migraciones pendientes.
+
+          echo "changed=$run_migrations" >> "$GITHUB_OUTPUT"
 
       - name: Run database migrations
-        if: vars.RUN_MIGRATIONS == 'true'
+        if: steps.schema-changed.outputs.changed == 'true'
         run: npm run prisma:deploy
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+
+      - name: Deploy to Vercel
+        run: npx --yes vercel deploy --prod --token="$VERCEL_TOKEN" --yes
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BACKEND }}
 
       - name: Deployment success notification
         if: success()
         run: echo "Backend deployed successfully!"
 
   deploy-frontend:
-    name: Deploy Frontend
+    name: Deploy Frontend (Vercel)
     runs-on: ubuntu-latest
     environment: production
-    if: vars.DEPLOY_FRONTEND == 'true'
 
     defaults:
       run:
@@ -94,34 +105,20 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
+      - name: Run linter
+        run: npm run lint
+
       - name: Build frontend
         run: npm run build
         env:
-          # Variables de entorno para el build
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
       - name: Deploy to Vercel
-        if: vars.DEPLOY_FRONTEND == 'true'
-        run: |
-          echo "🚀 Deploying frontend to Vercel..."
-          # Descomentar cuando tengas Vercel CLI configurado
-          # npm install -g vercel
-          # vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel deploy --prod --token="$VERCEL_TOKEN" --yes
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-      # Alternativa: Deploy a Netlify
-      # - name: Deploy to Netlify
-      #   if: vars.DEPLOY_PLATFORM == 'netlify'
-      #   uses: nwtgck/actions-netlify@v2
-      #   with:
-      #     publish-dir: './espacios-publicos-frontend/dist'
-      #     production-deploy: true
-      #   env:
-      #     NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-      #     NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_FRONTEND }}
 
       - name: Deployment success notification
         if: success()
@@ -144,9 +141,11 @@ jobs:
             echo "✅ Deployment completed successfully!"
           else
             echo "⚠️ Some deployments may have failed or been skipped"
+            exit 1
           fi
 
-      # Opcional: Health check de la API
+      # Health check de la API real en produccion (requiere la variable de
+      # repositorio/entorno API_URL, no un secret, ya que no es sensible).
       - name: Health check API
         if: vars.API_URL != ''
         env:
@@ -157,3 +156,29 @@ jobs:
             *) echo "API_URL must use HTTPS"; exit 1 ;;
           esac
           curl --proto '=https' --fail --show-error --silent -- "$API_URL/health"
+
+# -----------------------------------------------------------------------------
+# GitHub Secrets a configurar (Settings > Environments > "production" de este
+# repo) para que este workflow pueda desplegar:
+#
+#   VERCEL_TOKEN                Token de acceso de Vercel (cuenta u organizacion)
+#                                con permisos de deploy sobre ambos proyectos.
+#   VERCEL_ORG_ID                ID de la organizacion/equipo de Vercel (comun a
+#                                ambos proyectos).
+#   VERCEL_PROJECT_ID_BACKEND    ID del proyecto Vercel de espacios-publicos-backend.
+#   VERCEL_PROJECT_ID_FRONTEND   ID del proyecto Vercel de espacios-publicos-frontend.
+#   DATABASE_URL                 Connection string (pooled) de la base de datos
+#                                de produccion, usada por Prisma para las
+#                                migraciones y por los tests del backend.
+#   DIRECT_URL                   Connection string directa (sin pooling) de la
+#                                base de produccion, requerida por Prisma para
+#                                `migrate deploy`.
+#   VITE_API_URL                 URL publica del backend en produccion, horneada
+#                                en el build del frontend.
+#
+# GitHub Variables (Settings > Environments > "production", no son secretas):
+#   API_URL                      URL publica del backend en produccion (ej.
+#                                https://api.midominio.com), usada solo para el
+#                                health check post-deploy. Si no se define, el
+#                                health check se omite.
+# -----------------------------------------------------------------------------
