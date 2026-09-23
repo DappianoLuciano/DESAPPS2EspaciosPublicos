@@ -195,7 +195,7 @@ npm run build
 El proyecto incluye pipelines automatizados de GitHub Actions:
 
 - **CI Pipeline** - Ejecuta tests, linting y builds automáticamente en cada push/PR
-- **CD Pipeline** - Despliega automáticamente a producción en merge a `main`
+- **Deploy a producción** - Vía integración nativa de Vercel (no GitHub Actions), ver [VERCEL_SETUP.md](.github/VERCEL_SETUP.md)
 - **PR Checks** - Valida PRs con checks de calidad y seguridad
 - **SonarQube Analysis** - Análisis de calidad de código, bugs, vulnerabilidades y code smells
 - **Security Scan** - Escaneos de seguridad semanales
@@ -204,5 +204,6 @@ El proyecto incluye pipelines automatizados de GitHub Actions:
 
 - [📋 QUICKSTART.md](.github/QUICKSTART.md) - Inicio rápido (<10 minutos)
 - [📘 PIPELINE.md](.github/PIPELINE.md) - Configuración completa
+- [▲ VERCEL_SETUP.md](.github/VERCEL_SETUP.md) - Configuración de los proyectos de Vercel
 - [🔍 SONARQUBE_SETUP.md](.github/SONARQUBE_SETUP.md) - Setup de SonarQube
 - [🏗️ ARCHITECTURE.md](.github/ARCHITECTURE.md) - Arquitectura técnica
