@@ -1,8 +1,14 @@
+# Disparo automatico en push a main deshabilitado a proposito: Vercel ya
+# despliega backend y frontend con su integracion nativa (GitHub App), que
+# no necesita ningun secret de este repo. Este pipeline requeriria cargar
+# VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID_BACKEND/FRONTEND,
+# DATABASE_URL, DIRECT_URL y VITE_API_URL para funcionar, y correr en
+# paralelo al deploy nativo generaria dos mecanismos de deploy compitiendo.
+# Se deja disponible solo por workflow_dispatch (manual) para no perder el
+# trabajo si en algun momento se decide migrar del deploy nativo a este.
 name: CD Pipeline
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch: # Permite ejecutar manualmente desde GitHub
 
 permissions:
