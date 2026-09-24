@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Container, Card, Title, Text, Badge, Loader, Center, Group, Button, Stack, ThemeIcon, Image } from '@mantine/core';
-import { IconCheck, IconX, IconCalendar, IconUser, IconMapPin } from '@tabler/icons-react';
+import { IconArrowLeft, IconCheck, IconX, IconCalendar, IconUser, IconMapPin } from '@tabler/icons-react';
 import QRCode from 'qrcode';
 import { getCommunityEventRegistration } from '../lib/api';
 import type { CitizenCommunityEventRegistration } from '../lib/api';
 
 export default function RegistrationTicket() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [registration, setRegistration] = useState<CitizenCommunityEventRegistration | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -19,7 +20,7 @@ export default function RegistrationTicket() {
     // El QR apunta a esta misma pagina, igual que el que se manda por mail.
     const ticketUrl = `${window.location.origin}/reservations/ticket/${id}`;
 
-    Promise.all([getCommunityEventRegistration(id), QRCode.toDataURL(ticketUrl, { width: 240, margin: 1 })])
+    Promise.all([getCommunityEventRegistration(id), QRCode.toDataURL(ticketUrl, { width: 320, margin: 1 })])
       .then(([res, qr]) => {
         setRegistration(res);
         setQrCode(qr);
@@ -28,13 +29,35 @@ export default function RegistrationTicket() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  // Si se entro directo (link del mail o escaneo del QR) no hay historial al que volver.
+  const goBack = () => {
+    if (window.history.state?.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/reservations');
+    }
+  };
+
+  const backButton = (
+    <Button
+      variant="subtle"
+      color="gray"
+      size="compact-sm"
+      leftSection={<IconArrowLeft size={16} />}
+      onClick={goBack}
+      mb="xs"
+    >
+      Volver
+    </Button>
+  );
+
   if (loading) {
     return (
-      <Container size="sm" mt="xl">
-        <Center style={{ height: '50vh' }}>
+      <Container size={420} mt="xl">
+        <Center style={{ height: '40vh' }}>
           <Stack align="center">
-            <Loader size="lg" />
-            <Text>Cargando reserva...</Text>
+            <Loader />
+            <Text size="sm">Cargando reserva...</Text>
           </Stack>
         </Center>
       </Container>
@@ -43,20 +66,16 @@ export default function RegistrationTicket() {
 
   if (error || !registration) {
     return (
-      <Container size="sm" mt="xl">
-        <Card shadow="sm" p="lg" radius="md" withBorder>
-          <Center>
-            <Stack align="center" gap="md">
-              <ThemeIcon color="red" size="xl" radius="xl">
-                <IconX size={24} />
-              </ThemeIcon>
-              <Title order={3}>Reserva no encontrada</Title>
-              <Text c="dimmed">{error || 'No se encontró la inscripción.'}</Text>
-              <Button component={Link} to="/reservations" variant="light" mt="md">
-                Volver a mis reservas
-              </Button>
-            </Stack>
-          </Center>
+      <Container size={420} mt="lg">
+        {backButton}
+        <Card shadow="sm" p="md" radius="md" withBorder>
+          <Stack align="center" gap="sm">
+            <ThemeIcon color="red" size="lg" radius="xl">
+              <IconX size={20} />
+            </ThemeIcon>
+            <Title order={4}>Reserva no encontrada</Title>
+            <Text size="sm" c="dimmed" ta="center">{error || 'No se encontró la inscripción.'}</Text>
+          </Stack>
         </Card>
       </Container>
     );
@@ -67,86 +86,63 @@ export default function RegistrationTicket() {
 
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleString('es-AR', {
-      dateStyle: 'long',
-      timeStyle: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
     });
 
   return (
-    <Container size="sm" mt="xl" mb="xl">
-      <Card shadow="sm" p="xl" radius="md" withBorder>
-        <Stack gap="xl">
-          <Center>
-            <Stack align="center" gap="xs">
-              <Title order={2} ta="center">{event.title}</Title>
-              <Badge
-                size="lg"
-                color={isValid ? 'teal' : 'red'}
-                variant="light"
-                leftSection={isValid ? <IconCheck size={14} /> : <IconX size={14} />}
-              >
-                {isValid ? 'Inscripción válida' : 'Inscripción no válida'}
-              </Badge>
-            </Stack>
-          </Center>
+    <Container size={420} mt="lg" mb="lg">
+      {backButton}
+      <Card shadow="sm" p="md" radius="md" withBorder>
+        <Stack gap="md">
+          <Stack align="center" gap={6}>
+            <Title order={4} ta="center">{event.title}</Title>
+            <Badge
+              color={isValid ? 'teal' : 'red'}
+              variant="light"
+              leftSection={isValid ? <IconCheck size={12} /> : <IconX size={12} />}
+            >
+              {isValid ? 'Inscripción válida' : 'Inscripción no válida'}
+            </Badge>
+          </Stack>
 
           {qrCode && (
-            <Center>
-              <Stack align="center" gap="xs">
-                <Image src={qrCode} alt="Código QR de la inscripción" w={240} h={240} />
-                <Text size="sm" c="dimmed" ta="center">
-                  Presentá este código QR al momento de asistir.
-                </Text>
-              </Stack>
-            </Center>
+            <Stack align="center" gap={4}>
+              <Image src={qrCode} alt="Código QR de la inscripción" w={160} h={160} />
+              <Text size="xs" c="dimmed" ta="center">
+                Presentá este código QR al momento de asistir.
+              </Text>
+            </Stack>
           )}
 
-          <Card withBorder shadow="none" p="md" radius="md" bg="var(--mantine-color-gray-0)">
-            <Title order={4} mb="md">Detalles de la Reserva</Title>
+          <Stack gap="xs">
+            <Group wrap="nowrap" gap="xs" align="flex-start">
+              <IconMapPin size={16} style={{ flexShrink: 0, marginTop: 2 }} color="var(--mantine-color-blue-6)" />
+              <Text size="sm">
+                {event.publicSpace.name}
+                <Text span size="xs" c="dimmed"> · {event.publicSpace.address}, {event.publicSpace.zone}</Text>
+              </Text>
+            </Group>
+            <Group wrap="nowrap" gap="xs" align="flex-start">
+              <IconCalendar size={16} style={{ flexShrink: 0, marginTop: 2 }} color="var(--mantine-color-blue-6)" />
+              <Text size="sm">
+                {formatDate(event.startDate)} – {formatDate(event.endDate)}
+              </Text>
+            </Group>
+            <Group wrap="nowrap" gap="xs" align="flex-start">
+              <IconUser size={16} style={{ flexShrink: 0, marginTop: 2 }} color="var(--mantine-color-blue-6)" />
+              <Text size="sm">
+                {registration.citizenName}
+                <Text span size="xs" c="dimmed"> · {registration.citizenEmail}</Text>
+              </Text>
+            </Group>
+          </Stack>
 
-            <Stack gap="sm">
-              <Group wrap="nowrap">
-                <ThemeIcon color="blue" variant="light">
-                  <IconMapPin size={16} />
-                </ThemeIcon>
-                <div>
-                  <Text size="sm" c="dimmed">Lugar</Text>
-                  <Text fw={500}>{event.publicSpace.name}</Text>
-                  <Text size="xs" c="dimmed">{event.publicSpace.address}, {event.publicSpace.zone}</Text>
-                </div>
-              </Group>
-
-              <Group wrap="nowrap">
-                <ThemeIcon color="blue" variant="light">
-                  <IconCalendar size={16} />
-                </ThemeIcon>
-                <div>
-                  <Text size="sm" c="dimmed">Fecha y Hora</Text>
-                  <Text fw={500}>Desde: {formatDate(event.startDate)}</Text>
-                  <Text fw={500}>Hasta: {formatDate(event.endDate)}</Text>
-                </div>
-              </Group>
-
-              <Group wrap="nowrap">
-                <ThemeIcon color="blue" variant="light">
-                  <IconUser size={16} />
-                </ThemeIcon>
-                <div>
-                  <Text size="sm" c="dimmed">Asistente</Text>
-                  <Text fw={500}>{registration.citizenName}</Text>
-                  <Text size="xs" c="dimmed">{registration.citizenEmail}</Text>
-                </div>
-              </Group>
-            </Stack>
-          </Card>
-
-          <Group justify="center">
-            <Button component={Link} to={`/event/${event.id}`} variant="light">
-              Ver evento
-            </Button>
-            <Button component={Link} to="/reservations" variant="light">
-              Mis reservas
-            </Button>
-          </Group>
+          <Button component={Link} to={`/event/${event.id}`} variant="light" size="xs" fullWidth>
+            Ver evento
+          </Button>
         </Stack>
       </Card>
     </Container>
