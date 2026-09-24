@@ -5,6 +5,7 @@ import { ListCommunityEventRegistrationsUseCase } from "../../src/application/us
 import { ListCommunityEventsUseCase } from "../../src/application/use-cases/ListCommunityEventsUseCase";
 import { CreateCommunityEventUseCase } from "../../src/application/use-cases/CreateCommunityEventUseCase";
 import { CancelCommunityEventRegistrationUseCase } from "../../src/application/use-cases/CancelCommunityEventRegistrationUseCase";
+import { GetCommunityEventRegistrationUseCase } from "../../src/application/use-cases/GetCommunityEventRegistrationUseCase";
 import { RegisterCitizenToCommunityEventUseCase } from "../../src/application/use-cases/RegisterCitizenToCommunityEventUseCase";
 import { ListReservationsUseCase } from "../../src/application/use-cases/ListReservationsUseCase";
 import { RequestReservationUseCase } from "../../src/application/use-cases/RequestReservationUseCase";
@@ -68,7 +69,8 @@ describe("identidad mock en operaciones ciudadanas", () => {
       registerCitizen,
       {} as ListCommunityEventRegistrationsUseCase,
       {} as ListCitizenCommunityEventRegistrationsUseCase,
-      {} as CancelCommunityEventRegistrationUseCase
+      {} as CancelCommunityEventRegistrationUseCase,
+      {} as GetCommunityEventRegistrationUseCase
     );
     const request = {
       user: citizen,

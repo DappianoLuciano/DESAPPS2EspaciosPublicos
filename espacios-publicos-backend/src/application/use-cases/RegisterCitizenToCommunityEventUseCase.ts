@@ -10,6 +10,7 @@ import { NotFoundError } from "../../shared/errors/NotFoundError";
 import { ValidationError } from "../../shared/errors/ValidationError";
 import { requireEmail, requireText } from "../../shared/validation/inputValidation";
 import { RegisterCitizenToCommunityEventInput } from "../dtos/RegisterCitizenToCommunityEventInput";
+import { QrGenerator } from "../../domain/services/QrGenerator";
 
 export class RegisterCitizenToCommunityEventUseCase {
   constructor(
@@ -17,6 +18,7 @@ export class RegisterCitizenToCommunityEventUseCase {
     private readonly communityEventRegistrationRepository: CommunityEventRegistrationRepository,
     private readonly eventOutboxRepository: EventOutboxRepository,
     private readonly eventBus: EventBus,
+    private readonly qrGenerator: QrGenerator,
     private readonly emailSender: EmailSender
   ) {}
 
@@ -91,6 +93,8 @@ export class RegisterCitizenToCommunityEventUseCase {
 
     const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
     const eventUrl = `${frontendUrl}/event/${communityEvent.id}`;
+    const verificationUrl = `${frontendUrl}/reservations/ticket/${registration.id}`;
+    const qrCodeDataUri = await this.qrGenerator.generate(verificationUrl);
     const eventDate = communityEvent.startDate.toLocaleString("es-AR", {
       dateStyle: "full",
       timeStyle: "short"
@@ -102,12 +106,17 @@ export class RegisterCitizenToCommunityEventUseCase {
       <p>Tu lugar para <strong>${communityEvent.title}</strong> quedó reservado.</p>
       <p>Fecha: ${eventDate}</p>
       <p>Más detalles del evento: <a href="${eventUrl}">${eventUrl}</a></p>
+      <p>Por favor, presenta el siguiente codigo QR al momento de asistir:</p>
+      <img src="cid:qr-code" alt="Codigo QR de la inscripcion" />
+      <p>O puedes usar el siguiente enlace para ver el estado: <a href="${verificationUrl}">${verificationUrl}</a></p>
     `;
 
     await this.emailSender.send(
       registration.citizenEmail,
       `Inscripción Confirmada - ${communityEvent.title}`,
-      emailHtml
+      emailHtml,
+      // Gmail y otros clientes bloquean imagenes data: en el HTML; como adjunto inline con cid si se muestran.
+      [{ filename: "codigo-qr.png", path: qrCodeDataUri, cid: "qr-code" }]
     );
 
     return registration;

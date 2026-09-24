@@ -136,9 +136,9 @@ export default function MyReservations() {
                   color="blue" 
                   style={{ flex: 1 }}
                   radius="md"
-                  onClick={() => navigate(`/event/${event.id}`)}
+                  onClick={() => navigate(`/reservations/ticket/${reservation.id}`)}
                 >
-                  Ver evento
+                  Ver reserva
                 </Button>
                 {canCancel && (
                   <Button 

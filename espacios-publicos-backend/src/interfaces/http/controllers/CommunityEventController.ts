@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { CancelCommunityEventRegistrationUseCase } from "../../../application/use-cases/CancelCommunityEventRegistrationUseCase";
 import { CreateCommunityEventUseCase } from "../../../application/use-cases/CreateCommunityEventUseCase";
+import { GetCommunityEventRegistrationUseCase } from "../../../application/use-cases/GetCommunityEventRegistrationUseCase";
 import { GetCommunityEventUseCase } from "../../../application/use-cases/GetCommunityEventUseCase";
 import { ListCitizenCommunityEventRegistrationsUseCase } from "../../../application/use-cases/ListCitizenCommunityEventRegistrationsUseCase";
 import { ListCommunityEventsUseCase } from "../../../application/use-cases/ListCommunityEventsUseCase";
@@ -16,7 +17,8 @@ export class CommunityEventController {
     private readonly registerCitizenToCommunityEventUseCase: RegisterCitizenToCommunityEventUseCase,
     private readonly listCommunityEventRegistrationsUseCase: ListCommunityEventRegistrationsUseCase,
     private readonly listCitizenCommunityEventRegistrationsUseCase: ListCitizenCommunityEventRegistrationsUseCase,
-    private readonly cancelCommunityEventRegistrationUseCase: CancelCommunityEventRegistrationUseCase
+    private readonly cancelCommunityEventRegistrationUseCase: CancelCommunityEventRegistrationUseCase,
+    private readonly getCommunityEventRegistrationUseCase: GetCommunityEventRegistrationUseCase
   ) {}
 
   create = async (request: Request, response: Response): Promise<void> => {
@@ -59,6 +61,11 @@ export class CommunityEventController {
   listRegistrations = async (request: Request, response: Response): Promise<void> => {
     const registrations = await this.listCommunityEventRegistrationsUseCase.execute(request.params.id);
     response.json(registrations);
+  };
+
+  getRegistrationById = async (request: Request, response: Response): Promise<void> => {
+    const registration = await this.getCommunityEventRegistrationUseCase.execute(request.params.id);
+    response.json(registration);
   };
 
   listCitizenRegistrations = async (request: Request, response: Response): Promise<void> => {

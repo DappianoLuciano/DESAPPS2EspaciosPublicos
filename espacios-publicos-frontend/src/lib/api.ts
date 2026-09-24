@@ -456,6 +456,12 @@ export function listMyCommunityEventRegistrations() {
   return request<CitizenCommunityEventRegistration[]>('/api/community-events/registrations/me');
 }
 
+export function getCommunityEventRegistration(registrationId: string) {
+  return request<CitizenCommunityEventRegistration>(
+    `/api/community-events/registrations/${encodeURIComponent(registrationId)}`
+  );
+}
+
 export function cancelCommunityEventRegistration(registrationId: string) {
   return request<void>(
     `/api/community-events/registrations/${encodeURIComponent(registrationId)}`,

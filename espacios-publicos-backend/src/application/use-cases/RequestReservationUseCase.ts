@@ -121,14 +121,16 @@ export class RequestReservationUseCase {
       <p>Hola ${reservation.requesterName},</p>
       <p>Tu reserva para el espacio ha sido aceptada.</p>
       <p>Por favor, presenta el siguiente código QR al momento de asistir:</p>
-      <img src="${qrCodeDataUri}" alt="Código QR de la reserva" />
+      <img src="cid:qr-code" alt="Código QR de la reserva" />
       <p>O puedes usar el siguiente enlace para ver el estado: <a href="${verificationUrl}">${verificationUrl}</a></p>
     `;
 
     await this.emailSender.send(
       reservation.requesterEmail,
       "Reserva Confirmada - Código QR",
-      emailHtml
+      emailHtml,
+      // Gmail y otros clientes bloquean imagenes data: en el HTML; como adjunto inline con cid si se muestran.
+      [{ filename: "codigo-qr.png", path: qrCodeDataUri, cid: "qr-code" }]
     );
 
     return reservation;

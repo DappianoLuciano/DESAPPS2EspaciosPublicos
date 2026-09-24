@@ -127,6 +127,12 @@ class FakeEmailSender {
   }
 }
 
+class FakeQrGenerator {
+  async generate(_data: string): Promise<string> {
+    return "fake-qr-data-uri";
+  }
+}
+
 // Siempre en el futuro respecto a "ahora", para que estos tests no queden
 // obsoletos con el correr del tiempo (ver #incidente CI: fechas fijas vencidas).
 const EVENT_START = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -163,6 +169,7 @@ function createUseCase(capacity = 2, requiresRegistration = true) {
     communityEventRegistrationRepository,
     eventOutboxRepository,
     eventBus,
+    new FakeQrGenerator(),
     emailSender
   );
 

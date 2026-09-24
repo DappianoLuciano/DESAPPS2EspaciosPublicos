@@ -13,6 +13,7 @@ import CreateEvent from './pages/CreateEvent';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ReservationVerify from './pages/ReservationVerify';
+import RegistrationTicket from './pages/RegistrationTicket';
 import MyReservations from './pages/MyReservations';
 import CategoryEvents from './pages/CategoryEvents';
 import CancelReservation from './pages/CancelReservation';
@@ -38,6 +39,7 @@ function App() {
               element={isMockLoginEnabled ? <Register /> : <Navigate to="/login" replace />}
             />
             <Route path="/reservations/verify/:id" element={<ReservationVerify />} />
+            <Route path="/reservations/ticket/:id" element={<RegistrationTicket />} />
             
             <Route element={<PrivateRoute />}>
               <Route element={<Layout />}>

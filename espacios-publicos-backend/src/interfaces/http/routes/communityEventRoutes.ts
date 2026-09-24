@@ -29,6 +29,7 @@ export function createCommunityEventRoutes(controller: CommunityEventController)
     auditAction(permissions.VIEW_OWN_REGISTRATIONS, "community-event-registration"),
     asyncHandler(controller.listCitizenRegistrations)
   );
+  router.get("/registrations/:id", asyncHandler(controller.getRegistrationById));
   router.delete(
     "/registrations/:registrationId",
     requirePermission(permissions.CANCEL_OWN_REGISTRATION),

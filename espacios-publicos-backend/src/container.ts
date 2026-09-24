@@ -2,6 +2,7 @@ import { CancelCommunityEventRegistrationUseCase } from "./application/use-cases
 import { CreateCommunityEventUseCase } from "./application/use-cases/CreateCommunityEventUseCase";
 import { CreatePublicSpaceUseCase } from "./application/use-cases/CreatePublicSpaceUseCase";
 import { DeletePublicSpaceUseCase } from "./application/use-cases/DeletePublicSpaceUseCase";
+import { GetCommunityEventRegistrationUseCase } from "./application/use-cases/GetCommunityEventRegistrationUseCase";
 import { GetCommunityEventUseCase } from "./application/use-cases/GetCommunityEventUseCase";
 import { ListCitizenCommunityEventRegistrationsUseCase } from "./application/use-cases/ListCitizenCommunityEventRegistrationsUseCase";
 import { ListCommunityEventsUseCase } from "./application/use-cases/ListCommunityEventsUseCase";
@@ -90,6 +91,7 @@ export function createContainer() {
     communityEventRegistrationRepository,
     eventOutboxRepository,
     eventBus,
+    qrGenerator,
     emailSender
   );
   const listCommunityEventRegistrationsUseCase = new ListCommunityEventRegistrationsUseCase(
@@ -100,6 +102,9 @@ export function createContainer() {
     new ListCitizenCommunityEventRegistrationsUseCase(communityEventRegistrationRepository);
   const cancelCommunityEventRegistrationUseCase = new CancelCommunityEventRegistrationUseCase(
     communityEventRepository,
+    communityEventRegistrationRepository
+  );
+  const getCommunityEventRegistrationUseCase = new GetCommunityEventRegistrationUseCase(
     communityEventRegistrationRepository
   );
 
@@ -133,7 +138,8 @@ export function createContainer() {
       registerCitizenToCommunityEventUseCase,
       listCommunityEventRegistrationsUseCase,
       listCitizenCommunityEventRegistrationsUseCase,
-      cancelCommunityEventRegistrationUseCase
+      cancelCommunityEventRegistrationUseCase,
+      getCommunityEventRegistrationUseCase
     ),
     chatbotController
   };
