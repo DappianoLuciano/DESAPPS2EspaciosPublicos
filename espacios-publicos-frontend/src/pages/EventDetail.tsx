@@ -71,10 +71,10 @@ export default function EventDetail() {
     setSubmitting(true);
 
     try {
-      await registerToCommunityEvent(event.id);
+      const registration = await registerToCommunityEvent(event.id);
 
       close();
-      navigate('/reservation-success', { state: { event } });
+      navigate('/reservation-success', { state: { event, registration } });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo reservar el lugar.');
     } finally {

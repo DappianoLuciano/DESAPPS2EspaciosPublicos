@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Container, Card, Title, Text, Badge, Loader, Center, Group, Button, Stack, ThemeIcon, Image } from '@mantine/core';
-import { IconArrowLeft, IconCheck, IconX, IconCalendar, IconUser, IconMapPin } from '@tabler/icons-react';
+import { IconArrowLeft, IconDownload, IconCheck, IconX, IconCalendar, IconUser, IconMapPin } from '@tabler/icons-react';
 import QRCode from 'qrcode';
 import { getCommunityEventRegistration } from '../lib/api';
 import type { CitizenCommunityEventRegistration } from '../lib/api';
+import { downloadTicketPdf, getTicketUrl } from '../lib/ticketPdf';
 
 export default function RegistrationTicket() {
   const { id } = useParams<{ id: string }>();
@@ -13,14 +14,13 @@ export default function RegistrationTicket() {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
 
     // El QR apunta a esta misma pagina, igual que el que se manda por mail.
-    const ticketUrl = `${window.location.origin}/reservations/ticket/${id}`;
-
-    Promise.all([getCommunityEventRegistration(id), QRCode.toDataURL(ticketUrl, { width: 320, margin: 1 })])
+    Promise.all([getCommunityEventRegistration(id), QRCode.toDataURL(getTicketUrl(id),{ width: 320, margin: 1 })])
       .then(([res, qr]) => {
         setRegistration(res);
         setQrCode(qr);
@@ -140,9 +140,34 @@ export default function RegistrationTicket() {
             </Group>
           </Stack>
 
-          <Button component={Link} to={`/event/${event.id}`} variant="light" size="xs" fullWidth>
-            Ver evento
-          </Button>
+          <Group grow gap="xs">
+            <Button
+              size="xs"
+              leftSection={<IconDownload size={14} />}
+              loading={downloading}
+              onClick={async () => {
+                setDownloading(true);
+                try {
+                  await downloadTicketPdf({
+                    registrationId: registration.id,
+                    eventTitle: event.title,
+                    startDate: event.startDate,
+                    endDate: event.endDate,
+                    placeName: event.publicSpace.name,
+                    placeAddress: `${event.publicSpace.address}, ${event.publicSpace.zone}`,
+                    citizenName: registration.citizenName,
+                  });
+                } finally {
+                  setDownloading(false);
+                }
+              }}
+            >
+              Descargar entrada
+            </Button>
+            <Button component={Link} to={`/event/${event.id}`} variant="light" size="xs">
+              Ver evento
+            </Button>
+          </Group>
         </Stack>
       </Card>
     </Container>

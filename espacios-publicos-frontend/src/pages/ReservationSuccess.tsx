@@ -4,23 +4,45 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import type { CommunityEventCatalogItem } from '../lib/api';
+import { downloadTicketPdf, getTicketUrl } from '../lib/ticketPdf';
 
 export default function ReservationSuccess() {
   const navigate = useNavigate();
   const location = useLocation();
   const event = location.state?.event as CommunityEventCatalogItem | undefined;
+  const registration = location.state?.registration as { id: string; citizenName: string } | undefined;
   const [qrCodeDataUri, setQrCodeDataUri] = useState<string>('');
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
-    if (event?.id) {
-      // Usamos el ID del evento o registro para generar la URL de validación.
-      // Siguiendo el requerimiento de validación:
-      const verificationUrl = `${window.location.origin}/reservations/verify/${event.id}`;
-      QRCode.toDataURL(verificationUrl, { width: 360, margin: 1 })
+    if (registration?.id) {
+      // Mismo QR que el del mail y la pagina del ticket.
+      QRCode.toDataURL(getTicketUrl(registration.id), { width: 360, margin: 1 })
         .then(url => setQrCodeDataUri(url))
         .catch(console.error);
     }
-  }, [event?.id]);
+  }, [registration?.id]);
+
+  const handleDownload = async () => {
+    if (!event || !registration) {
+      return;
+    }
+
+    setDownloading(true);
+    try {
+      await downloadTicketPdf({
+        registrationId: registration.id,
+        eventTitle: event.title,
+        startDate: event.startDate,
+        endDate: event.endDate,
+        placeName: event.publicSpace.name,
+        placeAddress: `${event.publicSpace.address}, ${event.publicSpace.zone}`,
+        citizenName: registration.citizenName,
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const formatDate = (date?: string) => {
     if (!date) {
@@ -88,12 +110,19 @@ export default function ReservationSuccess() {
             ) : (
               <Box w={180} h={180} bg="gray.2" mb="lg" />
             )}
-            <Badge color="gray" variant="light" size="lg">#{event?.id.slice(0, 8).toUpperCase() || 'RESERVA'}</Badge>
+            <Badge color="gray" variant="light" size="lg">#{registration?.id.slice(0, 8).toUpperCase() || 'RESERVA'}</Badge>
           </Center>
         </Card>
 
         <Flex direction="column" gap="md" w="100%" mt={40}>
-          <Button size="lg" leftSection={<IconDownload size="1.2rem" />} fullWidth>
+          <Button
+            size="lg"
+            leftSection={<IconDownload size="1.2rem" />}
+            fullWidth
+            onClick={handleDownload}
+            loading={downloading}
+            disabled={!event || !registration}
+          >
             Descargar Entrada
           </Button>
           <Button size="lg" variant="light" leftSection={<IconCalendarEvent size="1.2rem" />} fullWidth onClick={() => navigate('/reservations')}>
