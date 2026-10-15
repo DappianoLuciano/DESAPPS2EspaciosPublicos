@@ -62,7 +62,11 @@ export function createContainer() {
 
   const createPublicSpaceUseCase = new CreatePublicSpaceUseCase(publicSpaceRepository);
   const listPublicSpacesUseCase = new ListPublicSpacesUseCase(publicSpaceRepository);
-  const updatePublicSpaceUseCase = new UpdatePublicSpaceUseCase(publicSpaceRepository);
+  const updatePublicSpaceUseCase = new UpdatePublicSpaceUseCase(
+    publicSpaceRepository,
+    eventOutboxRepository,
+    eventBus
+  );
   const deletePublicSpaceUseCase = new DeletePublicSpaceUseCase(publicSpaceRepository);
 
   const requestReservationUseCase = new RequestReservationUseCase(
