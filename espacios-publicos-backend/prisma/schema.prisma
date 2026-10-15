@@ -62,6 +62,11 @@ model PublicSpace {
   address     String
   zone        String           @default("Sin definir")
   capacity    Int
+  // Coordenadas WGS84. Opcionales para no romper los espacios ya cargados, pero
+  // sin ellas el espacio no participa de la ruta urbana (CU-INT-01): Movilidad
+  // las necesita para buscar estaciones y nosotros para detectar incidentes cerca.
+  latitude    Float?
+  longitude   Float?
   status      PublicSpaceStatus @default(ENABLED)
   imageUrl    String?
   createdAt   DateTime         @default(now())
@@ -129,8 +134,36 @@ model EventOutbox {
   payload     Json
   occurredAt  DateTime
   publishedAt DateTime?
+  attempts    Int       @default(0)
+  lastError   String?
   createdAt   DateTime  @default(now())
 
   @@index([name])
+  @@index([publishedAt, createdAt])
   @@map("event_outbox")
+}
+
+// Eventos recibidos por webhook desde el gateway (CU-INT-01). La entrega es
+// at-least-once: el eventId de la metadata del gateway es estable entre
+// reintentos, asi que con guardarlo alcanza para no procesar dos veces.
+model InboundEvent {
+  eventId    String   @id
+  eventType  String
+  receivedAt DateTime @default(now())
+
+  @@map("inbound_events")
+}
+
+// Un incidente ya avisado para un evento no se vuelve a avisar, aunque llegue
+// por otro tipo de evento (por ejemplo, el mismo reclamo reclasificado).
+model EventIncidentImpact {
+  id               String   @id @default(uuid())
+  communityEventId String
+  source           String
+  incidentId       String
+  distanceMeters   Int
+  createdAt        DateTime @default(now())
+
+  @@unique([communityEventId, source, incidentId])
+  @@map("event_incident_impacts")
 }

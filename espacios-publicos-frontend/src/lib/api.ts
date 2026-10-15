@@ -88,6 +88,8 @@ export interface PublicSpace {
   address: string;
   zone?: string;
   capacity: number;
+  latitude?: number | null;
+  longitude?: number | null;
   status: 'ENABLED' | 'DISABLED';
   imageUrl?: string | null;
   createdAt: string;
@@ -361,6 +363,8 @@ export interface PublicSpacePayload {
   address: string;
   zone: string;
   capacity: number;
+  latitude?: number | null;
+  longitude?: number | null;
   status: 'ENABLED' | 'DISABLED';
   imageUrl?: string | null;
 }

@@ -9,6 +9,7 @@ import { EventBus } from "../../domain/services/EventBus";
 import { ForbiddenError } from "../../shared/errors/ForbiddenError";
 import { NotFoundError } from "../../shared/errors/NotFoundError";
 import { ValidationError } from "../../shared/errors/ValidationError";
+import { hasCoordinates } from "../../shared/geo/distance";
 import {
   normalizeStringList,
   optionalHttpsUrl,
@@ -67,6 +68,14 @@ export class CreateCommunityEventUseCase {
 
     if (publicSpace.status !== "ENABLED") {
       throw new ValidationError("El espacio publico indicado no esta habilitado para nuevos eventos.");
+    }
+
+    // CU-INT-01: el evento sale al bus con la ubicacion del espacio. Sin ella,
+    // Movilidad no puede recomendar estaciones y el evento queda fuera de la ruta.
+    if (!hasCoordinates(publicSpace)) {
+      throw new ValidationError(
+        "El espacio publico no tiene ubicacion cargada. Marcala en el mapa del espacio antes de publicar eventos."
+      );
     }
 
     if (capacity > publicSpace.capacity) {

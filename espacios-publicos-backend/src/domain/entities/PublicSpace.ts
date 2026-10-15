@@ -7,6 +7,8 @@ export interface PublicSpace {
   address: string;
   zone?: string;
   capacity: number;
+  latitude?: number | null;
+  longitude?: number | null;
   status: PublicSpaceStatus;
   imageUrl?: string | null;
   createdAt: Date;
@@ -18,6 +20,8 @@ export interface CreatePublicSpaceData {
   address: string;
   zone?: string;
   capacity: number;
+  latitude?: number | null;
+  longitude?: number | null;
   status?: PublicSpaceStatus;
   imageUrl?: string | null;
 }
@@ -28,6 +32,8 @@ export interface UpdatePublicSpaceData {
   address?: string;
   zone?: string;
   capacity?: number;
+  latitude?: number | null;
+  longitude?: number | null;
   status?: PublicSpaceStatus;
   imageUrl?: string | null;
 }
