@@ -31,7 +31,23 @@ export default defineConfig(({ command, mode }) => {
     }
   }
 
+  const env = loadEnv(mode, process.cwd(), '')
+  const idpTarget = env.VITE_CITYPASS_IDP_TARGET?.trim() || 'https://api.citypass-login.pp.ua'
+
   return {
     plugins: [react()],
+    server: {
+      proxy: {
+        '/citypass-proxy': {
+          target: idpTarget,
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => path.replace(/^\/citypass-proxy/, ''),
+          headers: {
+            Origin: 'http://localhost:3000',
+          },
+        },
+      },
+    },
   }
 })

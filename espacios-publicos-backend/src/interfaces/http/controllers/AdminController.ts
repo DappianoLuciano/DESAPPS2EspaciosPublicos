@@ -9,7 +9,16 @@ export class AdminController {
   ) {}
 
   getProfile = async (request: Request, response: Response): Promise<void> => {
-    const admin = await this.getAdminProfileUseCase.execute(request.user?.id || "");
+    const admin = await this.getAdminProfileUseCase.execute(
+      request.user?.id || "",
+      request.user
+        ? {
+            username: request.user.name,
+            name: request.user.name,
+            email: request.user.email
+          }
+        : undefined
+    );
     response.json(admin);
   };
 

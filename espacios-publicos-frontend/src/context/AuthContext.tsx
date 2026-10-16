@@ -2,11 +2,13 @@ import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 import { googleLogin, isMockLoginEnabled, mockLogin } from '../lib/api';
 import type { User } from '../lib/api';
+import { clearCityPassStorage, loginWithCityPass, logoutCityPass } from '../lib/citypassAuth';
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<User>;
   loginWithGoogle: (credential: string) => Promise<User>;
+  loginWithCityPass: (username: string, password: string) => Promise<User>;
   updateUser: (updates: Partial<Pick<User, 'name' | 'email'>>) => void;
   logout: () => void;
 }
@@ -101,11 +103,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return response.user;
   };
 
+  const loginWithCityPassAuth = async (username: string, password: string) => {
+    const cityPassUser = await loginWithCityPass(username, password);
+    setUser(cityPassUser);
+    return cityPassUser;
+  };
+
   const logout = () => {
+    void logoutCityPass();
     setUser(null);
     localStorage.removeItem('mock_user');
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
+    clearCityPassStorage();
   };
 
   const updateUser = (updates: Partial<Pick<User, 'name' | 'email'>>) => {
@@ -127,7 +137,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, loginWithGoogle, updateUser, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        loginWithGoogle,
+        loginWithCityPass: loginWithCityPassAuth,
+        updateUser,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
