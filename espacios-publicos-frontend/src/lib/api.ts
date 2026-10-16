@@ -1,3 +1,5 @@
+import { refreshCityPassSession } from './citypassAuth';
+
 function resolveApiUrl(): string {
   const configuredUrl = import.meta.env.VITE_API_URL?.trim();
 
@@ -185,7 +187,7 @@ export interface CommunityEventRegistration {
   createdAt: string;
 }
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
+async function request<T>(path: string, options?: RequestInit, isRetry = false): Promise<T> {
   const response = await fetchWithTimeout(`${API_URL}${path}`, {
     ...options,
     headers: {
@@ -195,15 +197,29 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     },
   });
 
+  if (response.status === 401 && !isRetry && localStorage.getItem('citypass_refresh_token')) {
+    const newToken = await refreshCityPassSession();
+    if (newToken) {
+      return request<T>(path, options, true);
+    }
+  }
+
   return parseResponse<T>(response, 'No se pudo completar la operación.');
 }
 
-async function uploadRequest<T>(path: string, formData: FormData): Promise<T> {
+async function uploadRequest<T>(path: string, formData: FormData, isRetry = false): Promise<T> {
   const response = await fetchWithTimeout(`${API_URL}${path}`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: formData,
   });
+
+  if (response.status === 401 && !isRetry && localStorage.getItem('citypass_refresh_token')) {
+    const newToken = await refreshCityPassSession();
+    if (newToken) {
+      return uploadRequest<T>(path, formData, true);
+    }
+  }
 
   return parseResponse<T>(response, 'No se pudo subir la imagen.');
 }

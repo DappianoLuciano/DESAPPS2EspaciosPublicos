@@ -8,9 +8,17 @@ export class PrismaAdminRepository implements AdminRepository {
   }
 
   async update(id: string, data: UpdateAdminData): Promise<Admin> {
-    return prisma.admin.update({
+    return prisma.admin.upsert({
       where: { id },
-      data
+      update: data,
+      create: {
+        id,
+        username: id,
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        department: data.department
+      }
     });
   }
 }
