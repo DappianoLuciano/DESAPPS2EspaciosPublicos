@@ -25,6 +25,10 @@ export class UpdatePublicSpaceUseCase {
       throw new ValidationError("El estado del espacio publico no es valido.");
     }
 
+    if (input.exposure && !["INDOOR", "OUTDOOR", "MIXED"].includes(input.exposure)) {
+      throw new ValidationError("El tipo de exposicion del espacio publico no es valido.");
+    }
+
     return this.publicSpaceRepository.update(publicSpaceId, {
       name: optionalText(input.name, "El nombre", 160),
       description: optionalText(input.description, "La descripcion", 5000),
@@ -35,6 +39,7 @@ export class UpdatePublicSpaceUseCase {
           ? undefined
           : requirePositiveInteger(input.capacity, "La capacidad"),
       status: input.status,
+      exposure: input.exposure,
       imageUrl: optionalHttpsUrl(input.imageUrl)
     });
   }

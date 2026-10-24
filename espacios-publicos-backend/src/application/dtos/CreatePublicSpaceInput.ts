@@ -5,5 +5,6 @@ export interface CreatePublicSpaceInput {
   zone?: string;
   capacity: number;
   status?: "ENABLED" | "DISABLED";
+  exposure?: "INDOOR" | "OUTDOOR" | "MIXED";
   imageUrl?: string | null;
 }

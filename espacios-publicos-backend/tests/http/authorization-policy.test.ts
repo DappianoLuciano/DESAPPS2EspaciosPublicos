@@ -18,6 +18,7 @@ describe("politica de autorizacion", () => {
     expect(hasPermission("citizen", permissions.CREATE_RESERVATION)).toBe(true);
     expect(hasPermission("citizen", permissions.CREATE_COMMUNITY_EVENT)).toBe(false);
     expect(hasPermission("municipal_admin", permissions.CREATE_COMMUNITY_EVENT)).toBe(true);
+    expect(hasPermission("municipal_admin", permissions.CONFIRM_WEATHER_ALERT)).toBe(true);
     expect(hasPermission("municipal_admin", permissions.CREATE_RESERVATION)).toBe(false);
   });
 

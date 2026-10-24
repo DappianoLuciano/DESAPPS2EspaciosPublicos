@@ -12,6 +12,7 @@ const emptyForm: PublicSpacePayload = {
   zone: '',
   capacity: 1,
   status: 'ENABLED',
+  exposure: 'MIXED',
   imageUrl: '',
 };
 
@@ -76,6 +77,7 @@ export default function PublicSpaceManagement() {
       zone: space.zone || '',
       capacity: space.capacity,
       status: space.status,
+      exposure: space.exposure || 'MIXED',
       imageUrl: space.imageUrl || '',
     });
     setAddressSearch(space.address);
@@ -123,6 +125,7 @@ export default function PublicSpaceManagement() {
         zone: space.zone || '',
         capacity: space.capacity,
         status: space.status === 'ENABLED' ? 'DISABLED' : 'ENABLED',
+        exposure: space.exposure || 'MIXED',
         imageUrl: space.imageUrl || null,
       });
       loadSpaces();
@@ -203,6 +206,17 @@ export default function PublicSpaceManagement() {
             value={form.status}
             onChange={(value) => setForm({ ...form, status: value as PublicSpacePayload['status'] })}
           />
+          <Select
+            label="Exposición climática"
+            description="Se usa para bloquear reservas durante contingencias climáticas."
+            data={[
+              { value: 'INDOOR', label: 'Interior' },
+              { value: 'OUTDOOR', label: 'Exterior' },
+              { value: 'MIXED', label: 'Mixto' },
+            ]}
+            value={form.exposure}
+            onChange={(value) => setForm({ ...form, exposure: value as PublicSpacePayload['exposure'] })}
+          />
           <TextInput
             label="Imagen URL"
             placeholder="https://..."
@@ -242,18 +256,19 @@ export default function PublicSpaceManagement() {
               <Table.Th>Zona</Table.Th>
               <Table.Th>Capacidad</Table.Th>
               <Table.Th>Estado</Table.Th>
+              <Table.Th>Exposición</Table.Th>
               <Table.Th>Acciones</Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {loading && (
               <Table.Tr>
-                <Table.Td colSpan={6}>Cargando espacios...</Table.Td>
+                <Table.Td colSpan={7}>Cargando espacios...</Table.Td>
               </Table.Tr>
             )}
             {!loading && spaces.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={6}>Todavía no hay espacios públicos cargados.</Table.Td>
+                <Table.Td colSpan={7}>Todavía no hay espacios públicos cargados.</Table.Td>
               </Table.Tr>
             )}
             {spaces.map((space) => (
@@ -271,6 +286,9 @@ export default function PublicSpaceManagement() {
                   <Badge color={space.status === 'ENABLED' ? 'green' : 'red'} variant="light">
                     {space.status === 'ENABLED' ? 'Habilitado' : 'Deshabilitado'}
                   </Badge>
+                </Table.Td>
+                <Table.Td>
+                  {space.exposure === 'INDOOR' ? 'Interior' : space.exposure === 'OUTDOOR' ? 'Exterior' : 'Mixto'}
                 </Table.Td>
                 <Table.Td>
                   <Flex gap="xs">

@@ -21,6 +21,8 @@ import { createPublicSpaceRoutes } from "./interfaces/http/routes/publicSpaceRou
 import { createReservationRoutes } from "./interfaces/http/routes/reservationRoutes";
 import { createUploadRoutes } from "./interfaces/http/routes/uploadRoutes";
 import { createChatbotRoutes } from "./interfaces/http/routes/chatbotRoutes";
+import { createInternalRoutes } from "./interfaces/http/routes/internalRoutes";
+import { createWeatherAlertRoutes } from "./interfaces/http/routes/weatherAlertRoutes";
 import { isProductionRuntime } from "./shared/runtime/runtimeMode";
 
 export function createApp() {
@@ -56,6 +58,8 @@ export function createApp() {
     createAuthRoutes(container.adminRepository, container.authController)
   );
   app.use("/api/admin", createAdminRoutes(container.adminController));
+  app.use("/api/admin/weather-alerts", createWeatherAlertRoutes(container.weatherAlertController));
+  app.use("/api/internal", createInternalRoutes(container.internalWeatherController));
   app.use("/api/uploads", uploadRateLimiter, createUploadRoutes(container.storageService));
   app.use("/api/public-spaces", createPublicSpaceRoutes(container.publicSpaceController));
   app.use("/api/reservations", createReservationRoutes(container.reservationController));
