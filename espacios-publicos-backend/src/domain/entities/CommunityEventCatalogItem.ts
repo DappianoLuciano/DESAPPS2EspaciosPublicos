@@ -21,5 +21,7 @@ export interface CommunityEventCatalogItem {
     name: string;
     address: string;
     zone: string;
+    latitude?: number | null;
+    longitude?: number | null;
   };
 }

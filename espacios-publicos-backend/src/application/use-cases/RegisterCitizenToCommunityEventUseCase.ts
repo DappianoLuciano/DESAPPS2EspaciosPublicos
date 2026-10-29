@@ -6,6 +6,7 @@ import { CommunityEventRepository } from "../../domain/repositories/CommunityEve
 import { EventOutboxRepository } from "../../domain/repositories/EventOutboxRepository";
 import { EventBus } from "../../domain/services/EventBus";
 import { EmailSender } from "../../domain/services/EmailSender";
+import { eventNames } from "../../shared/events/eventTypes";
 import { NotFoundError } from "../../shared/errors/NotFoundError";
 import { ValidationError } from "../../shared/errors/ValidationError";
 import { requireEmail, requireText } from "../../shared/validation/inputValidation";
@@ -78,12 +79,16 @@ export class RegisterCitizenToCommunityEventUseCase {
 
     const event: DomainEvent = {
       id: randomUUID(),
-      name: "cultura.ciudadano_inscripto",
+      name: eventNames.reservationConfirmed(),
+      // Contrato ReservaConfirmada para una inscripcion: una persona, en el horario del evento.
       payload: {
-        registrationId: registration.id,
-        communityEventId: registration.communityEventId,
-        citizenEmail: registration.citizenEmail,
-        remainingCapacity
+        reservaId: registration.id,
+        tipoReserva: "EVENTO",
+        recursoId: communityEvent.id,
+        espacioId: communityEvent.publicSpaceId,
+        cantidadPersonas: 1,
+        inicio: communityEvent.startDate.toISOString(),
+        fin: communityEvent.endDate.toISOString()
       },
       occurredAt: new Date()
     };

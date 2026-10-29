@@ -4,6 +4,8 @@ import { IconEdit, IconMapPin, IconPlus, IconTrash } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { createPublicSpace, deletePublicSpace, listPublicSpaces, updatePublicSpace } from '../lib/api';
 import type { PublicSpace, PublicSpacePayload } from '../lib/api';
+import LocationPicker from '../components/LocationPicker';
+import type { Coordinates } from '../components/LocationPicker';
 
 const emptyForm: PublicSpacePayload = {
   name: '',
@@ -11,9 +13,18 @@ const emptyForm: PublicSpacePayload = {
   address: '',
   zone: '',
   capacity: 1,
+  latitude: null,
+  longitude: null,
   status: 'ENABLED',
+  exposure: 'MIXED',
   imageUrl: '',
 };
+
+function coordinatesOf(form: PublicSpacePayload): Coordinates | null {
+  return typeof form.latitude === 'number' && typeof form.longitude === 'number'
+    ? { latitude: form.latitude, longitude: form.longitude }
+    : null;
+}
 
 export default function PublicSpaceManagement() {
   const [spaces, setSpaces] = useState<PublicSpace[]>([]);
@@ -34,7 +45,7 @@ export default function PublicSpaceManagement() {
       return;
     }
     const controller = new AbortController();
-    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(debouncedSearch)}&format=json&addressdetails=1`, {
+    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(debouncedSearch)}&format=json&addressdetails=1&limit=6&countrycodes=ar&accept-language=es`, {
       signal: controller.signal,
       headers: {
         'User-Agent': 'DesarrolloApp2/1.0 (local@example.com)'
@@ -75,7 +86,10 @@ export default function PublicSpaceManagement() {
       address: space.address,
       zone: space.zone || '',
       capacity: space.capacity,
+      latitude: space.latitude ?? null,
+      longitude: space.longitude ?? null,
       status: space.status,
+      exposure: space.exposure || 'MIXED',
       imageUrl: space.imageUrl || '',
     });
     setAddressSearch(space.address);
@@ -90,6 +104,12 @@ export default function PublicSpaceManagement() {
     try {
       if (!form.name || !form.description || !form.address || !form.zone || !form.capacity) {
         throw new Error('Completá nombre, descripción, dirección, zona y capacidad.');
+      }
+
+      // Sin coordenadas el espacio no puede recibir eventos: Movilidad las
+      // necesita para recomendar estaciones cercanas (CU-INT-01).
+      if (!coordinatesOf(form)) {
+        throw new Error('Marcá la ubicación del espacio: elegí la dirección de la lista o hacé clic en el mapa.');
       }
 
       const payload = {
@@ -123,6 +143,7 @@ export default function PublicSpaceManagement() {
         zone: space.zone || '',
         capacity: space.capacity,
         status: space.status === 'ENABLED' ? 'DISABLED' : 'ENABLED',
+        exposure: space.exposure || 'MIXED',
         imageUrl: space.imageUrl || null,
       });
       loadSpaces();
@@ -165,12 +186,27 @@ export default function PublicSpaceManagement() {
             }}
             onOptionSubmit={(val) => {
               const selected = addressOptions.find(opt => opt.display_name === val);
-              if (selected && selected.address) {
-                const newZone = selected.address.suburb || selected.address.neighbourhood || selected.address.city_district || selected.address.city || selected.address.town || form.zone;
-                setForm(prev => ({ ...prev, address: val, zone: newZone }));
+              if (selected) {
+                const newZone = selected.address
+                  ? selected.address.suburb || selected.address.neighbourhood || selected.address.city_district || selected.address.city || selected.address.town || form.zone
+                  : form.zone;
+                const latitude = Number.parseFloat(selected.lat);
+                const longitude = Number.parseFloat(selected.lon);
+                setForm(prev => ({
+                  ...prev,
+                  address: val,
+                  zone: newZone,
+                  // Nominatim devuelve lat/lon como texto; si no vienen, se marca a mano en el mapa.
+                  latitude: Number.isFinite(latitude) ? latitude : prev.latitude,
+                  longitude: Number.isFinite(longitude) ? longitude : prev.longitude,
+                }));
               }
             }}
             data={addressOptions.map(opt => opt.display_name)}
+          />
+          <LocationPicker
+            value={coordinatesOf(form)}
+            onChange={(coordinates) => setForm(prev => ({ ...prev, ...coordinates }))}
           />
           <TextInput
             label="Zona / barrio"
@@ -202,6 +238,17 @@ export default function PublicSpaceManagement() {
             ]}
             value={form.status}
             onChange={(value) => setForm({ ...form, status: value as PublicSpacePayload['status'] })}
+          />
+          <Select
+            label="Exposición climática"
+            description="Se usa para bloquear reservas durante contingencias climáticas."
+            data={[
+              { value: 'INDOOR', label: 'Interior' },
+              { value: 'OUTDOOR', label: 'Exterior' },
+              { value: 'MIXED', label: 'Mixto' },
+            ]}
+            value={form.exposure}
+            onChange={(value) => setForm({ ...form, exposure: value as PublicSpacePayload['exposure'] })}
           />
           <TextInput
             label="Imagen URL"
@@ -242,18 +289,19 @@ export default function PublicSpaceManagement() {
               <Table.Th>Zona</Table.Th>
               <Table.Th>Capacidad</Table.Th>
               <Table.Th>Estado</Table.Th>
+              <Table.Th>Exposición</Table.Th>
               <Table.Th>Acciones</Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {loading && (
               <Table.Tr>
-                <Table.Td colSpan={6}>Cargando espacios...</Table.Td>
+                <Table.Td colSpan={7}>Cargando espacios...</Table.Td>
               </Table.Tr>
             )}
             {!loading && spaces.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={6}>Todavía no hay espacios públicos cargados.</Table.Td>
+                <Table.Td colSpan={7}>Todavía no hay espacios públicos cargados.</Table.Td>
               </Table.Tr>
             )}
             {spaces.map((space) => (
@@ -264,13 +312,21 @@ export default function PublicSpaceManagement() {
                     <Text fw={600}>{space.name}</Text>
                   </Group>
                 </Table.Td>
-                <Table.Td>{space.address}</Table.Td>
+                <Table.Td>
+                  {space.address}
+                  {(space.latitude == null || space.longitude == null) && (
+                    <Badge color="orange" variant="light" size="sm" ml="xs">Sin ubicación</Badge>
+                  )}
+                </Table.Td>
                 <Table.Td>{space.zone || '-'}</Table.Td>
                 <Table.Td>{space.capacity}</Table.Td>
                 <Table.Td>
                   <Badge color={space.status === 'ENABLED' ? 'green' : 'red'} variant="light">
                     {space.status === 'ENABLED' ? 'Habilitado' : 'Deshabilitado'}
                   </Badge>
+                </Table.Td>
+                <Table.Td>
+                  {space.exposure === 'INDOOR' ? 'Interior' : space.exposure === 'OUTDOOR' ? 'Exterior' : 'Mixto'}
                 </Table.Td>
                 <Table.Td>
                   <Flex gap="xs">

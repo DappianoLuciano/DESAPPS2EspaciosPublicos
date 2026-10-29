@@ -90,7 +90,10 @@ export interface PublicSpace {
   address: string;
   zone?: string;
   capacity: number;
+  latitude?: number | null;
+  longitude?: number | null;
   status: 'ENABLED' | 'DISABLED';
+  exposure?: 'INDOOR' | 'OUTDOOR' | 'MIXED';
   imageUrl?: string | null;
   createdAt: string;
 }
@@ -116,6 +119,8 @@ export interface CommunityEventCatalogItem {
     name: string;
     address: string;
     zone: string;
+    latitude?: number | null;
+    longitude?: number | null;
   };
 }
 
@@ -377,7 +382,10 @@ export interface PublicSpacePayload {
   address: string;
   zone: string;
   capacity: number;
+  latitude?: number | null;
+  longitude?: number | null;
   status: 'ENABLED' | 'DISABLED';
+  exposure: 'INDOOR' | 'OUTDOOR' | 'MIXED';
   imageUrl?: string | null;
 }
 
@@ -410,6 +418,113 @@ export function deletePublicSpace(id: string) {
   return request<void>(`/api/public-spaces/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
+}
+
+export type WeatherCriticality = 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
+export type WeatherPhenomenon =
+  | 'TORMENTA_FUERTE' | 'LLUVIA_INTENSA' | 'VIENTO_FUERTE'
+  | 'OLA_DE_CALOR' | 'OLA_DE_FRIO' | 'GRANIZO'
+  | 'TORMENTA_ELECTRICA' | 'HURACAN' | 'NIEVE';
+export type WeatherAlertStatus = 'PENDING' | 'CONFIRMED' | 'DISMISSED' | 'FINALIZED';
+
+export interface WeatherAlert {
+  id: string;
+  zone: string;
+  latitude: number;
+  longitude: number;
+  phenomenon: WeatherPhenomenon;
+  suggestedCriticality: WeatherCriticality;
+  confirmedCriticality?: WeatherCriticality | null;
+  status: WeatherAlertStatus;
+  validFrom: string;
+  validUntil: string;
+  detectedAt: string;
+  confirmedAt?: string | null;
+  confirmedBy?: string | null;
+  dismissalReason?: string | null;
+  finalizedAt?: string | null;
+  finalizedBy?: string | null;
+  evidence: {
+    provider: 'OPEN_METEO' | 'MANUAL';
+    locations?: Array<{ latitude: number; longitude: number }>;
+    manual?: { createdBy: string; createdAt: string; reason: string; source: string; locationIds: string[] };
+    forecastFrom: string;
+    forecastTo: string;
+    maxWindGustKmh?: number;
+    accumulatedPrecipitationMm?: number;
+    temperatureMinC?: number;
+    temperatureMaxC?: number;
+    weatherCodes: number[];
+    evaluatedHours: number;
+  };
+}
+
+export interface WeatherCycleResult {
+  ranAt: string;
+  expiredAlertsFinalized: number;
+  weatherCheck: {
+    checkedAt: string;
+    riskDetected: boolean;
+    created: boolean;
+    message: string;
+    alert?: WeatherAlert;
+  };
+  delivery: { processed: number; published: number; failed: number };
+}
+
+export function listWeatherAlerts(status?: WeatherAlertStatus) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  return request<WeatherAlert[]>(`/api/admin/weather-alerts${query}`);
+}
+
+export interface WeatherLocation {
+  id: string; name: string; locality: string; latitude: number; longitude: number;
+}
+
+export function listWeatherLocations() {
+  return request<WeatherLocation[]>('/api/admin/weather-alerts/locations');
+}
+
+export function createManualWeatherAlert(payload: {
+  fenomeno: WeatherPhenomenon; nivelCriticidad: WeatherCriticality; ubicacionesIds: string[];
+  vigenciaDesde: string; vigenciaHasta: string; motivo: string; fuente: string;
+  rafagaMaxKmh?: number; precipitacionAcumuladaMm?: number;
+  temperaturaMinC?: number; temperaturaMaxC?: number;
+}) {
+  return request<WeatherAlert>('/api/admin/weather-alerts/manual', {
+    method: 'POST', body: JSON.stringify(payload),
+  });
+}
+
+export function checkWeatherNow() {
+  return request<WeatherCycleResult>('/api/admin/weather-alerts/check', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+export function confirmWeatherAlert(
+  id: string,
+  payload: { nivelCriticidad: WeatherCriticality; vigenciaHasta: string }
+) {
+  return request<{ alert: WeatherAlert; delivery: { processed: number; published: number; failed: number } }>(
+    `/api/admin/weather-alerts/${encodeURIComponent(id)}/confirm`,
+    { method: 'POST', body: JSON.stringify(payload) }
+  );
+}
+
+export function dismissWeatherAlert(id: string, motivo: string) {
+  return request<WeatherAlert>(`/api/admin/weather-alerts/${encodeURIComponent(id)}/dismiss`, {
+    method: 'POST',
+    body: JSON.stringify({ motivo }),
+  });
+}
+
+export function finalizeWeatherAlert(id: string) {
+  return request<{ alert: WeatherAlert; delivery: { processed: number; published: number; failed: number } }>(
+    `/api/admin/weather-alerts/${encodeURIComponent(id)}/finalize`,
+    { method: 'POST', body: JSON.stringify({}) }
+  );
 }
 
 export function listCommunityEvents(params?: {
@@ -483,6 +598,50 @@ export function cancelCommunityEventRegistration(registrationId: string) {
     `/api/community-events/registrations/${encodeURIComponent(registrationId)}`,
     { method: 'DELETE' }
   );
+}
+
+export interface RoutePath {
+  coordinates: Array<[number, number]>;
+  distanceMeters: number;
+  durationSeconds: number;
+}
+
+export interface EventRoutePlan {
+  destination: { eventId: string; title: string; latitude: number; longitude: number; address: string };
+  incidents: Array<{
+    source: string;
+    category: string | null;
+    latitude: number;
+    longitude: number;
+    distanceMeters: number;
+  }>;
+  dropoff: {
+    stationName: string;
+    latitude: number;
+    longitude: number;
+    availableSlots: number | null;
+    distanceMeters: number | null;
+    message: string;
+    discardedByIncidents: number;
+    calculatedAt: string;
+  } | null;
+  origin: { latitude: number; longitude: number } | null;
+  bikeRoute: RoutePath | null;
+  walkRoute: RoutePath | null;
+  warnings: string[];
+}
+
+export function getEventRoutePlan(id: string, from?: { latitude: number; longitude: number }) {
+  const query = from ? `?fromLat=${from.latitude}&fromLng=${from.longitude}` : '';
+
+  return request<EventRoutePlan>(`/api/community-events/${encodeURIComponent(id)}/route-plan${query}`);
+}
+
+export function cancelCommunityEvent(id: string, reason?: string) {
+  return request<CommunityEvent>(`/api/community-events/${encodeURIComponent(id)}/cancel`, {
+    method: 'PATCH',
+    body: JSON.stringify(reason ? { reason } : {}),
+  });
 }
 
 export interface Reservation {

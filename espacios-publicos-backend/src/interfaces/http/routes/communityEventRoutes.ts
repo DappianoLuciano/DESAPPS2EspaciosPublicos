@@ -43,6 +43,13 @@ export function createCommunityEventRoutes(controller: CommunityEventController)
     allowBodyFields(communityEventFields),
     asyncHandler(controller.create)
   );
+  router.patch(
+    "/:id/cancel",
+    requirePermission(permissions.CANCEL_COMMUNITY_EVENT),
+    auditAction(permissions.CANCEL_COMMUNITY_EVENT, "community-event"),
+    allowBodyFields(["reason"]),
+    asyncHandler(controller.cancel)
+  );
   router.get("/", asyncHandler(controller.list));
   router.get("/:id", asyncHandler(controller.getById));
   router.post(

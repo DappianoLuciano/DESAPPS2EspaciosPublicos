@@ -6,6 +6,7 @@ import { CommunityEventRepository } from "../../domain/repositories/CommunityEve
 import { PublicSpaceRepository } from "../../domain/repositories/PublicSpaceRepository";
 import { ReservationRepository } from "../../domain/repositories/ReservationRepository";
 import { EventBus } from "../../domain/services/EventBus";
+import { eventNames } from "../../shared/events/eventTypes";
 import { NotFoundError } from "../../shared/errors/NotFoundError";
 import { ValidationError } from "../../shared/errors/ValidationError";
 import {
@@ -16,6 +17,7 @@ import {
 import { RequestReservationInput } from "../dtos/RequestReservationInput";
 import { EmailSender } from "../../domain/services/EmailSender";
 import { QrGenerator } from "../../domain/services/QrGenerator";
+import { WeatherAlertRepository } from "../../domain/repositories/WeatherAlertRepository";
 
 export class RequestReservationUseCase {
   constructor(
@@ -25,7 +27,8 @@ export class RequestReservationUseCase {
     private readonly eventOutboxRepository: EventOutboxRepository,
     private readonly eventBus: EventBus,
     private readonly qrGenerator: QrGenerator,
-    private readonly emailSender: EmailSender
+    private readonly emailSender: EmailSender,
+    private readonly weatherAlertRepository?: WeatherAlertRepository
   ) {}
 
   async execute(input: RequestReservationInput): Promise<Reservation> {
@@ -59,6 +62,16 @@ export class RequestReservationUseCase {
 
     if (estimatedAttendees > publicSpace.capacity) {
       throw new ValidationError("La cantidad de asistentes supera la capacidad del espacio.");
+    }
+
+    if (
+      this.weatherAlertRepository &&
+      publicSpace.exposure !== "INDOOR" &&
+      (await this.weatherAlertRepository.hasBlockingAlert(publicSpace.zone || "", startDate, endDate))
+    ) {
+      throw new ValidationError(
+        "El espacio tiene una restriccion climatica activa para ese rango horario."
+      );
     }
 
     const overlappingReservations = await this.reservationRepository.findOverlapping(
@@ -96,14 +109,16 @@ export class RequestReservationUseCase {
 
     const event: DomainEvent = {
       id: randomUUID(),
-      name: "espacios.reserva_confirmada",
+      name: eventNames.reservationConfirmed(),
+      // Contrato ReservaConfirmada. No viajan datos personales del solicitante.
       payload: {
-        reservationId: reservation.id,
-        publicSpaceId: reservation.publicSpaceId,
-        requesterEmail: reservation.requesterEmail,
-        estimatedAttendees: reservation.estimatedAttendees,
-        startDate: reservation.startDate.toISOString(),
-        endDate: reservation.endDate.toISOString()
+        reservaId: reservation.id,
+        tipoReserva: "ESPACIO",
+        recursoId: reservation.publicSpaceId,
+        espacioId: reservation.publicSpaceId,
+        cantidadPersonas: reservation.estimatedAttendees,
+        inicio: reservation.startDate.toISOString(),
+        fin: reservation.endDate.toISOString()
       },
       occurredAt: new Date()
     };

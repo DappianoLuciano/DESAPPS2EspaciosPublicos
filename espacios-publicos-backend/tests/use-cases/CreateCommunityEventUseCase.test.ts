@@ -170,6 +170,8 @@ function createUseCase() {
     description: "Espacio verde para actividades culturales.",
     address: "CABA",
     capacity: 500,
+    latitude: -34.6066,
+    longitude: -58.4357,
     status: "ENABLED",
     createdAt: new Date()
   });
@@ -184,6 +186,7 @@ function createUseCase() {
 
   return {
     useCase,
+    publicSpaceRepository,
     reservationRepository,
     communityEventRepository,
     eventOutboxRepository,
@@ -229,7 +232,26 @@ describe("CreateCommunityEventUseCase", () => {
     expect(communityEvent.requiresRegistration).toBe(true);
     expect(eventOutboxRepository.events).toHaveLength(1);
     expect(eventBus.events).toHaveLength(1);
-    expect(eventBus.events[0].name).toBe("cultura.evento_comunitario_publicado");
+    expect(eventBus.events[0].name).toBe("com.citypass.espacios.EventoComunitarioPublicado");
+    expect(eventOutboxRepository.events[0]).toBe(eventBus.events[0]);
+    // Contrato EventoComunitarioPublicado: exactamente estos campos, con null en los opcionales.
+    expect(eventBus.events[0].payload).toEqual({
+      eventoId: communityEvent.id,
+      espacioId: "space-1",
+      titulo: communityEvent.title,
+      zona: null,
+      direccion: "CABA",
+      latitud: -34.6066,
+      longitud: -58.4357,
+      inicio: EVENT_START.toISOString(),
+      fin: EVENT_END.toISOString(),
+      capacidad: 300,
+      cupoMaximo: 300,
+      inscriptos: 0,
+      estado: "ACTIVE",
+      categoria: communityEvent.category,
+      correlationId: `evento-${communityEvent.id}`
+    });
   });
 
   it("permite publicar un evento de libre acceso cuando no requiere inscripcion previa", async () => {
@@ -295,5 +317,14 @@ describe("CreateCommunityEventUseCase", () => {
         endDate: endDate.toISOString()
       })
     ).rejects.toThrow("El evento no puede comenzar en una fecha u horario pasado.");
+  });
+
+  it("rechaza la publicacion si el espacio no tiene ubicacion cargada (CU-INT-01)", async () => {
+    const { useCase, publicSpaceRepository, communityEventRepository } = createUseCase();
+    publicSpaceRepository.spaces[0].latitude = null;
+    publicSpaceRepository.spaces[0].longitude = null;
+
+    await expect(useCase.execute(validInput)).rejects.toThrow(/no tiene ubicacion/);
+    expect(communityEventRepository.events).toHaveLength(0);
   });
 });

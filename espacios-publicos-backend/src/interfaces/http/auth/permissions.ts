@@ -9,11 +9,18 @@ export const permissions = {
   CREATE_RESERVATION: "reservation.create",
   LIST_RESERVATIONS: "reservation.list",
   CREATE_COMMUNITY_EVENT: "community-event.create",
+  CANCEL_COMMUNITY_EVENT: "community-event.cancel",
   REGISTER_TO_EVENT: "community-event.register",
   VIEW_EVENT_REGISTRATIONS: "community-event.registrations.view",
   VIEW_OWN_REGISTRATIONS: "community-event.registrations.view-own",
   CANCEL_OWN_REGISTRATION: "community-event.registration.cancel-own",
-  UPLOAD_EVENT_IMAGE: "community-event.image.upload"
+  UPLOAD_EVENT_IMAGE: "community-event.image.upload",
+  VIEW_WEATHER_ALERTS: "weather-alert.view",
+  CHECK_WEATHER: "weather-alert.check",
+  CREATE_MANUAL_WEATHER_ALERT: "weather-alert.create-manual",
+  CONFIRM_WEATHER_ALERT: "weather-alert.confirm",
+  DISMISS_WEATHER_ALERT: "weather-alert.dismiss",
+  FINALIZE_WEATHER_ALERT: "weather-alert.finalize"
 } as const;
 
 export type Permission = (typeof permissions)[keyof typeof permissions];
@@ -33,8 +40,15 @@ const rolePermissions: Record<MockUserRole, ReadonlySet<Permission>> = {
     permissions.DELETE_PUBLIC_SPACE,
     permissions.LIST_RESERVATIONS,
     permissions.CREATE_COMMUNITY_EVENT,
+    permissions.CANCEL_COMMUNITY_EVENT,
     permissions.VIEW_EVENT_REGISTRATIONS,
-    permissions.UPLOAD_EVENT_IMAGE
+    permissions.UPLOAD_EVENT_IMAGE,
+    permissions.VIEW_WEATHER_ALERTS,
+    permissions.CHECK_WEATHER,
+    permissions.CREATE_MANUAL_WEATHER_ALERT,
+    permissions.CONFIRM_WEATHER_ALERT,
+    permissions.DISMISS_WEATHER_ALERT,
+    permissions.FINALIZE_WEATHER_ALERT
   ])
 };
 

@@ -30,7 +30,7 @@ export function buildCorsOptions(): CorsOptions {
 
       callback(new ForbiddenError("Origen no permitido por CORS."));
     },
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: isMockAuthEnabled()
       ? [
           "Content-Type",

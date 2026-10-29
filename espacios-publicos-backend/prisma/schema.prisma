@@ -24,6 +24,44 @@ enum PublicSpaceStatus {
   DISABLED
 }
 
+enum PublicSpaceExposure {
+  INDOOR
+  OUTDOOR
+  MIXED
+}
+
+enum WeatherCriticality {
+  BAJA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+enum WeatherPhenomenon {
+  TORMENTA_FUERTE
+  LLUVIA_INTENSA
+  VIENTO_FUERTE
+  OLA_DE_CALOR
+  OLA_DE_FRIO
+  GRANIZO
+  TORMENTA_ELECTRICA
+  HURACAN
+  NIEVE
+}
+
+enum WeatherAlertStatus {
+  PENDING
+  CONFIRMED
+  DISMISSED
+  FINALIZED
+}
+
+enum OutboxStatus {
+  PENDING
+  PUBLISHED
+  FAILED
+}
+
 enum UserRole {
   CITIZEN
   MUNICIPAL_ADMIN
@@ -56,55 +94,61 @@ model Admin {
 }
 
 model PublicSpace {
-  id          String           @id @default(uuid())
-  name        String
-  description String
-  address     String
-  zone        String           @default("Sin definir")
-  capacity    Int
-  status      PublicSpaceStatus @default(ENABLED)
-  imageUrl    String?
-  createdAt   DateTime         @default(now())
+  id           String              @id @default(uuid())
+  name         String
+  description  String
+  address      String
+  zone         String              @default("Sin definir")
+  capacity     Int
+  // Coordenadas WGS84. Opcionales para no romper los espacios ya cargados, pero
+  // sin ellas el espacio no participa de la ruta urbana (CU-INT-01): Movilidad
+  // las necesita para buscar estaciones y nosotros para detectar incidentes cerca.
+  latitude     Float?
+  longitude    Float?
+  status       PublicSpaceStatus   @default(ENABLED)
+  exposure     PublicSpaceExposure @default(MIXED)
+  imageUrl     String?
+  createdAt    DateTime            @default(now())
   reservations Reservation[]
-  events      CommunityEvent[]
+  events       CommunityEvent[]
 
   @@map("public_spaces")
 }
 
 model Reservation {
-  id            String            @id @default(uuid())
-  publicSpaceId String
-  requesterName String
-  requesterEmail String
+  id                 String            @id @default(uuid())
+  publicSpaceId      String
+  requesterName      String
+  requesterEmail     String
   estimatedAttendees Int
-  startDate     DateTime
-  endDate       DateTime
-  status        ReservationStatus @default(CONFIRMED)
-  createdAt     DateTime          @default(now())
-  publicSpace   PublicSpace       @relation(fields: [publicSpaceId], references: [id])
+  startDate          DateTime
+  endDate            DateTime
+  status             ReservationStatus @default(CONFIRMED)
+  createdAt          DateTime          @default(now())
+  publicSpace        PublicSpace       @relation(fields: [publicSpaceId], references: [id])
 
   @@index([publicSpaceId, startDate, endDate])
   @@map("reservations")
 }
 
 model CommunityEvent {
-  id            String      @id @default(uuid())
-  title         String
-  category      String
-  tags          String[]    @default([])
-  description   String
-  requirements  String[]    @default([])
-  publicSpaceId String
-  organizerName String
-  capacity      Int
-  requiresRegistration Boolean @default(true)
-  startDate     DateTime
-  endDate       DateTime
-  status        CommunityEventStatus @default(ACTIVE)
-  imageUrl      String?
-  createdAt     DateTime    @default(now())
-  publicSpace   PublicSpace @relation(fields: [publicSpaceId], references: [id])
-  registrations CommunityEventRegistration[]
+  id                   String                       @id @default(uuid())
+  title                String
+  category             String
+  tags                 String[]                     @default([])
+  description          String
+  requirements         String[]                     @default([])
+  publicSpaceId        String
+  organizerName        String
+  capacity             Int
+  requiresRegistration Boolean                      @default(true)
+  startDate            DateTime
+  endDate              DateTime
+  status               CommunityEventStatus         @default(ACTIVE)
+  imageUrl             String?
+  createdAt            DateTime                     @default(now())
+  publicSpace          PublicSpace                  @relation(fields: [publicSpaceId], references: [id])
+  registrations        CommunityEventRegistration[]
 
   @@index([publicSpaceId, startDate, endDate])
   @@map("community_events")
@@ -124,13 +168,114 @@ model CommunityEventRegistration {
 }
 
 model EventOutbox {
-  id          String    @id
-  name        String
-  payload     Json
-  occurredAt  DateTime
-  publishedAt DateTime?
-  createdAt   DateTime  @default(now())
+  id            String       @id
+  name          String
+  payload       Json
+  occurredAt    DateTime
+  publishedAt   DateTime?
+  status        OutboxStatus @default(PENDING)
+  attempts      Int          @default(0)
+  nextAttemptAt DateTime?
+  lastError     String?
+  createdAt     DateTime     @default(now())
 
   @@index([name])
+  @@index([status, nextAttemptAt])
+  @@index([publishedAt, createdAt])
   @@map("event_outbox")
+}
+
+model WeatherAlert {
+  id                   String              @id @default(uuid())
+  deduplicationKey     String              @unique
+  zone                 String
+  latitude             Float
+  longitude            Float
+  phenomenon           WeatherPhenomenon
+  suggestedCriticality WeatherCriticality
+  confirmedCriticality WeatherCriticality?
+  status               WeatherAlertStatus  @default(PENDING)
+  validFrom            DateTime
+  validUntil           DateTime
+  evidence             Json
+  detectedAt           DateTime            @default(now())
+  confirmedAt          DateTime?
+  confirmedBy          String?
+  dismissedAt          DateTime?
+  dismissedBy          String?
+  dismissalReason      String?
+  finalizedAt          DateTime?
+  finalizedBy          String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@index([status, validUntil])
+  @@index([zone, status])
+  @@map("weather_alerts")
+}
+
+// Eventos recibidos por webhook desde el gateway (CU-INT-01). La entrega es
+// at-least-once: el eventId de la metadata del gateway es estable entre
+// reintentos, asi que con guardarlo alcanza para no procesar dos veces.
+model InboundEvent {
+  eventId    String   @id
+  eventType  String
+  receivedAt DateTime @default(now())
+
+  @@map("inbound_events")
+}
+
+// Un incidente ya avisado para un evento no se vuelve a avisar, aunque llegue
+// por otro tipo de evento (por ejemplo, el mismo reclamo reclasificado).
+model EventIncidentImpact {
+  id               String   @id @default(uuid())
+  communityEventId String
+  source           String
+  incidentId       String
+  distanceMeters   Int
+  createdAt        DateTime @default(now())
+
+  @@unique([communityEventId, source, incidentId])
+  @@map("event_incident_impacts")
+}
+
+// Incidentes de la ciudad (Reclamos y Emergencias) que cortan la circulacion.
+// Se guardan para dibujarlos en el plan de llegada de un evento (CU-INT-01);
+// active pasa a false cuando el modulo de origen informa que se resolvio.
+model CityIncident {
+  id         String   @id @default(uuid())
+  source     String
+  externalId String
+  category   String?
+  latitude   Float
+  longitude  Float
+  active     Boolean  @default(true)
+  reportedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([source, externalId])
+  @@index([active])
+  @@map("city_incidents")
+}
+
+// Ultima recomendacion de estacion de devolucion que Movilidad publico para un evento
+// (com.citypass.movilidad.RecomendacionDestinoActualizada). Los modulos se hablan solo
+// por el bus: el plan de llegada lee esta tabla y nunca llama a Movilidad. Las columnas
+// conservan los nombres del contrato del evento.
+model DestinationRecommendation {
+  eventoId                 String   @id
+  estado                   String
+  estacionId               String?
+  estacion                 String?
+  latitud                  Float?
+  longitud                 Float?
+  lugaresLibres            Int?
+  distanciaMetros          Int?
+  mensaje                  String
+  descartadasPorIncidentes Int      @default(0)
+  calculadaEn              DateTime
+  correlationId            String?
+  receivedAt               DateTime @default(now())
+
+  @@map("destination_recommendations")
 }

@@ -21,6 +21,10 @@ import { createPublicSpaceRoutes } from "./interfaces/http/routes/publicSpaceRou
 import { createReservationRoutes } from "./interfaces/http/routes/reservationRoutes";
 import { createUploadRoutes } from "./interfaces/http/routes/uploadRoutes";
 import { createChatbotRoutes } from "./interfaces/http/routes/chatbotRoutes";
+import { createInternalRoutes } from "./interfaces/http/routes/internalRoutes";
+import { createRoutePlanRoutes } from "./interfaces/http/routes/routePlanRoutes";
+import { createWebhookRoutes } from "./interfaces/http/routes/webhookRoutes";
+import { createWeatherAlertRoutes } from "./interfaces/http/routes/weatherAlertRoutes";
 import { isProductionRuntime } from "./shared/runtime/runtimeMode";
 
 export function createApp() {
@@ -49,6 +53,9 @@ export function createApp() {
     response.json({ status: "ok", module: "espacios-publicos-cultura" });
   });
 
+  // Server-to-server: el dispatcher del gateway se autentica con el token de la query y no pasa por el rate limiter de /api.
+  app.use("/webhooks", createWebhookRoutes(container.gatewayWebhookController));
+
   app.use("/api", apiRateLimiter);
   app.use(
     "/api/auth",
@@ -56,9 +63,12 @@ export function createApp() {
     createAuthRoutes(container.adminRepository, container.authController)
   );
   app.use("/api/admin", createAdminRoutes(container.adminController));
+  app.use("/api/admin/weather-alerts", createWeatherAlertRoutes(container.weatherAlertController));
+  app.use("/api/internal", createInternalRoutes(container.internalWeatherController));
   app.use("/api/uploads", uploadRateLimiter, createUploadRoutes(container.storageService));
   app.use("/api/public-spaces", createPublicSpaceRoutes(container.publicSpaceController));
   app.use("/api/reservations", createReservationRoutes(container.reservationController));
+  app.use("/api/community-events", createRoutePlanRoutes(container.routePlanController));
   app.use("/api/community-events", createCommunityEventRoutes(container.communityEventController));
   app.use("/api/chat", createChatbotRoutes(container.chatbotController));
 
