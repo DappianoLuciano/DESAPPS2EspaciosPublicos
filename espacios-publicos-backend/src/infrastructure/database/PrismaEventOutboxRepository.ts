@@ -3,6 +3,7 @@ import { DomainEvent } from "../../domain/entities/DomainEvent";
 import { EventOutboxRepository } from "../../domain/repositories/EventOutboxRepository";
 import { ReliableEventOutboxRepository } from "../../domain/repositories/ReliableEventOutboxRepository";
 import { OutboxEvent } from "../../domain/entities/OutboxEvent";
+import { dispatchableEventNames } from "../../shared/events/eventTypes";
 import { prisma } from "./prismaClient";
 
 export class PrismaEventOutboxRepository implements EventOutboxRepository, ReliableEventOutboxRepository {
@@ -18,17 +19,12 @@ export class PrismaEventOutboxRepository implements EventOutboxRepository, Relia
   }
 
   async findReady(limit: number, now: Date): Promise<OutboxEvent[]> {
-    // Los eventos historicos del modulo todavia usan publicacion directa. Hasta migrarlos
-    // al flujo transaccional completo, este worker solo debe despachar los contratos climaticos.
-    const weatherEventNames = [
-      process.env.WEATHER_CONFIRMED_EVENT_FQN?.trim() ||
-        "com.citypass.espacios.CriticidadClimaticaConfirmada",
-      process.env.WEATHER_FINALIZED_EVENT_FQN?.trim() ||
-        "com.citypass.espacios.CriticidadClimaticaFinalizada"
-    ];
+    // Solo se despachan los eventos con contrato FQN registrado (clima, eventos, espacios
+    // y reservas). Las filas historicas con nombres viejos ("cultura.*") se dejan como estan.
+    const dispatchableNames = dispatchableEventNames();
     const events = await prisma.eventOutbox.findMany({
       where: {
-        name: { in: weatherEventNames },
+        name: { in: dispatchableNames },
         status: { in: ["PENDING", "FAILED"] },
         OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }]
       },

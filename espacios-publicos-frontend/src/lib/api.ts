@@ -119,6 +119,8 @@ export interface CommunityEventCatalogItem {
     name: string;
     address: string;
     zone: string;
+    latitude?: number | null;
+    longitude?: number | null;
   };
 }
 
@@ -596,6 +598,50 @@ export function cancelCommunityEventRegistration(registrationId: string) {
     `/api/community-events/registrations/${encodeURIComponent(registrationId)}`,
     { method: 'DELETE' }
   );
+}
+
+export interface RoutePath {
+  coordinates: Array<[number, number]>;
+  distanceMeters: number;
+  durationSeconds: number;
+}
+
+export interface EventRoutePlan {
+  destination: { eventId: string; title: string; latitude: number; longitude: number; address: string };
+  incidents: Array<{
+    source: string;
+    category: string | null;
+    latitude: number;
+    longitude: number;
+    distanceMeters: number;
+  }>;
+  dropoff: {
+    stationName: string;
+    latitude: number;
+    longitude: number;
+    availableSlots: number | null;
+    distanceMeters: number | null;
+    message: string;
+    discardedByIncidents: number;
+    calculatedAt: string;
+  } | null;
+  origin: { latitude: number; longitude: number } | null;
+  bikeRoute: RoutePath | null;
+  walkRoute: RoutePath | null;
+  warnings: string[];
+}
+
+export function getEventRoutePlan(id: string, from?: { latitude: number; longitude: number }) {
+  const query = from ? `?fromLat=${from.latitude}&fromLng=${from.longitude}` : '';
+
+  return request<EventRoutePlan>(`/api/community-events/${encodeURIComponent(id)}/route-plan${query}`);
+}
+
+export function cancelCommunityEvent(id: string, reason?: string) {
+  return request<CommunityEvent>(`/api/community-events/${encodeURIComponent(id)}/cancel`, {
+    method: 'PATCH',
+    body: JSON.stringify(reason ? { reason } : {}),
+  });
 }
 
 export interface Reservation {

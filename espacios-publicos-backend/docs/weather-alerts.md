@@ -125,12 +125,13 @@ Se debe acordar la evolución del contrato con EDA antes de publicar bajo un esq
 Con el gateway y el emisor OAuth disponibles, configurar las variables `EVENT_*` y ejecutar una vez:
 
 ```bash
-npm run eda:register-weather
+npm run eda:register-events
 ```
 
-Luego cambiar `EVENT_BUS_DRIVER=citypass`. Esa seleccion aplica solamente a los dos contratos
-climaticos: los eventos historicos del modulo siguen en `ConsoleEventBus` hasta que tengan un
-contrato FQN registrado. En modo `console`, el flujo climatico tampoco depende de LDAP ni de Kafka.
+El script registra los dos contratos climaticos y los cuatro de espacios y cultura
+(`EventoComunitarioPublicado`, `EventoCancelado`, `EspacioEstadoCambiado` y `ReservaConfirmada`;
+ver `docs/eventos-cu-int-01.md`). Luego cambiar `EVENT_BUS_DRIVER=citypass`. En modo `console`,
+ningun flujo depende de LDAP ni de Kafka.
 
 ## Scheduler
 

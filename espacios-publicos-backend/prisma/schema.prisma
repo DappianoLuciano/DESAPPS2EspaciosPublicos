@@ -238,3 +238,44 @@ model EventIncidentImpact {
   @@unique([communityEventId, source, incidentId])
   @@map("event_incident_impacts")
 }
+
+// Incidentes de la ciudad (Reclamos y Emergencias) que cortan la circulacion.
+// Se guardan para dibujarlos en el plan de llegada de un evento (CU-INT-01);
+// active pasa a false cuando el modulo de origen informa que se resolvio.
+model CityIncident {
+  id         String   @id @default(uuid())
+  source     String
+  externalId String
+  category   String?
+  latitude   Float
+  longitude  Float
+  active     Boolean  @default(true)
+  reportedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([source, externalId])
+  @@index([active])
+  @@map("city_incidents")
+}
+
+// Ultima recomendacion de estacion de devolucion que Movilidad publico para un evento
+// (com.citypass.movilidad.RecomendacionDestinoActualizada). Los modulos se hablan solo
+// por el bus: el plan de llegada lee esta tabla y nunca llama a Movilidad. Las columnas
+// conservan los nombres del contrato del evento.
+model DestinationRecommendation {
+  eventoId                 String   @id
+  estado                   String
+  estacionId               String?
+  estacion                 String?
+  latitud                  Float?
+  longitud                 Float?
+  lugaresLibres            Int?
+  distanciaMetros          Int?
+  mensaje                  String
+  descartadasPorIncidentes Int      @default(0)
+  calculadaEn              DateTime
+  correlationId            String?
+  receivedAt               DateTime @default(now())
+
+  @@map("destination_recommendations")
+}

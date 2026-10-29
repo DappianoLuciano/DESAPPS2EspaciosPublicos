@@ -26,7 +26,20 @@ import { PrismaPublicSpaceRepository } from "./infrastructure/database/PrismaPub
 import { PrismaReservationRepository } from "./infrastructure/database/PrismaReservationRepository";
 import { PrismaWeatherAlertRepository } from "./infrastructure/database/PrismaWeatherAlertRepository";
 import { createEventBus } from "./infrastructure/events/createEventBus";
-import { ConsoleEventBus } from "./infrastructure/events/ConsoleEventBus";
+import { OutboxTrackingEventBus } from "./infrastructure/events/OutboxTrackingEventBus";
+import { CancelCommunityEventUseCase } from "./application/use-cases/CancelCommunityEventUseCase";
+import { GetEventRoutePlanUseCase } from "./application/use-cases/GetEventRoutePlanUseCase";
+import { ReceiveGatewayEventUseCase } from "./application/use-cases/ReceiveGatewayEventUseCase";
+import { PrismaCityIncidentRepository } from "./infrastructure/database/PrismaCityIncidentRepository";
+import { PrismaDestinationRecommendationRepository } from "./infrastructure/database/PrismaDestinationRecommendationRepository";
+import { PrismaInboundEventRepository } from "./infrastructure/database/PrismaInboundEventRepository";
+import {
+  DEFAULT_ROUTING_BIKE_URL,
+  DEFAULT_ROUTING_FOOT_URL,
+  OsrmRoutingService
+} from "./infrastructure/routing/OsrmRoutingService";
+import { GatewayWebhookController } from "./interfaces/http/controllers/GatewayWebhookController";
+import { RoutePlanController } from "./interfaces/http/controllers/RoutePlanController";
 import { SupabaseStorageService } from "./infrastructure/storage/SupabaseStorageService";
 import { CommunityEventController } from "./interfaces/http/controllers/CommunityEventController";
 import { AdminController } from "./interfaces/http/controllers/AdminController";
@@ -65,10 +78,12 @@ export function createContainer() {
   const communityEventRegistrationRepository = new PrismaCommunityEventRegistrationRepository();
   const eventOutboxRepository = new PrismaEventOutboxRepository();
   const weatherAlertRepository = new PrismaWeatherAlertRepository();
-  // Los eventos historicos aun no tienen contratos FQN registrados en el gateway.
-  // Mantenerlos en consola evita romper esos flujos al habilitar la integracion climatica.
-  const legacyEventBus = new ConsoleEventBus();
-  const weatherEventBus = createEventBus();
+  // EVENT_BUS_DRIVER=console deja los eventos en el log (desarrollo local); citypass los publica
+  // en el gateway. Los casos de uso guardan el evento en el outbox y lo publican por este bus,
+  // que ademas deja el estado del registro al dia y reintenta desde el outbox si el gateway falla.
+  const baseEventBus = createEventBus();
+  const weatherEventBus = baseEventBus;
+  const eventBus = new OutboxTrackingEventBus(baseEventBus, eventOutboxRepository);
   const storageService = new SupabaseStorageService();
   const qrGenerator = new NodeQrGenerator();
   const emailSender = new NodemailerEmailSender();
@@ -94,7 +109,7 @@ export function createContainer() {
     reservationRepository,
     communityEventRepository,
     eventOutboxRepository,
-    legacyEventBus,
+    eventBus,
     qrGenerator,
     emailSender,
     weatherAlertRepository
@@ -107,7 +122,7 @@ export function createContainer() {
     reservationRepository,
     communityEventRepository,
     eventOutboxRepository,
-    legacyEventBus
+    eventBus
   );
   const listCommunityEventsUseCase = new ListCommunityEventsUseCase(communityEventRepository);
   const getCommunityEventUseCase = new GetCommunityEventUseCase(communityEventRepository);
@@ -115,7 +130,7 @@ export function createContainer() {
     communityEventRepository,
     communityEventRegistrationRepository,
     eventOutboxRepository,
-    legacyEventBus,
+    eventBus,
     qrGenerator,
     emailSender
   );
@@ -131,6 +146,31 @@ export function createContainer() {
   );
   const getCommunityEventRegistrationUseCase = new GetCommunityEventRegistrationUseCase(
     communityEventRegistrationRepository
+  );
+
+  const cancelCommunityEventUseCase = new CancelCommunityEventUseCase(
+    communityEventRepository,
+    eventOutboxRepository,
+    eventBus
+  );
+
+  const cityIncidentRepository = new PrismaCityIncidentRepository();
+  const destinationRecommendationRepository = new PrismaDestinationRecommendationRepository();
+  const receiveGatewayEventUseCase = new ReceiveGatewayEventUseCase(
+    new PrismaInboundEventRepository(),
+    cityIncidentRepository,
+    destinationRecommendationRepository,
+    communityEventRepository
+  );
+  const getEventRoutePlanUseCase = new GetEventRoutePlanUseCase(
+    communityEventRepository,
+    publicSpaceRepository,
+    cityIncidentRepository,
+    destinationRecommendationRepository,
+    new OsrmRoutingService({
+      bike: process.env.ROUTING_BIKE_URL || DEFAULT_ROUTING_BIKE_URL,
+      foot: process.env.ROUTING_FOOT_URL || DEFAULT_ROUTING_FOOT_URL
+    })
   );
 
   const aiChatService = new GeminiChatService();
@@ -202,8 +242,11 @@ export function createContainer() {
       listCommunityEventRegistrationsUseCase,
       listCitizenCommunityEventRegistrationsUseCase,
       cancelCommunityEventRegistrationUseCase,
-      getCommunityEventRegistrationUseCase
+      getCommunityEventRegistrationUseCase,
+      cancelCommunityEventUseCase
     ),
+    routePlanController: new RoutePlanController(getEventRoutePlanUseCase),
+    gatewayWebhookController: new GatewayWebhookController(receiveGatewayEventUseCase),
     chatbotController,
     weatherAlertController,
     internalWeatherController: new InternalWeatherController(runWeatherCycleUseCase)

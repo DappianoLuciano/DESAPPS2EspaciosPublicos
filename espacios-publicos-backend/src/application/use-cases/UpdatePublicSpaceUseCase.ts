@@ -4,6 +4,7 @@ import { PublicSpace } from "../../domain/entities/PublicSpace";
 import { EventOutboxRepository } from "../../domain/repositories/EventOutboxRepository";
 import { PublicSpaceRepository } from "../../domain/repositories/PublicSpaceRepository";
 import { EventBus } from "../../domain/services/EventBus";
+import { eventNames } from "../../shared/events/eventTypes";
 import { NotFoundError } from "../../shared/errors/NotFoundError";
 import { ValidationError } from "../../shared/errors/ValidationError";
 import { optionalCoordinates } from "../../shared/validation/coordinates";
@@ -14,8 +15,6 @@ import {
   requireText
 } from "../../shared/validation/inputValidation";
 import { UpdatePublicSpaceInput } from "../dtos/UpdatePublicSpaceInput";
-
-export const PUBLIC_SPACE_STATUS_CHANGED = "espacios.estado_cambiado";
 
 export class UpdatePublicSpaceUseCase {
   // outbox y eventBus son opcionales para no romper a quien construye el caso
@@ -71,17 +70,19 @@ export class UpdatePublicSpaceUseCase {
       return;
     }
 
+    const occurredAt = new Date();
     const event: DomainEvent = {
       id: randomUUID(),
-      name: PUBLIC_SPACE_STATUS_CHANGED,
+      name: eventNames.publicSpaceStatusChanged(),
       payload: {
-        publicSpaceId: publicSpace.id,
-        status: publicSpace.status,
-        zone: publicSpace.zone || null,
-        latitude: publicSpace.latitude ?? null,
-        longitude: publicSpace.longitude ?? null
+        espacioId: publicSpace.id,
+        estadoNuevo: publicSpace.status,
+        zona: publicSpace.zone || null,
+        latitud: publicSpace.latitude ?? null,
+        longitud: publicSpace.longitude ?? null,
+        cambiadoEn: occurredAt.toISOString()
       },
-      occurredAt: new Date()
+      occurredAt
     };
 
     await this.eventOutboxRepository.save(event);

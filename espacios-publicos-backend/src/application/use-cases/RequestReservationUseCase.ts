@@ -6,6 +6,7 @@ import { CommunityEventRepository } from "../../domain/repositories/CommunityEve
 import { PublicSpaceRepository } from "../../domain/repositories/PublicSpaceRepository";
 import { ReservationRepository } from "../../domain/repositories/ReservationRepository";
 import { EventBus } from "../../domain/services/EventBus";
+import { eventNames } from "../../shared/events/eventTypes";
 import { NotFoundError } from "../../shared/errors/NotFoundError";
 import { ValidationError } from "../../shared/errors/ValidationError";
 import {
@@ -108,14 +109,16 @@ export class RequestReservationUseCase {
 
     const event: DomainEvent = {
       id: randomUUID(),
-      name: "espacios.reserva_confirmada",
+      name: eventNames.reservationConfirmed(),
+      // Contrato ReservaConfirmada. No viajan datos personales del solicitante.
       payload: {
-        reservationId: reservation.id,
-        publicSpaceId: reservation.publicSpaceId,
-        requesterEmail: reservation.requesterEmail,
-        estimatedAttendees: reservation.estimatedAttendees,
-        startDate: reservation.startDate.toISOString(),
-        endDate: reservation.endDate.toISOString()
+        reservaId: reservation.id,
+        tipoReserva: "ESPACIO",
+        recursoId: reservation.publicSpaceId,
+        espacioId: reservation.publicSpaceId,
+        cantidadPersonas: reservation.estimatedAttendees,
+        inicio: reservation.startDate.toISOString(),
+        fin: reservation.endDate.toISOString()
       },
       occurredAt: new Date()
     };

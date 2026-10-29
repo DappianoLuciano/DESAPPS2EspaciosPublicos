@@ -1,14 +1,19 @@
-import { Alert, Box, Button, Card, Flex, SimpleGrid, Table, Text, Title, Badge, ActionIcon } from '@mantine/core';
+import { Alert, Box, Button, Card, Flex, Group, Modal, SimpleGrid, Table, Text, Textarea, Title, Badge, ActionIcon } from '@mantine/core';
 import { IconCalendarEvent, IconEye, IconPlayerPlay, IconUsersGroup } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { listCommunityEvents } from '../lib/api';
+import { cancelCommunityEvent, listCommunityEvents } from '../lib/api';
 import type { CommunityEventCatalogItem } from '../lib/api';
 
 export default function EventManagement() {
   const [events, setEvents] = useState<CommunityEventCatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [now] = useState(() => Date.now());
+  const [eventToCancel, setEventToCancel] = useState<CommunityEventCatalogItem | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   useEffect(() => {
     listCommunityEvents()
@@ -23,6 +28,44 @@ export default function EventManagement() {
   );
 
   const activeEvents = events.filter((event) => event.status === 'ACTIVE').length;
+
+  const openCancelModal = (event: CommunityEventCatalogItem) => {
+    setEventToCancel(event);
+    setCancelReason('');
+    setCancelError(null);
+  };
+
+  const closeCancelModal = () => {
+    if (!cancelling) {
+      setEventToCancel(null);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!eventToCancel) {
+      return;
+    }
+
+    setCancelError(null);
+    setCancelling(true);
+
+    try {
+      await cancelCommunityEvent(eventToCancel.id, cancelReason.trim() || undefined);
+      const cancelledId = eventToCancel.id;
+
+      setEvents((current) =>
+        current.map((event) => (event.id === cancelledId ? { ...event, status: 'CANCELLED' } : event))
+      );
+      setEventToCancel(null);
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : 'No se pudo cancelar el evento.');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const canCancel = (event: CommunityEventCatalogItem) =>
+    event.status !== 'CANCELLED' && new Date(event.endDate).getTime() > now;
 
   const formatDate = (date: string) => (
     new Intl.DateTimeFormat('es-AR', {
@@ -47,6 +90,33 @@ export default function EventManagement() {
 
   return (
     <Box px={{ base: 'md', md: 40 }} py={40}>
+      <Modal opened={eventToCancel !== null} onClose={closeCancelModal} title="Cancelar evento" centered>
+        <Flex direction="column" gap="md">
+          <Text size="sm">
+            ¿Seguro que querés cancelar <strong>{eventToCancel?.title}</strong>? Dejará de estar disponible
+            para inscripciones y se avisará al resto de CityPass+. Esta acción no se puede deshacer.
+          </Text>
+          {cancelError && <Alert color="red">{cancelError}</Alert>}
+          <Textarea
+            label="Motivo (opcional)"
+            placeholder="Ej: Pronóstico de tormenta"
+            autosize
+            minRows={2}
+            maxLength={500}
+            value={cancelReason}
+            onChange={(event) => setCancelReason(event.currentTarget.value)}
+          />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={closeCancelModal} disabled={cancelling}>
+              Volver
+            </Button>
+            <Button color="red" onClick={handleCancel} loading={cancelling}>
+              Cancelar evento
+            </Button>
+          </Group>
+        </Flex>
+      </Modal>
+
       <Flex justify="space-between" align={{ base: 'flex-start', sm: 'center' }} direction={{ base: 'column', sm: 'row' }} gap="md" mb={40}>
         <Box>
           <Title order={1} fz={32} mb="xs">Gestión de Eventos</Title>
@@ -113,6 +183,7 @@ export default function EventManagement() {
                 <Table.Th>CUPO</Table.Th>
                 <Table.Th>ESTADO</Table.Th>
                 <Table.Th>INSCRIPTOS</Table.Th>
+                <Table.Th>ACCIONES</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -137,6 +208,19 @@ export default function EventManagement() {
                     >
                       <IconEye size="1.2rem" />
                     </ActionIcon>
+                  </Table.Td>
+                  <Table.Td>
+                    {canCancel(event) && (
+                      <Button
+                        size="xs"
+                        color="red"
+                        variant="light"
+                        onClick={() => openCancelModal(event)}
+                        aria-label={`Cancelar evento ${event.title}`}
+                      >
+                        Cancelar evento
+                      </Button>
+                    )}
                   </Table.Td>
                 </Table.Tr>
               ))}

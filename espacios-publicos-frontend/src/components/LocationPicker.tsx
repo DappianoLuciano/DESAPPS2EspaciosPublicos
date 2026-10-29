@@ -23,7 +23,7 @@ const DEFAULT_CENTER: [number, number] = [-34.6037, -58.3816];
 
 // Con Vite, el icono por defecto de Leaflet pierde la ruta de sus imagenes.
 // Se arma explicito para que el marcador se vea en desarrollo y en el build.
-const markerIconConfig = L.icon({
+export const markerIconConfig = L.icon({
   iconUrl: markerIcon,
   iconRetinaUrl: markerIcon2x,
   shadowUrl: markerShadow,
