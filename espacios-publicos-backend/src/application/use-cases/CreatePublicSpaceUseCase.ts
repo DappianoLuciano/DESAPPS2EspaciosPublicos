@@ -7,6 +7,7 @@ import {
   requirePositiveInteger,
   requireText
 } from "../../shared/validation/inputValidation";
+import { optionalCoordinates } from "../../shared/validation/coordinates";
 import { CreatePublicSpaceInput } from "../dtos/CreatePublicSpaceInput";
 
 export class CreatePublicSpaceUseCase {
@@ -19,6 +20,7 @@ export class CreatePublicSpaceUseCase {
     const zone = optionalText(input.zone, "La zona", 120);
     const capacity = requirePositiveInteger(input.capacity, "La capacidad");
     const imageUrl = optionalHttpsUrl(input.imageUrl);
+    const coordinates = optionalCoordinates(input.latitude, input.longitude);
 
     if (input.status && !["ENABLED", "DISABLED"].includes(input.status)) {
       throw new ValidationError("El estado del espacio publico no es valido.");
@@ -34,6 +36,7 @@ export class CreatePublicSpaceUseCase {
       address,
       zone,
       capacity,
+      ...coordinates,
       status: input.status,
       exposure: input.exposure,
       imageUrl

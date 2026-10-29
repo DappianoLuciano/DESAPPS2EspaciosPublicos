@@ -170,6 +170,8 @@ function createUseCase() {
     description: "Espacio verde para actividades culturales.",
     address: "CABA",
     capacity: 500,
+    latitude: -34.6066,
+    longitude: -58.4357,
     status: "ENABLED",
     createdAt: new Date()
   });
@@ -184,6 +186,7 @@ function createUseCase() {
 
   return {
     useCase,
+    publicSpaceRepository,
     reservationRepository,
     communityEventRepository,
     eventOutboxRepository,
@@ -295,5 +298,14 @@ describe("CreateCommunityEventUseCase", () => {
         endDate: endDate.toISOString()
       })
     ).rejects.toThrow("El evento no puede comenzar en una fecha u horario pasado.");
+  });
+
+  it("rechaza la publicacion si el espacio no tiene ubicacion cargada (CU-INT-01)", async () => {
+    const { useCase, publicSpaceRepository, communityEventRepository } = createUseCase();
+    publicSpaceRepository.spaces[0].latitude = null;
+    publicSpaceRepository.spaces[0].longitude = null;
+
+    await expect(useCase.execute(validInput)).rejects.toThrow(/no tiene ubicacion/);
+    expect(communityEventRepository.events).toHaveLength(0);
   });
 });
