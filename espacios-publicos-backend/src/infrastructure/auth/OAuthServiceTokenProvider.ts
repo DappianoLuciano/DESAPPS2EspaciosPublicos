@@ -1,4 +1,5 @@
 import { AppError } from "../../shared/errors/AppError";
+import { logger } from "../../shared/logging/logger";
 
 // Emisor OAuth del login federado (Grupo 2). Se puede pisar con EVENT_AUTH_TOKEN_URL.
 export const DEFAULT_EVENT_AUTH_TOKEN_URL = "https://api.citypass-login.pp.ua/oauth/token";
@@ -6,6 +7,8 @@ export const DEFAULT_EVENT_AUTH_TOKEN_URL = "https://api.citypass-login.pp.ua/oa
 export function resolveEventAuthTokenUrl(env: Record<string, string | undefined> = process.env): string {
   return env.EVENT_AUTH_TOKEN_URL?.trim() || DEFAULT_EVENT_AUTH_TOKEN_URL;
 }
+
+export const EXPECTED_EVENT_NAMESPACE = "com.citypass.espacios";
 
 interface TokenResponse {
   access_token?: string;
@@ -58,6 +61,30 @@ export class OAuthServiceTokenProvider {
       value: data.access_token,
       expiresAt: Date.now() + expiresIn * 1000
     };
+    warnIfWrongNamespace(data.access_token);
     return data.access_token;
+  }
+}
+
+// El gateway autoriza por el claim namespace del JWT. Se decodifica sin validar (solo para avisar) y
+// nunca se registra el token ni el secret: solo el namespace que trae.
+function warnIfWrongNamespace(token: string): void {
+  const expected = process.env.EVENT_TYPE_NAMESPACE?.trim() || EXPECTED_EVENT_NAMESPACE;
+  let namespace: string | undefined;
+
+  try {
+    const payload = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8")) as {
+      namespace?: unknown;
+    };
+    namespace = typeof payload.namespace === "string" ? payload.namespace : undefined;
+  } catch {
+    namespace = undefined;
+  }
+
+  if (namespace !== expected) {
+    logger.warn(
+      { namespaceEnToken: namespace ?? null, namespaceEsperado: expected },
+      "El token de servicio del bus no tiene el namespace del modulo"
+    );
   }
 }
