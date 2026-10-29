@@ -130,6 +130,44 @@ describe("POST /webhooks/citypass", () => {
     });
   });
 
+  describe("sobre y deduplicacion del gateway", () => {
+    const delivery = (receivedAt: string) => ({
+      metadata: {
+        eventId: "evt-gw-1",
+        eventType: "com.citypass.reclamos.ReclamoCreado",
+        receivedAt,
+        source: "reclamos",
+        schemaId: 7
+      },
+      data: { reclamoId: "rec-9", afectaCirculacion: true, latitud: -34.6, longitud: -58.4, categoria: "BACHE" }
+    });
+
+    it("acepta el sobre { metadata, data } aunque metadata traiga campos extra", async () => {
+      await post(delivery("2030-01-01T10:00:00.000Z")).expect(204);
+
+      expect(cityIncidentRepository.upsertActive).toHaveBeenCalledWith(
+        expect.objectContaining({ source: "RECLAMOS", externalId: "rec-9" })
+      );
+      expect(inboundRepository.record).toHaveBeenCalledWith("evt-gw-1", "com.citypass.reclamos.ReclamoCreado");
+    });
+
+    it("la reentrega at-least-once del mismo metadata.eventId se procesa una sola vez", async () => {
+      await post(delivery("2030-01-01T10:00:00.000Z")).expect(204);
+      await post(delivery("2030-01-01T10:05:00.000Z")).expect(204);
+      await post(delivery("2030-01-01T10:10:00.000Z")).expect(204);
+
+      expect(cityIncidentRepository.upsertActive).toHaveBeenCalledTimes(1);
+      expect(inboundRepository.record).toHaveBeenCalledTimes(1);
+    });
+
+    it("un eventId distinto del mismo incidente si se procesa (cada entrega tiene su id)", async () => {
+      await post(delivery("2030-01-01T10:00:00.000Z")).expect(204);
+      await post({ ...delivery("2030-01-01T10:00:00.000Z"), metadata: { ...delivery("x").metadata, eventId: "evt-gw-2" } }).expect(204);
+
+      expect(cityIncidentRepository.upsertActive).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe("incidentes", () => {
     it("da de alta el incidente activo con su ubicacion y categoria", async () => {
       await post(envelope()).expect(204);

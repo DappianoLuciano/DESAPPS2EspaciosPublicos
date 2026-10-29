@@ -13,6 +13,14 @@ las filas `PENDING` vencidas. Solo se
 despachan los nombres FQN de esta tabla; las filas historicas con nombres viejos (`cultura.*`,
 `espacios.*`) no se envian.
 
+### Autenticacion del bus
+
+El bus publica con un token de servicio: OAuth `client_credentials` con Basic auth (`EVENT_CLIENT_ID` /
+`EVENT_CLIENT_SECRET`) contra `EVENT_AUTH_TOKEN_URL`, que por defecto es
+`https://api.citypass-login.pp.ua/oauth/token`. El gateway autoriza por el claim `namespace` del JWT, que tiene
+que ser `com.citypass.espacios`: al obtener el token se lo decodifica (sin validarlo) y, si no coincide, se loguea
+un warning. El token y el secret nunca se loguean.
+
 ### Tope de reintentos
 
 `EVENT_OUTBOX_MAX_ATTEMPTS` (por defecto 10) limita los intentos por fila. Estados del outbox:
@@ -61,6 +69,21 @@ constante (si la variable esta vacia se rechaza todo) y la entrega es idempotent
   `afectaCirculacion === true` y coordenadas, alta en `city_incidents`.
 - `ReclamoActualizado` (`RESUELTO`, `RECHAZADO`, `CERRADO`) y `EmergenciaActualizada` (`RESUELTA`,
   `CERRADA`, `DESCARTADA`, `CANCELADA`): el incidente pasa a inactivo.
+
+### Suscripciones en el gateway
+
+Para que el gateway llame al webhook hay que dar de alta una suscripcion por topico:
+
+```bash
+npm run eda:register-subscriptions
+```
+
+Hace `POST {EVENT_GATEWAY_API_URL}/subscriptions` con `{topic, callbackUrl}` para cada uno de los cinco topicos
+(`GATEWAY_SUBSCRIPTION_TOPICS`, exportados desde `ReceiveGatewayEventUseCase`: la misma lista que el webhook
+sabe procesar). `callbackUrl = {PUBLIC_BACKEND_URL}/webhooks/citypass?token={GATEWAY_WEBHOOK_TOKEN}`. Requiere
+`EVENT_GATEWAY_API_URL`, `EVENT_CLIENT_ID`, `EVENT_CLIENT_SECRET`, `PUBLIC_BACKEND_URL` y `GATEWAY_WEBHOOK_TOKEN`.
+Un 409 se informa como "ya existia" y sigue con el siguiente; la salida muestra la URL con el token enmascarado.
+El script no se ejecuta solo.
 
 ## Plan de llegada
 
