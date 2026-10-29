@@ -4,11 +4,7 @@
 ALTER TABLE "public_spaces" ADD COLUMN "latitude" DOUBLE PRECISION;
 ALTER TABLE "public_spaces" ADD COLUMN "longitude" DOUBLE PRECISION;
 
--- Reintentos del outbox contra el gateway del Grupo 1.
--- IF NOT EXISTS: add_weather_alerts (ya aplicada en Supabase) agrega attempts y lastError
--- y esta migracion, que todavia no se aplico, corre despues en esa base.
-ALTER TABLE "event_outbox" ADD COLUMN IF NOT EXISTS "attempts" INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE "event_outbox" ADD COLUMN IF NOT EXISTS "lastError" TEXT;
+-- Indice para el outbox. Las columnas attempts y lastError las agrega add_weather_alerts.
 CREATE INDEX IF NOT EXISTS "event_outbox_publishedAt_createdAt_idx" ON "event_outbox"("publishedAt", "createdAt");
 
 -- Idempotencia de los webhooks entrantes.
