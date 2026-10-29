@@ -83,6 +83,11 @@ aunque producción esté perfecta. Esto ya nos pasó con `VITE_API_URL`.
 `JWT_SECRET`, `LOG_LEVEL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`,
 `FRONTEND_URL`.
 
+Eventos (EDA): `EVENT_BUS_DRIVER` (`console` o `citypass`), `EVENT_GATEWAY_API_URL`, `EVENT_CLIENT_ID`,
+`EVENT_CLIENT_SECRET` y, opcional, `EVENT_AUTH_TOKEN_URL` (default `https://api.citypass-login.pp.ua/oauth/token`).
+Webhook y reintentos: `GATEWAY_WEBHOOK_TOKEN`, `CRON_SECRET` y `PUBLIC_BACKEND_URL` (URL publica del backend; la usa
+el script de suscripciones). Detalle en `espacios-publicos-backend/docs/eventos-cu-int-01.md`.
+
 **Frontend** (mismas variables que `espacios-publicos-frontend/.env.example`):
 `VITE_API_URL` (debe ser la URL real de producción del backend, `https://`),
 `VITE_GOOGLE_CLIENT_ID`.
