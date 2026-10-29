@@ -1,11 +1,13 @@
 import "dotenv/config";
+import { OAuthServiceTokenProvider, resolveEventAuthTokenUrl } from "../src/infrastructure/auth/OAuthServiceTokenProvider";
 
 // Registra en el Event Gateway los contratos que publica este modulo: los de clima y los
 // de eventos comunitarios, espacios y reservas (CU-INT-01). Son records Avro; los campos
 // opcionales son uniones ["null", tipo] con default null.
 //
 // Uso:  npm run eda:register-events
-// Requiere EVENT_GATEWAY_API_URL, EVENT_AUTH_TOKEN_URL, EVENT_CLIENT_ID y EVENT_CLIENT_SECRET.
+// Requiere EVENT_GATEWAY_API_URL, EVENT_CLIENT_ID y EVENT_CLIENT_SECRET. EVENT_AUTH_TOKEN_URL es opcional
+// (por defecto https://api.citypass-login.pp.ua/oauth/token).
 // Un contrato ya registrado responde 409 y se deja como esta: este script no lo actualiza.
 
 interface EventTypeDefinition {
@@ -19,9 +21,10 @@ interface EventTypeDefinition {
 const NAMESPACE = process.env.EVENT_TYPE_NAMESPACE?.trim() || "com.citypass.espacios";
 
 const gatewayUrl = required("EVENT_GATEWAY_API_URL").replace(/\/+$/, "");
-const tokenUrl = required("EVENT_AUTH_TOKEN_URL");
+const tokenUrl = resolveEventAuthTokenUrl();
 const clientId = required("EVENT_CLIENT_ID");
 const clientSecret = required("EVENT_CLIENT_SECRET");
+const tokenProvider = new OAuthServiceTokenProvider(tokenUrl, clientId, clientSecret);
 
 const nullable = (type: string) => ["null", type];
 
@@ -107,7 +110,7 @@ const spacesDefinitions: EventTypeDefinition[] = [
 const definitions: EventTypeDefinition[] = [...weatherDefinitions, ...spacesDefinitions];
 
 async function main() {
-  const token = await getToken();
+  const token = await tokenProvider.getToken();
 
   for (const definition of definitions) {
     const response = await fetch(`${gatewayUrl}/event-types`, {
@@ -131,23 +134,6 @@ async function main() {
     }
     process.stdout.write(`${definition.name}: registrado ${body}\n`);
   }
-}
-
-async function getToken(): Promise<string> {
-  const basic = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
-  const response = await fetch(tokenUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${basic}`,
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: new URLSearchParams({ grant_type: "client_credentials" })
-  });
-  const body = (await response.json()) as { access_token?: string; error_description?: string };
-  if (!response.ok || !body.access_token) {
-    throw new Error(body.error_description || `No se pudo obtener el token (${response.status}).`);
-  }
-  return body.access_token;
 }
 
 function required(name: string): string {

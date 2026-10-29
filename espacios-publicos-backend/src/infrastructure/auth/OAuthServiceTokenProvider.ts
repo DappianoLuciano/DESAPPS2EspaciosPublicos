@@ -1,5 +1,12 @@
 import { AppError } from "../../shared/errors/AppError";
 
+// Emisor OAuth del login federado (Grupo 2). Se puede pisar con EVENT_AUTH_TOKEN_URL.
+export const DEFAULT_EVENT_AUTH_TOKEN_URL = "https://api.citypass-login.pp.ua/oauth/token";
+
+export function resolveEventAuthTokenUrl(env: Record<string, string | undefined> = process.env): string {
+  return env.EVENT_AUTH_TOKEN_URL?.trim() || DEFAULT_EVENT_AUTH_TOKEN_URL;
+}
+
 interface TokenResponse {
   access_token?: string;
   expires_in?: number;
