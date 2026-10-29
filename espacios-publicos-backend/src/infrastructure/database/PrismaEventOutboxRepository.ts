@@ -25,7 +25,8 @@ export class PrismaEventOutboxRepository implements EventOutboxRepository, Relia
     const events = await prisma.eventOutbox.findMany({
       where: {
         name: { in: dispatchableNames },
-        status: { in: ["PENDING", "FAILED"] },
+        // FAILED es terminal (se agotaron los intentos); los reintentos pendientes siguen PENDING.
+        status: "PENDING",
         OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }]
       },
       orderBy: { createdAt: "asc" },
@@ -61,9 +62,21 @@ export class PrismaEventOutboxRepository implements EventOutboxRepository, Relia
     await prisma.eventOutbox.update({
       where: { id },
       data: {
-        status: "FAILED",
+        status: "PENDING",
         attempts: { increment: 1 },
         nextAttemptAt,
+        lastError: error.slice(0, 2000)
+      }
+    });
+  }
+
+  async markExhausted(id: string, error: string): Promise<void> {
+    await prisma.eventOutbox.update({
+      where: { id },
+      data: {
+        status: "FAILED",
+        attempts: { increment: 1 },
+        nextAttemptAt: null,
         lastError: error.slice(0, 2000)
       }
     });

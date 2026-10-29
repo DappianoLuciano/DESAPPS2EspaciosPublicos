@@ -1,9 +1,13 @@
 import { DomainEvent } from "../../domain/entities/DomainEvent";
 import { ReliableEventOutboxRepository } from "../../domain/repositories/ReliableEventOutboxRepository";
 import { EventBus } from "../../domain/services/EventBus";
+import { getOutboxMaxAttempts } from "../../shared/events/outboxConfig";
 import { logger } from "../../shared/logging/logger";
 
-type OutboxStatusWriter = Pick<ReliableEventOutboxRepository, "markPublished" | "markFailed">;
+type OutboxStatusWriter = Pick<
+  ReliableEventOutboxRepository,
+  "markPublished" | "markFailed" | "markExhausted"
+>;
 
 /**
  * Los casos de uso guardan el evento en el outbox y despues lo publican en el bus.
@@ -22,6 +26,16 @@ export class OutboxTrackingEventBus implements EventBus {
       await this.inner.publish(event);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Error desconocido al publicar.";
+      // Es el primer intento: si el tope es 1 no hay reintentos.
+      if (getOutboxMaxAttempts() <= 1) {
+        logger.error(
+          { eventId: event.id, eventName: event.name, attempts: 1, lastError: message },
+          "Outbox: se agotaron los intentos de publicacion; el evento no se reintenta mas"
+        );
+        await this.safely(() => this.outbox.markExhausted(event.id, message), event);
+        return;
+      }
+
       logger.warn({ eventId: event.id, eventName: event.name }, "Publicacion inmediata fallida; queda en el outbox");
       await this.safely(() => this.outbox.markFailed(event.id, message, retryAt()), event);
       return;

@@ -43,7 +43,8 @@ describe("outbox: eventos que se despachan al gateway", () => {
     const { where } = mockFindMany.mock.calls[0][0];
     expect(where.name.in.sort()).toEqual([...ESPACIOS_FQNS, ...WEATHER_FQNS].sort());
     expect(where.name.in).not.toContain("cultura.ciudadano_inscripto");
-    expect(where.status).toEqual({ in: ["PENDING", "FAILED"] });
+    // Las FAILED son terminales (tope de reintentos): no se vuelven a despachar.
+    expect(where.status).toBe("PENDING");
   });
 
   it("los nombres se pueden sobrescribir por entorno", () => {
@@ -71,7 +72,8 @@ describe("outbox: eventos que se despachan al gateway", () => {
         save: jest.fn(),
         findReady: async () => events,
         markPublished,
-        markFailed: jest.fn()
+        markFailed: jest.fn(),
+        markExhausted: jest.fn()
       },
       { publish: async (event) => void sent.push(event.name) }
     ).execute();

@@ -1,5 +1,6 @@
 import { ReliableEventOutboxRepository } from "../../domain/repositories/ReliableEventOutboxRepository";
 import { EventBus } from "../../domain/services/EventBus";
+import { getOutboxMaxAttempts } from "../../shared/events/outboxConfig";
 import { logger } from "../../shared/logging/logger";
 
 export interface OutboxDeliveryResult {
@@ -16,6 +17,7 @@ export class PublishPendingOutboxEventsUseCase {
 
   async execute(limit = 25): Promise<OutboxDeliveryResult> {
     const events = await this.repository.findReady(limit, new Date());
+    const maxAttempts = getOutboxMaxAttempts();
     let published = 0;
     let failed = 0;
 
@@ -26,11 +28,21 @@ export class PublishPendingOutboxEventsUseCase {
         published += 1;
       } catch (error) {
         const attempts = event.attempts + 1;
-        const delayMinutes = Math.min(60, 2 ** Math.min(attempts, 6));
-        const nextAttemptAt = new Date(Date.now() + delayMinutes * 60_000);
         const message = error instanceof Error ? error.message : "Error desconocido al publicar.";
-        await this.repository.markFailed(event.id, message, nextAttemptAt);
-        logger.warn({ eventId: event.id, eventName: event.name, attempts }, "Outbox publish failed");
+
+        if (attempts >= maxAttempts) {
+          // Tope alcanzado: la fila queda FAILED con el ultimo error y deja de reintentarse.
+          await this.repository.markExhausted(event.id, message);
+          logger.error(
+            { eventId: event.id, eventName: event.name, attempts, maxAttempts, lastError: message },
+            "Outbox: se agotaron los intentos de publicacion; el evento no se reintenta mas"
+          );
+        } else {
+          const delayMinutes = Math.min(60, 2 ** Math.min(attempts, 6));
+          const nextAttemptAt = new Date(Date.now() + delayMinutes * 60_000);
+          await this.repository.markFailed(event.id, message, nextAttemptAt);
+          logger.warn({ eventId: event.id, eventName: event.name, attempts, maxAttempts }, "Outbox publish failed");
+        }
         failed += 1;
       }
     }

@@ -10,7 +10,8 @@ const event = {
 function build(publish: jest.Mock) {
   const outbox = {
     markPublished: jest.fn().mockResolvedValue(undefined),
-    markFailed: jest.fn().mockResolvedValue(undefined)
+    markFailed: jest.fn().mockResolvedValue(undefined),
+    markExhausted: jest.fn().mockResolvedValue(undefined)
   };
 
   return { bus: new OutboxTrackingEventBus({ publish }, outbox), outbox };
@@ -39,6 +40,20 @@ describe("OutboxTrackingEventBus", () => {
     expect(id).toBe("outbox-1");
     expect(message).toBe("gateway caido");
     expect((nextAttemptAt as Date).getTime()).toBeGreaterThan(before);
+  });
+
+  it("con tope de 1 intento no reintenta: marca la fila como agotada", async () => {
+    process.env.EVENT_OUTBOX_MAX_ATTEMPTS = "1";
+    const { bus, outbox } = build(jest.fn().mockRejectedValue(new Error("gateway caido")));
+
+    try {
+      await bus.publish(event);
+    } finally {
+      delete process.env.EVENT_OUTBOX_MAX_ATTEMPTS;
+    }
+
+    expect(outbox.markExhausted).toHaveBeenCalledWith("outbox-1", "gateway caido");
+    expect(outbox.markFailed).not.toHaveBeenCalled();
   });
 
   it("no rompe si no puede actualizar el estado del outbox", async () => {

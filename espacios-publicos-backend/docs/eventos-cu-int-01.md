@@ -7,10 +7,27 @@ API de ningun otro. Publica cuatro contratos y consume uno de Movilidad.
 
 Los casos de uso guardan el evento en `event_outbox` y lo publican por el bus de
 `createEventBus()` (`EVENT_BUS_DRIVER=console|citypass`). Si el gateway falla, el registro queda
-`FAILED` con su proxima fecha de reintento y no se pierde la reserva ni la inscripcion. El
-publicador del outbox (el mismo ciclo horario del clima) reintenta los pendientes. Solo se
+`PENDING` con su proxima fecha de reintento (backoff exponencial, hasta 60 minutos) y no se pierde la
+reserva ni la inscripcion. El publicador del outbox (el mismo ciclo horario del clima) reintenta
+las filas `PENDING` vencidas. Solo se
 despachan los nombres FQN de esta tabla; las filas historicas con nombres viejos (`cultura.*`,
 `espacios.*`) no se envian.
+
+### Tope de reintentos
+
+`EVENT_OUTBOX_MAX_ATTEMPTS` (por defecto 10) limita los intentos por fila. Estados del outbox:
+
+- `PENDING`: pendiente o con un reintento programado (`attempts`, `nextAttemptAt`, `lastError`).
+- `PUBLISHED`: el gateway acepto el evento.
+- `FAILED`: se alcanzo el tope. Es terminal: la fila conserva `lastError`, se loguea un error con
+  el FQN y el id (`Outbox: se agotaron los intentos de publicacion`) y `findReady` no la devuelve
+  nunca mas.
+
+Para reintentar a mano una fila agotada (por ejemplo despues de corregir el contrato en el gateway):
+`UPDATE event_outbox SET status = 'PENDING', attempts = 0, "nextAttemptAt" = NULL WHERE id = '<id>';`
+
+Antes de este tope, `FAILED` significaba "fallo pero se reintenta". Las filas que hayan quedado asi en una
+base existente no se vuelven a despachar: pasarlas a `PENDING` (`attempts` < tope) para reanudarlas.
 
 Todos los campos viajan siempre; los opcionales van en `null`. Las fechas son ISO 8601. No viajan
 datos personales (ni mails ni nombres).

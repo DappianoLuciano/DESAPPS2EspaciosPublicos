@@ -13,6 +13,7 @@ class FakeOutbox implements ReliableEventOutboxRepository {
   async findReady(): Promise<OutboxEvent[]> { return this.events; }
   async markPublished(id: string): Promise<void> { this.published.push(id); }
   async markFailed(id: string): Promise<void> { this.failed.push(id); }
+  async markExhausted(id: string): Promise<void> { this.failed.push(id); }
 }
 
 class FakeBus implements EventBus {
