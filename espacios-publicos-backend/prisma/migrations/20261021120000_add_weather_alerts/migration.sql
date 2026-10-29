@@ -19,9 +19,9 @@ ALTER TABLE "public_spaces" ADD COLUMN "exposure" "PublicSpaceExposure" NOT NULL
 -- AlterTable
 ALTER TABLE "event_outbox"
 ADD COLUMN "status" "OutboxStatus" NOT NULL DEFAULT 'PENDING',
-ADD COLUMN IF NOT EXISTS "attempts" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN "attempts" INTEGER NOT NULL DEFAULT 0,
 ADD COLUMN "nextAttemptAt" TIMESTAMP(3),
-ADD COLUMN IF NOT EXISTS "lastError" TEXT;
+ADD COLUMN "lastError" TEXT;
 
 -- Preserve the delivery state of rows that an earlier version already marked as published.
 UPDATE "event_outbox"
