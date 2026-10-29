@@ -1,4 +1,5 @@
 export type PublicSpaceStatus = "ENABLED" | "DISABLED";
+export type PublicSpaceExposure = "INDOOR" | "OUTDOOR" | "MIXED";
 
 export interface PublicSpace {
   id: string;
@@ -8,6 +9,7 @@ export interface PublicSpace {
   zone?: string;
   capacity: number;
   status: PublicSpaceStatus;
+  exposure?: PublicSpaceExposure;
   imageUrl?: string | null;
   createdAt: Date;
 }
@@ -19,6 +21,7 @@ export interface CreatePublicSpaceData {
   zone?: string;
   capacity: number;
   status?: PublicSpaceStatus;
+  exposure?: PublicSpaceExposure;
   imageUrl?: string | null;
 }
 
@@ -29,5 +32,6 @@ export interface UpdatePublicSpaceData {
   zone?: string;
   capacity?: number;
   status?: PublicSpaceStatus;
+  exposure?: PublicSpaceExposure;
   imageUrl?: string | null;
 }

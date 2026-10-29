@@ -24,6 +24,8 @@ import { PrismaCommunityEventRepository } from "./infrastructure/database/Prisma
 import { PrismaEventOutboxRepository } from "./infrastructure/database/PrismaEventOutboxRepository";
 import { PrismaPublicSpaceRepository } from "./infrastructure/database/PrismaPublicSpaceRepository";
 import { PrismaReservationRepository } from "./infrastructure/database/PrismaReservationRepository";
+import { PrismaWeatherAlertRepository } from "./infrastructure/database/PrismaWeatherAlertRepository";
+import { createEventBus } from "./infrastructure/events/createEventBus";
 import { ConsoleEventBus } from "./infrastructure/events/ConsoleEventBus";
 import { SupabaseStorageService } from "./infrastructure/storage/SupabaseStorageService";
 import { CommunityEventController } from "./interfaces/http/controllers/CommunityEventController";
@@ -38,6 +40,20 @@ import { GetReservationUseCase } from "./application/use-cases/GetReservationUse
 import { GeminiChatService } from "./infrastructure/ai/GeminiChatService";
 import { AskEventsChatbotUseCase } from "./application/use-cases/AskEventsChatbotUseCase";
 import { ChatbotController } from "./interfaces/http/controllers/ChatbotController";
+import { CheckWeatherRiskUseCase } from "./application/use-cases/CheckWeatherRiskUseCase";
+import { ConfirmWeatherAlertUseCase } from "./application/use-cases/ConfirmWeatherAlertUseCase";
+import { DismissWeatherAlertUseCase } from "./application/use-cases/DismissWeatherAlertUseCase";
+import { FinalizeWeatherAlertUseCase } from "./application/use-cases/FinalizeWeatherAlertUseCase";
+import { GetWeatherAlertUseCase } from "./application/use-cases/GetWeatherAlertUseCase";
+import { ListWeatherAlertsUseCase } from "./application/use-cases/ListWeatherAlertsUseCase";
+import { PublishPendingOutboxEventsUseCase } from "./application/use-cases/PublishPendingOutboxEventsUseCase";
+import { RunWeatherCycleUseCase } from "./application/use-cases/RunWeatherCycleUseCase";
+import { WeatherRiskEvaluator } from "./domain/services/WeatherRiskEvaluator";
+import { OpenMeteoWeatherProvider } from "./infrastructure/weather/OpenMeteoWeatherProvider";
+import { getWeatherLocationConfig, getWeatherRiskThresholds } from "./infrastructure/weather/weatherConfig";
+import { InternalWeatherController } from "./interfaces/http/controllers/InternalWeatherController";
+import { WeatherAlertController } from "./interfaces/http/controllers/WeatherAlertController";
+import { CreateManualWeatherAlertUseCase } from "./application/use-cases/CreateManualWeatherAlertUseCase";
 
 // Este archivo arma las dependencias en un solo lugar para que los controllers no creen objetos por su cuenta.
 export function createContainer() {
@@ -48,7 +64,11 @@ export function createContainer() {
   const communityEventRepository = new PrismaCommunityEventRepository();
   const communityEventRegistrationRepository = new PrismaCommunityEventRegistrationRepository();
   const eventOutboxRepository = new PrismaEventOutboxRepository();
-  const eventBus = new ConsoleEventBus();
+  const weatherAlertRepository = new PrismaWeatherAlertRepository();
+  // Los eventos historicos aun no tienen contratos FQN registrados en el gateway.
+  // Mantenerlos en consola evita romper esos flujos al habilitar la integracion climatica.
+  const legacyEventBus = new ConsoleEventBus();
+  const weatherEventBus = createEventBus();
   const storageService = new SupabaseStorageService();
   const qrGenerator = new NodeQrGenerator();
   const emailSender = new NodemailerEmailSender();
@@ -70,9 +90,10 @@ export function createContainer() {
     reservationRepository,
     communityEventRepository,
     eventOutboxRepository,
-    eventBus,
+    legacyEventBus,
     qrGenerator,
-    emailSender
+    emailSender,
+    weatherAlertRepository
   );
   const listReservationsUseCase = new ListReservationsUseCase(reservationRepository);
   const getReservationUseCase = new GetReservationUseCase(reservationRepository);
@@ -82,7 +103,7 @@ export function createContainer() {
     reservationRepository,
     communityEventRepository,
     eventOutboxRepository,
-    eventBus
+    legacyEventBus
   );
   const listCommunityEventsUseCase = new ListCommunityEventsUseCase(communityEventRepository);
   const getCommunityEventUseCase = new GetCommunityEventUseCase(communityEventRepository);
@@ -90,7 +111,7 @@ export function createContainer() {
     communityEventRepository,
     communityEventRegistrationRepository,
     eventOutboxRepository,
-    eventBus,
+    legacyEventBus,
     qrGenerator,
     emailSender
   );
@@ -114,6 +135,44 @@ export function createContainer() {
     aiChatService
   );
   const chatbotController = new ChatbotController(askEventsChatbotUseCase);
+
+  const publishPendingOutboxEventsUseCase = new PublishPendingOutboxEventsUseCase(
+    eventOutboxRepository,
+    weatherEventBus
+  );
+  const weatherForecastProvider = new OpenMeteoWeatherProvider(getWeatherLocationConfig());
+  const weatherRiskEvaluator = new WeatherRiskEvaluator(getWeatherRiskThresholds());
+  const checkWeatherRiskUseCase = new CheckWeatherRiskUseCase(
+    weatherForecastProvider,
+    weatherRiskEvaluator,
+    weatherAlertRepository
+  );
+  const listWeatherAlertsUseCase = new ListWeatherAlertsUseCase(weatherAlertRepository);
+  const getWeatherAlertUseCase = new GetWeatherAlertUseCase(weatherAlertRepository);
+  const confirmWeatherAlertUseCase = new ConfirmWeatherAlertUseCase(
+    weatherAlertRepository,
+    publishPendingOutboxEventsUseCase
+  );
+  const dismissWeatherAlertUseCase = new DismissWeatherAlertUseCase(weatherAlertRepository);
+  const finalizeWeatherAlertUseCase = new FinalizeWeatherAlertUseCase(
+    weatherAlertRepository,
+    publishPendingOutboxEventsUseCase
+  );
+  const runWeatherCycleUseCase = new RunWeatherCycleUseCase(
+    checkWeatherRiskUseCase,
+    weatherAlertRepository,
+    finalizeWeatherAlertUseCase,
+    publishPendingOutboxEventsUseCase
+  );
+  const weatherAlertController = new WeatherAlertController(
+    listWeatherAlertsUseCase,
+    getWeatherAlertUseCase,
+    runWeatherCycleUseCase,
+    confirmWeatherAlertUseCase,
+    dismissWeatherAlertUseCase,
+    finalizeWeatherAlertUseCase,
+    new CreateManualWeatherAlertUseCase(weatherAlertRepository)
+  );
 
   return {
     adminRepository,
@@ -141,6 +200,8 @@ export function createContainer() {
       cancelCommunityEventRegistrationUseCase,
       getCommunityEventRegistrationUseCase
     ),
-    chatbotController
+    chatbotController,
+    weatherAlertController,
+    internalWeatherController: new InternalWeatherController(runWeatherCycleUseCase)
   };
 }

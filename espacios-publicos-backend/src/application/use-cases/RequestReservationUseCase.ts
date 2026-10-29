@@ -16,6 +16,7 @@ import {
 import { RequestReservationInput } from "../dtos/RequestReservationInput";
 import { EmailSender } from "../../domain/services/EmailSender";
 import { QrGenerator } from "../../domain/services/QrGenerator";
+import { WeatherAlertRepository } from "../../domain/repositories/WeatherAlertRepository";
 
 export class RequestReservationUseCase {
   constructor(
@@ -25,7 +26,8 @@ export class RequestReservationUseCase {
     private readonly eventOutboxRepository: EventOutboxRepository,
     private readonly eventBus: EventBus,
     private readonly qrGenerator: QrGenerator,
-    private readonly emailSender: EmailSender
+    private readonly emailSender: EmailSender,
+    private readonly weatherAlertRepository?: WeatherAlertRepository
   ) {}
 
   async execute(input: RequestReservationInput): Promise<Reservation> {
@@ -59,6 +61,16 @@ export class RequestReservationUseCase {
 
     if (estimatedAttendees > publicSpace.capacity) {
       throw new ValidationError("La cantidad de asistentes supera la capacidad del espacio.");
+    }
+
+    if (
+      this.weatherAlertRepository &&
+      publicSpace.exposure !== "INDOOR" &&
+      (await this.weatherAlertRepository.hasBlockingAlert(publicSpace.zone || "", startDate, endDate))
+    ) {
+      throw new ValidationError(
+        "El espacio tiene una restriccion climatica activa para ese rango horario."
+      );
     }
 
     const overlappingReservations = await this.reservationRepository.findOverlapping(

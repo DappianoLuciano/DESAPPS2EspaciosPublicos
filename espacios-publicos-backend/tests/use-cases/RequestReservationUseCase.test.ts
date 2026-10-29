@@ -13,6 +13,7 @@ import { EventOutboxRepository } from "../../src/domain/repositories/EventOutbox
 import { PublicSpaceRepository } from "../../src/domain/repositories/PublicSpaceRepository";
 import { ReservationRepository } from "../../src/domain/repositories/ReservationRepository";
 import { EventBus } from "../../src/domain/services/EventBus";
+import { WeatherAlertRepository } from "../../src/domain/repositories/WeatherAlertRepository";
 
 class FakePublicSpaceRepository implements PublicSpaceRepository {
   public spaces: PublicSpace[] = [];
@@ -151,7 +152,7 @@ class FakeEmailSender {
   }
 }
 
-function createUseCase() {
+function createUseCase(weatherBlocked = false) {
   const publicSpaceRepository = new FakePublicSpaceRepository();
   const reservationRepository = new FakeReservationRepository();
   const communityEventRepository = new FakeCommunityEventRepository();
@@ -159,6 +160,9 @@ function createUseCase() {
   const eventBus = new FakeEventBus();
   const qrGenerator = new FakeQrGenerator();
   const emailSender = new FakeEmailSender();
+  const weatherAlertRepository = {
+    hasBlockingAlert: jest.fn().mockResolvedValue(weatherBlocked)
+  } as unknown as WeatherAlertRepository;
 
   publicSpaceRepository.spaces.push({
     id: "space-1",
@@ -167,6 +171,8 @@ function createUseCase() {
     address: "CABA",
     capacity: 500,
     status: "ENABLED",
+    zone: "CABA",
+    exposure: "OUTDOOR",
     createdAt: new Date()
   });
 
@@ -177,7 +183,8 @@ function createUseCase() {
     eventOutboxRepository,
     eventBus,
     qrGenerator,
-    emailSender
+    emailSender,
+    weatherAlertRepository
   );
 
   return { useCase, reservationRepository, communityEventRepository, eventOutboxRepository, eventBus, qrGenerator, emailSender };
@@ -236,5 +243,22 @@ describe("RequestReservationUseCase", () => {
         endDate: OVERLAPPING_RESERVATION_END.toISOString()
       })
     ).rejects.toThrow("El espacio no tiene cupo disponible para ese rango horario.");
+  });
+
+  it("rechaza nuevas reservas exteriores durante una contingencia climatica alta", async () => {
+    const { useCase, reservationRepository } = createUseCase(true);
+
+    await expect(
+      useCase.execute({
+        publicSpaceId: "space-1",
+        requesterName: "Organizacion barrial",
+        requesterEmail: "organizacion@test.com",
+        estimatedAttendees: 20,
+        startDate: RESERVATION_START.toISOString(),
+        endDate: RESERVATION_END.toISOString()
+      })
+    ).rejects.toThrow("El espacio tiene una restriccion climatica activa para ese rango horario.");
+
+    expect(reservationRepository.reservations).toHaveLength(0);
   });
 });

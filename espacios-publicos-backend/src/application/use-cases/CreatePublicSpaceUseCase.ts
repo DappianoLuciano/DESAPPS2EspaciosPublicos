@@ -24,6 +24,10 @@ export class CreatePublicSpaceUseCase {
       throw new ValidationError("El estado del espacio publico no es valido.");
     }
 
+    if (input.exposure && !["INDOOR", "OUTDOOR", "MIXED"].includes(input.exposure)) {
+      throw new ValidationError("El tipo de exposicion del espacio publico no es valido.");
+    }
+
     return this.publicSpaceRepository.create({
       name,
       description,
@@ -31,6 +35,7 @@ export class CreatePublicSpaceUseCase {
       zone,
       capacity,
       status: input.status,
+      exposure: input.exposure,
       imageUrl
     });
   }

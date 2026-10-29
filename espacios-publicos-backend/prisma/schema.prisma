@@ -24,6 +24,44 @@ enum PublicSpaceStatus {
   DISABLED
 }
 
+enum PublicSpaceExposure {
+  INDOOR
+  OUTDOOR
+  MIXED
+}
+
+enum WeatherCriticality {
+  BAJA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+enum WeatherPhenomenon {
+  TORMENTA_FUERTE
+  LLUVIA_INTENSA
+  VIENTO_FUERTE
+  OLA_DE_CALOR
+  OLA_DE_FRIO
+  GRANIZO
+  TORMENTA_ELECTRICA
+  HURACAN
+  NIEVE
+}
+
+enum WeatherAlertStatus {
+  PENDING
+  CONFIRMED
+  DISMISSED
+  FINALIZED
+}
+
+enum OutboxStatus {
+  PENDING
+  PUBLISHED
+  FAILED
+}
+
 enum UserRole {
   CITIZEN
   MUNICIPAL_ADMIN
@@ -56,55 +94,56 @@ model Admin {
 }
 
 model PublicSpace {
-  id          String           @id @default(uuid())
-  name        String
-  description String
-  address     String
-  zone        String           @default("Sin definir")
-  capacity    Int
-  status      PublicSpaceStatus @default(ENABLED)
-  imageUrl    String?
-  createdAt   DateTime         @default(now())
+  id           String              @id @default(uuid())
+  name         String
+  description  String
+  address      String
+  zone         String              @default("Sin definir")
+  capacity     Int
+  status       PublicSpaceStatus   @default(ENABLED)
+  exposure     PublicSpaceExposure @default(MIXED)
+  imageUrl     String?
+  createdAt    DateTime            @default(now())
   reservations Reservation[]
-  events      CommunityEvent[]
+  events       CommunityEvent[]
 
   @@map("public_spaces")
 }
 
 model Reservation {
-  id            String            @id @default(uuid())
-  publicSpaceId String
-  requesterName String
-  requesterEmail String
+  id                 String            @id @default(uuid())
+  publicSpaceId      String
+  requesterName      String
+  requesterEmail     String
   estimatedAttendees Int
-  startDate     DateTime
-  endDate       DateTime
-  status        ReservationStatus @default(CONFIRMED)
-  createdAt     DateTime          @default(now())
-  publicSpace   PublicSpace       @relation(fields: [publicSpaceId], references: [id])
+  startDate          DateTime
+  endDate            DateTime
+  status             ReservationStatus @default(CONFIRMED)
+  createdAt          DateTime          @default(now())
+  publicSpace        PublicSpace       @relation(fields: [publicSpaceId], references: [id])
 
   @@index([publicSpaceId, startDate, endDate])
   @@map("reservations")
 }
 
 model CommunityEvent {
-  id            String      @id @default(uuid())
-  title         String
-  category      String
-  tags          String[]    @default([])
-  description   String
-  requirements  String[]    @default([])
-  publicSpaceId String
-  organizerName String
-  capacity      Int
-  requiresRegistration Boolean @default(true)
-  startDate     DateTime
-  endDate       DateTime
-  status        CommunityEventStatus @default(ACTIVE)
-  imageUrl      String?
-  createdAt     DateTime    @default(now())
-  publicSpace   PublicSpace @relation(fields: [publicSpaceId], references: [id])
-  registrations CommunityEventRegistration[]
+  id                   String                       @id @default(uuid())
+  title                String
+  category             String
+  tags                 String[]                     @default([])
+  description          String
+  requirements         String[]                     @default([])
+  publicSpaceId        String
+  organizerName        String
+  capacity             Int
+  requiresRegistration Boolean                      @default(true)
+  startDate            DateTime
+  endDate              DateTime
+  status               CommunityEventStatus         @default(ACTIVE)
+  imageUrl             String?
+  createdAt            DateTime                     @default(now())
+  publicSpace          PublicSpace                  @relation(fields: [publicSpaceId], references: [id])
+  registrations        CommunityEventRegistration[]
 
   @@index([publicSpaceId, startDate, endDate])
   @@map("community_events")
@@ -124,13 +163,47 @@ model CommunityEventRegistration {
 }
 
 model EventOutbox {
-  id          String    @id
-  name        String
-  payload     Json
-  occurredAt  DateTime
-  publishedAt DateTime?
-  createdAt   DateTime  @default(now())
+  id            String       @id
+  name          String
+  payload       Json
+  occurredAt    DateTime
+  publishedAt   DateTime?
+  status        OutboxStatus @default(PENDING)
+  attempts      Int          @default(0)
+  nextAttemptAt DateTime?
+  lastError     String?
+  createdAt     DateTime     @default(now())
 
   @@index([name])
+  @@index([status, nextAttemptAt])
   @@map("event_outbox")
+}
+
+model WeatherAlert {
+  id                   String              @id @default(uuid())
+  deduplicationKey     String              @unique
+  zone                 String
+  latitude             Float
+  longitude            Float
+  phenomenon           WeatherPhenomenon
+  suggestedCriticality WeatherCriticality
+  confirmedCriticality WeatherCriticality?
+  status               WeatherAlertStatus  @default(PENDING)
+  validFrom            DateTime
+  validUntil           DateTime
+  evidence             Json
+  detectedAt           DateTime            @default(now())
+  confirmedAt          DateTime?
+  confirmedBy          String?
+  dismissedAt          DateTime?
+  dismissedBy          String?
+  dismissalReason      String?
+  finalizedAt          DateTime?
+  finalizedBy          String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@index([status, validUntil])
+  @@index([zone, status])
+  @@map("weather_alerts")
 }

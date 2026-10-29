@@ -13,6 +13,7 @@ const publicSpaceFields = [
   "zone",
   "capacity",
   "status",
+  "exposure",
   "imageUrl"
 ] as const;
 
