@@ -4,6 +4,7 @@ import { WeatherCriticality, WeatherPhenomenon } from "../../domain/entities/Wea
 import { WeatherAlertRepository } from "../../domain/repositories/WeatherAlertRepository";
 import { ValidationError } from "../../shared/errors/ValidationError";
 import { normalizeStringList, requireText } from "../../shared/validation/inputValidation";
+import { resolveWeatherNeighborhoods } from "../../domain/services/resolveWeatherNeighborhoods";
 
 const phenomena: WeatherPhenomenon[] = ["TORMENTA_FUERTE", "LLUVIA_INTENSA", "VIENTO_FUERTE",
   "OLA_DE_CALOR", "OLA_DE_FRIO", "GRANIZO", "TORMENTA_ELECTRICA", "HURACAN", "NIEVE"];
@@ -54,6 +55,7 @@ export class CreateManualWeatherAlertUseCase {
       validFrom, validUntil,
       evidence: {
         provider: "MANUAL",
+        neighborhoods: resolveWeatherNeighborhoods(locations),
         forecastFrom: validFrom.toISOString(),
         forecastTo: validUntil.toISOString(),
         weatherCodes: [], evaluatedHours: 0,

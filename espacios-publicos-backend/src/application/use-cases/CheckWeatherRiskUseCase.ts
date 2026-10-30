@@ -3,6 +3,7 @@ import { WeatherAlert } from "../../domain/entities/WeatherAlert";
 import { WeatherAlertRepository } from "../../domain/repositories/WeatherAlertRepository";
 import { WeatherForecastProvider } from "../../domain/services/WeatherForecastProvider";
 import { WeatherRiskEvaluator } from "../../domain/services/WeatherRiskEvaluator";
+import { resolveWeatherNeighborhoods } from "../../domain/services/resolveWeatherNeighborhoods";
 
 export interface WeatherCheckResult {
   checkedAt: string;
@@ -88,7 +89,7 @@ export class CheckWeatherRiskUseCase {
       suggestedCriticality: risk.criticality,
       validFrom: risk.validFrom,
       validUntil: risk.validUntil,
-      evidence: { ...risk.evidence, locations }
+      evidence: { ...risk.evidence, locations, neighborhoods: resolveWeatherNeighborhoods(locations) }
     });
     alerts.push(alert);
     created = true;

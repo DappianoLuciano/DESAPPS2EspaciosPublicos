@@ -4,7 +4,7 @@ import { DismissWeatherAlertUseCase } from "../../../application/use-cases/Dismi
 import { FinalizeWeatherAlertUseCase } from "../../../application/use-cases/FinalizeWeatherAlertUseCase";
 import { GetWeatherAlertUseCase } from "../../../application/use-cases/GetWeatherAlertUseCase";
 import { ListWeatherAlertsUseCase } from "../../../application/use-cases/ListWeatherAlertsUseCase";
-import { RunWeatherCycleUseCase } from "../../../application/use-cases/RunWeatherCycleUseCase";
+import { CheckWeatherRiskUseCase } from "../../../application/use-cases/CheckWeatherRiskUseCase";
 import { WeatherAlertStatus, WeatherCriticality } from "../../../domain/entities/WeatherAlert";
 import { ValidationError } from "../../../shared/errors/ValidationError";
 import { CreateManualWeatherAlertUseCase } from "../../../application/use-cases/CreateManualWeatherAlertUseCase";
@@ -16,7 +16,7 @@ export class WeatherAlertController {
   constructor(
     private readonly listAlerts: ListWeatherAlertsUseCase,
     private readonly getAlert: GetWeatherAlertUseCase,
-    private readonly runWeatherCycle: RunWeatherCycleUseCase,
+    private readonly checkWeatherRisk: CheckWeatherRiskUseCase,
     private readonly confirmAlert: ConfirmWeatherAlertUseCase,
     private readonly dismissAlert: DismissWeatherAlertUseCase,
     private readonly finalizeAlert: FinalizeWeatherAlertUseCase,
@@ -53,7 +53,7 @@ export class WeatherAlertController {
   };
 
   checkNow = async (_request: Request, response: Response): Promise<void> => {
-    response.json(await this.runWeatherCycle.execute());
+    response.json({ weatherCheck: await this.checkWeatherRisk.execute() });
   };
 
   confirm = async (request: Request, response: Response): Promise<void> => {

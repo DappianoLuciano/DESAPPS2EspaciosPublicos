@@ -441,6 +441,7 @@ export interface WeatherAlert {
   evidence: {
     provider: 'OPEN_METEO' | 'MANUAL';
     locations?: Array<{ latitude: number; longitude: number }>;
+    neighborhoods?: string[];
     manual?: { createdBy: string; createdAt: string; reason: string; source: string; locationIds: string[] };
     forecastFrom: string;
     forecastTo: string;
@@ -468,7 +469,7 @@ export interface WeatherCycleResult {
 
 export function listWeatherAlerts(status?: WeatherAlertStatus) {
   const query = status ? `?status=${encodeURIComponent(status)}` : '';
-  return request<WeatherAlert[]>(`/api/admin/weather-alerts${query}`);
+  return request<WeatherAlert[]>(`/api/admin/weather-alerts${query}`, { signal: AbortSignal.timeout(30_000) });
 }
 
 export interface WeatherLocation {
@@ -491,9 +492,10 @@ export function createManualWeatherAlert(payload: {
 }
 
 export function checkWeatherNow() {
-  return request<WeatherCycleResult>('/api/admin/weather-alerts/check', {
+  return request<Pick<WeatherCycleResult, 'weatherCheck'>>('/api/admin/weather-alerts/check', {
     method: 'POST',
     body: JSON.stringify({}),
+    signal: AbortSignal.timeout(45_000),
   });
 }
 
@@ -503,7 +505,7 @@ export function confirmWeatherAlert(
 ) {
   return request<{ alert: WeatherAlert; delivery: { processed: number; published: number; failed: number } }>(
     `/api/admin/weather-alerts/${encodeURIComponent(id)}/confirm`,
-    { method: 'POST', body: JSON.stringify(payload) }
+    { method: 'POST', body: JSON.stringify(payload), signal: AbortSignal.timeout(60_000) }
   );
 }
 
@@ -517,7 +519,7 @@ export function dismissWeatherAlert(id: string, motivo: string) {
 export function finalizeWeatherAlert(id: string) {
   return request<{ alert: WeatherAlert; delivery: { processed: number; published: number; failed: number } }>(
     `/api/admin/weather-alerts/${encodeURIComponent(id)}/finalize`,
-    { method: 'POST', body: JSON.stringify({}) }
+    { method: 'POST', body: JSON.stringify({}), signal: AbortSignal.timeout(60_000) }
   );
 }
 

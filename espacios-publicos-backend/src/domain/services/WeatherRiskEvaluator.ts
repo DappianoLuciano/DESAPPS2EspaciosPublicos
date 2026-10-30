@@ -14,6 +14,8 @@ export interface WeatherRiskThresholds {
   mediumPrecipitationMm: number;
   highPrecipitationMm: number;
   criticalPrecipitationMm: number;
+  heatDailyMinC?: number;
+  heatDailyMaxC?: number;
 }
 
 export interface EvaluatedWeatherRisk {
@@ -45,8 +47,6 @@ export class WeatherRiskEvaluator {
       0
     );
     const weatherCodes = Array.from(new Set(forecast.points.map((point) => point.weatherCode)));
-    const temperatures = forecast.points.map((point) => point.temperatureC)
-      .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
 
     const windCriticality = this.evaluateMetric(maxWindGustKmh, [
       this.thresholds.lowWindGustKmh,
@@ -60,6 +60,7 @@ export class WeatherRiskEvaluator {
       this.thresholds.highPrecipitationMm,
       this.thresholds.criticalPrecipitationMm
     ]);
+    const heatWindow = this.findHeatWindow(forecast);
 
     const candidates: Array<{
       phenomenon: WeatherPhenomenon;
@@ -67,6 +68,7 @@ export class WeatherRiskEvaluator {
     }> = [
       { phenomenon: "GRANIZO", criticality: weatherCodes.some((code) => code === 96 || code === 99) ? "CRITICA" : null },
       { phenomenon: "TORMENTA_ELECTRICA", criticality: weatherCodes.includes(95) ? "ALTA" : null },
+      { phenomenon: "OLA_DE_CALOR", criticality: heatWindow ? "ALTA" : null },
       { phenomenon: "NIEVE", criticality: this.evaluateSnowCodes(weatherCodes) },
       { phenomenon: "VIENTO_FUERTE", criticality: windCriticality },
       { phenomenon: "LLUVIA_INTENSA", criticality: rainCriticality || (weatherCodes.some((code) => code >= 80 && code <= 82) ? "BAJA" : null) }
@@ -81,8 +83,11 @@ export class WeatherRiskEvaluator {
       return null;
     }
 
-    const firstPoint = forecast.points[0];
-    const lastPoint = forecast.points[forecast.points.length - 1];
+    const selectedPoints = selected.phenomenon === "OLA_DE_CALOR" && heatWindow ? heatWindow : forecast.points;
+    const firstPoint = selectedPoints[0];
+    const lastPoint = selectedPoints[selectedPoints.length - 1];
+    const selectedTemperatures = selectedPoints.map((point) => point.temperatureC)
+      .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
     const validUntil = new Date(lastPoint.time.getTime() + 60 * 60 * 1000);
 
     return {
@@ -94,16 +99,40 @@ export class WeatherRiskEvaluator {
         provider: forecast.provider,
         forecastFrom: firstPoint.time.toISOString(),
         forecastTo: lastPoint.time.toISOString(),
-        maxWindGustKmh,
-        accumulatedPrecipitationMm: Number(accumulatedPrecipitationMm.toFixed(2)),
-        weatherCodes,
-        evaluatedHours: forecast.points.length,
-        ...(temperatures.length ? {
-          temperatureMinC: Math.min(...temperatures),
-          temperatureMaxC: Math.max(...temperatures)
+        maxWindGustKmh: Math.max(...selectedPoints.map((point) => point.windGustKmh)),
+        accumulatedPrecipitationMm: Number(selectedPoints.reduce((sum, point) => sum + point.precipitationMm, 0).toFixed(2)),
+        weatherCodes: Array.from(new Set(selectedPoints.map((point) => point.weatherCode))),
+        evaluatedHours: selectedPoints.length,
+        ...(selectedTemperatures.length ? {
+          temperatureMinC: Math.min(...selectedTemperatures),
+          temperatureMaxC: Math.max(...selectedTemperatures)
         } : {})
       }
     };
+  }
+
+  private findHeatWindow(forecast: WeatherForecast) {
+    const points = (forecast.heatPoints || forecast.points).slice()
+      .sort((a, b) => a.time.getTime() - b.time.getTime());
+    const minThreshold = this.thresholds.heatDailyMinC ?? 22;
+    const maxThreshold = this.thresholds.heatDailyMaxC ?? 32;
+    // Regla técnica: tres bloques consecutivos de 24 h, no días civiles ni alerta oficial SMN.
+    for (let start = 0; start + 72 <= points.length; start += 1) {
+      const window = points.slice(start, start + 72);
+      if (window.some((point, index) =>
+        typeof point.temperatureC !== "number" || !Number.isFinite(point.temperatureC) ||
+        (index > 0 && point.time.getTime() - window[index - 1].time.getTime() !== 3600_000))) continue;
+      let sustained = true;
+      for (let day = 0; day < 3; day += 1) {
+        const values = window.slice(day * 24, (day + 1) * 24).map((point) => point.temperatureC!);
+        if (Math.min(...values) < minThreshold || Math.max(...values) < maxThreshold) {
+          sustained = false;
+          break;
+        }
+      }
+      if (sustained) return window;
+    }
+    return null;
   }
 
   private evaluateMetric(value: number, thresholds: [number, number, number, number]): WeatherCriticality | null {

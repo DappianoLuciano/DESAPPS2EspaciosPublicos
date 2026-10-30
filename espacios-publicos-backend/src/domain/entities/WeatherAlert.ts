@@ -7,6 +7,8 @@ export type WeatherAlertStatus = "PENDING" | "CONFIRMED" | "DISMISSED" | "FINALI
 
 export interface WeatherEvidence {
   locations?: Array<{ latitude: number; longitude: number }>;
+  neighborhoods?: string[];
+  publicationChannel?: "console" | "citypass";
   provider: "OPEN_METEO" | "MANUAL";
   manual?: { createdBy: string; createdAt: string; reason: string; source: string; locationIds: string[] };
   forecastFrom: string;

@@ -2,6 +2,7 @@ import { DomainEvent } from "../../domain/entities/DomainEvent";
 import { EventBus } from "../../domain/services/EventBus";
 import { AppError } from "../../shared/errors/AppError";
 import { OAuthServiceTokenProvider } from "../auth/OAuthServiceTokenProvider";
+import { logger } from "../../shared/logging/logger";
 
 export class CityPassEventGatewayBus implements EventBus {
   constructor(
@@ -10,6 +11,10 @@ export class CityPassEventGatewayBus implements EventBus {
   ) {}
 
   async publish(event: DomainEvent): Promise<void> {
+    return this.publishAttempt(event, false);
+  }
+
+  private async publishAttempt(event: DomainEvent, renewed: boolean): Promise<void> {
     const token = await this.tokenProvider.getToken();
     const baseUrl = this.gatewayApiUrl.replace(/\/+$/, "");
     const url = `${baseUrl}/event-types/${encodeURIComponent(event.name)}/events`;
@@ -30,6 +35,10 @@ export class CityPassEventGatewayBus implements EventBus {
       throw new AppError("No se pudo conectar con el Event Gateway de CityPass+.", 502);
     }
 
+    if (response.status === 401 && !renewed) {
+      this.tokenProvider.invalidate();
+      return this.publishAttempt(event, true);
+    }
     if (!response.ok) {
       const detail = await response.text();
       const safeDetail = detail.slice(0, 500);
@@ -38,5 +47,7 @@ export class CityPassEventGatewayBus implements EventBus {
         502
       );
     }
+    logger.info({ eventId: event.id, eventName: event.name, statusCode: response.status },
+      "Evento aceptado por el gateway EDA");
   }
 }

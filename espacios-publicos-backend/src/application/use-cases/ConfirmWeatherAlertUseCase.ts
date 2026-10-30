@@ -5,6 +5,7 @@ import { WeatherAlertRepository } from "../../domain/repositories/WeatherAlertRe
 import { NotFoundError } from "../../shared/errors/NotFoundError";
 import { ValidationError } from "../../shared/errors/ValidationError";
 import { requireText } from "../../shared/validation/inputValidation";
+import { resolveWeatherNeighborhoods } from "../../domain/services/resolveWeatherNeighborhoods";
 import { PublishPendingOutboxEventsUseCase } from "./PublishPendingOutboxEventsUseCase";
 
 const validCriticalities: WeatherCriticality[] = ["BAJA", "MEDIA", "ALTA", "CRITICA"];
@@ -50,6 +51,8 @@ export class ConfirmWeatherAlertUseCase {
         fenomeno: current.phenomenon,
         ubicaciones: (current.evidence.locations || [{ latitude: current.latitude, longitude: current.longitude }])
           .map((point) => ({ latitud: point.latitude, longitud: point.longitude })),
+        barrios: resolveWeatherNeighborhoods(current.evidence.locations ||
+          [{ latitude: current.latitude, longitude: current.longitude }]),
         vigenciaDesde: current.validFrom.getTime(),
         vigenciaHasta: validUntil.getTime(),
         temperaturaMinC: current.evidence.temperatureMinC ?? null,

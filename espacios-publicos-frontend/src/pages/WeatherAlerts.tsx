@@ -96,6 +96,7 @@ export default function WeatherAlerts() {
     nivelCriticidad: manualCriticality,
     fenomeno: manualPhenomenon,
     ubicaciones: selectedManualLocations.map(({ latitude, longitude }) => ({ latitud: latitude, longitud: longitude })),
+    barrios: [...new Set(selectedManualLocations.map((location) => location.name))].sort(),
     vigenciaDesde: dateTimestamp(manualFrom),
     vigenciaHasta: dateTimestamp(manualUntil),
     temperaturaMinC: numericValue(manualTempMin) ?? null,
@@ -168,6 +169,7 @@ export default function WeatherAlerts() {
       { latitud: -34.6037, longitud: -58.3816 },
       { latitud: -34.5631, longitud: -58.4584 },
     ],
+    barrios: ['BELGRANO', 'SAN NICOLAS'],
     vigenciaDesde: previewUntil ? new Date(previewUntil).getTime() - 6 * 60 * 60_000 : null,
     vigenciaHasta: previewUntil ? new Date(previewUntil).getTime() : null,
     actorSub: 'admin-demo',
@@ -341,8 +343,8 @@ export default function WeatherAlerts() {
           <MultiSelect label="Ubicaciones (seleccionar barrios)" placeholder={loadingLocations ? 'Cargando catálogo...' : 'Buscá uno o varios barrios'}
             searchable clearable disabled={loadingLocations} value={manualIds} onChange={setManualIds}
             data={locations.map((location) => ({ value: location.id, label: location.name }))} />
-          <Text size="sm" c="dimmed">Catálogo GCBA: puntos representativos aproximados.
-            Los barrios quedan en el registro interno; EDA recibe únicamente las coordenadas.</Text>
+          <Text size="sm" c="dimmed">Puntos representativos del catálogo GCBA.
+            EDA recibe coordenadas y los barrios que contienen esos puntos.</Text>
           {manualIds.map((id) => {
             const location = locations.find((item) => item.id === id);
             return location && <Text size="sm" key={id}>{location.name}: {location.latitude}, {location.longitude}</Text>;
@@ -366,7 +368,7 @@ export default function WeatherAlerts() {
             onChange={(event) => setManualReason(event.currentTarget.value)} />
           <TextInput label="Fuente de respaldo" placeholder="Organismo, referencia o URL del aviso" required maxLength={1000}
             value={manualSource} onChange={(event) => setManualSource(event.currentTarget.value)} />
-          <Text size="sm" c="dimmed">El motivo, la fuente y los barrios son evidencia interna; no forman parte del mensaje EDA.</Text>
+          <Text size="sm" c="dimmed">El motivo y la fuente son evidencia interna. Los barrios se verifican en el backend a partir de las coordenadas.</Text>
           <Text fw={600}>Vista previa del mensaje al confirmar</Text>
           <Code block style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
             {JSON.stringify(manualPayload, null, 2)}
@@ -396,7 +398,7 @@ export default function WeatherAlerts() {
           />
           <Text size="sm" c="dimmed">
             Las coordenadas identifican el punto consultado, no el área completa de afectación.
-            Calor, frío y huracán están en el catálogo, pero su detección automática aún no está implementada.
+            Calor se evalúa con una regla técnica de 72 horas. Frío y huracán siguen disponibles para carga manual.
           </Text>
           <Select
             label="Criticidad de ejemplo"
@@ -546,7 +548,15 @@ export default function WeatherAlerts() {
                 const displayedCriticality = alert.confirmedCriticality || alert.suggestedCriticality;
                 return (
                   <Table.Tr key={alert.id}>
-                    <Table.Td fw={600}>{phenomenonLabels[alert.phenomenon]}</Table.Td>
+                    <Table.Td>
+                      <Text fw={600}>{phenomenonLabels[alert.phenomenon]}</Text>
+                      {Boolean(alert.evidence.neighborhoods?.length) && (
+                        <Text size="xs" c="dimmed">
+                          {alert.evidence.neighborhoods!.slice(0, 2).join(', ')}
+                          {alert.evidence.neighborhoods!.length > 2 && ` +${alert.evidence.neighborhoods!.length - 2}`}
+                        </Text>
+                      )}
+                    </Table.Td>
                     <Table.Td>
                       {alert.evidence.maxWindGustKmh !== undefined &&
                         <Text fz="sm">Ráfaga: {alert.evidence.maxWindGustKmh} km/h</Text>}
@@ -619,6 +629,7 @@ function alertMessagePayload(alert: WeatherAlert) {
     fenomeno: alert.phenomenon,
     ubicaciones: (alert.evidence.locations || [{ latitude: alert.latitude, longitude: alert.longitude }])
       .map(({ latitude, longitude }) => ({ latitud: latitude, longitud: longitude })),
+    barrios: alert.evidence.neighborhoods || [],
     vigenciaDesde: dateTimestamp(alert.validFrom),
     vigenciaHasta: dateTimestamp(alert.validUntil),
     temperaturaMinC: alert.evidence.temperatureMinC ?? null,

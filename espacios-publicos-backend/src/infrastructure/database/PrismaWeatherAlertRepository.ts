@@ -11,6 +11,7 @@ import { WeatherAlertRepository } from "../../domain/repositories/WeatherAlertRe
 import { NotFoundError } from "../../shared/errors/NotFoundError";
 import { ValidationError } from "../../shared/errors/ValidationError";
 import { prisma } from "./prismaClient";
+import { resolveWeatherNeighborhoods } from "../../domain/services/resolveWeatherNeighborhoods";
 
 export class PrismaWeatherAlertRepository implements WeatherAlertRepository {
   async create(data: CreateWeatherAlertData): Promise<WeatherAlert> {
@@ -45,7 +46,12 @@ export class PrismaWeatherAlertRepository implements WeatherAlertRepository {
 
   async findExpiredConfirmed(now: Date): Promise<WeatherAlert[]> {
     const alerts = await prisma.weatherAlert.findMany({
-      where: { status: "CONFIRMED", validUntil: { lte: now } },
+      where: {
+        status: "CONFIRMED", validUntil: { lte: now },
+        ...(process.env.EVENT_BUS_DRIVER === "citypass" ? {
+          evidence: { path: ["publicationChannel"], equals: "citypass" }
+        } : {})
+      },
       orderBy: { validUntil: "asc" }
     });
     return alerts.map((alert) => this.map(alert));
@@ -73,6 +79,8 @@ export class PrismaWeatherAlertRepository implements WeatherAlertRepository {
     event: DomainEvent
   ): Promise<WeatherAlert> {
     return prisma.$transaction(async (transaction) => {
+      const previous = await transaction.weatherAlert.findUnique({ where: { id } });
+      const evidence = previous?.evidence as unknown as WeatherEvidence | undefined;
       const result = await transaction.weatherAlert.updateMany({
         where: { id, status: "PENDING" },
         data: {
@@ -80,7 +88,11 @@ export class PrismaWeatherAlertRepository implements WeatherAlertRepository {
           confirmedCriticality: criticality,
           validUntil,
           confirmedAt: event.occurredAt,
-          confirmedBy: actorSub
+          confirmedBy: actorSub,
+          ...(evidence ? { evidence: {
+            ...evidence,
+            publicationChannel: process.env.EVENT_BUS_DRIVER === "citypass" ? "citypass" : "console"
+          } as unknown as Prisma.InputJsonValue } : {})
         }
       });
 
@@ -156,9 +168,12 @@ export class PrismaWeatherAlertRepository implements WeatherAlertRepository {
   }
 
   private map(alert: PrismaWeatherAlert): WeatherAlert {
+    const evidence = alert.evidence as unknown as WeatherEvidence;
     return {
       ...alert,
-      evidence: alert.evidence as unknown as WeatherEvidence
+      evidence: { ...evidence, neighborhoods: resolveWeatherNeighborhoods(
+        evidence.locations || [{ latitude: alert.latitude, longitude: alert.longitude }]
+      ) }
     };
   }
 }

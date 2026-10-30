@@ -16,7 +16,7 @@ No se ejecuta automaticamente una migracion contra la base compartida al levanta
 ## Flujo
 
 1. `POST /api/internal/weather-cycle` ejecuta el ciclo horario con `CRON_SECRET`.
-2. `POST /api/admin/weather-alerts/check` permite ejecutar el mismo ciclo en una demo.
+2. `POST /api/admin/weather-alerts/check` solo consulta y evalúa clima; no ejecuta cierres ni reintentos.
 3. Open-Meteo devuelve precipitacion, rafagas y codigos WMO para las proximas horas.
 4. Si hay riesgo se crea una alerta pendiente; consultas equivalentes no crean duplicados.
 5. El administrador confirma, ajusta el nivel o descarta el falso positivo.
@@ -45,6 +45,7 @@ El payload confirmado contiene solamente datos de negocio:
     { "latitud": -34.6037, "longitud": -58.3816 },
     { "latitud": -34.5631, "longitud": -58.4584 }
   ],
+  "barrios": ["BELGRANO", "SAN NICOLAS"],
   "vigenciaDesde": 1792594800000,
   "vigenciaHasta": 1792616400000,
   "actorSub": "admin-1"
@@ -56,7 +57,8 @@ El payload confirmado contiene solamente datos de negocio:
 ### Acuerdo para los consumidores
 
 - Confirmación incluye `ubicaciones: [{latitud, longitud}]` y `vigenciaDesde`.
-  No representan un polígono, radio de afectación ni un listado de barrios afectados.
+  No representan un polígono ni radio de afectación. `barrios` enumera los barrios
+  que contienen esos puntos usando polígonos oficiales, no los barrios vecinos de la tormenta.
   La zona interna se conserva para las reglas actuales de reservas, pero no se envía al gateway.
 - Configurar `WEATHER_LOCATIONS` como un array JSON de objetos `latitude/longitude`
   para consultar múltiples puntos en una petición. Sin esa variable se mantiene el punto configurado.
@@ -71,7 +73,7 @@ El payload confirmado contiene solamente datos de negocio:
   Los códigos 95 sugieren tormenta eléctrica; 96/99, granizo; 71/73/75/77/85/86, nieve.
   Los códigos 80–82 corresponden a chubascos y ahora se agrupan como lluvia.
   Los niveles asignados son criterios técnicos de demostración, no alertas oficiales.
-- Olas de calor/frío y huracanes están disponibles en el catálogo y la demo,
+- Olas de frío y huracanes están disponibles en el catálogo y la demo,
   pero no se detectan automáticamente. Requieren criterios y fuentes adicionales;
   no se infiere un huracán de una ráfaga ni una ola de calor de una sola temperatura.
   La creación manual queda pendiente de definición.
@@ -91,6 +93,42 @@ El payload confirmado contiene solamente datos de negocio:
 
 ## Registrar los contratos
 
+### Integración de pruebas con EDA
+
+Gateway: `https://test.citypass.mrfranco.net.ar/api/v1`.
+Token: `https://api.citypass-login.pp.ua/oauth/token`.
+Cliente de servicio: `grupo7`; namespace esperado: `com.citypass.espacios`.
+El secreto se configura solo en el .env privado del backend o en secretos de despliegue.
+No se usa el JWT humano de delegado-esp para publicar.
+
+Contratos registrados y verificados el 30/10/2026:
+- `com.citypass.espacios.CriticidadClimaticaConfirmada`: schemaId 28, evolución compatible
+  de schemaId 26 al añadir barrios (array de strings, default []). Conserva tópico y versión 1.
+- `com.citypass.espacios.CriticidadClimaticaFinalizada`: schemaId 27.
+
+El registro consulta contratos existentes y verifica el esquema antes de reutilizarlos;
+no los actualiza ni elimina automáticamente. Ejecutar `npm run eda:register-weather`.
+Para una evolución explícita: `npm run eda:register-weather -- --update-compatible`;
+el gateway valida compatibilidad.
+El proveedor comprueba los claims de servicio y cachea el token hasta su expiración.
+Esta comprobación local no verifica firma; el gateway la valida con JWKS.
+Ante un HTTP 401 se renueva el token y reintenta una sola vez.
+Los errores de publicación quedan en Outbox para el ciclo de reintentos.
+El log "Evento aceptado por el gateway EDA" indica aceptación HTTP, no aplicación en los consumidores.
+Los mensajes históricos ya marcados PUBLISHED en consola no se reproducen automáticamente.
+Las nuevas confirmaciones guardan publicationChannel en evidence. Al operar en citypass,
+el scheduler solo cierra automáticamente las confirmadas para ese canal: las históricas
+sin esa marca requieren revisión manual. Un cierre pendiente espera a que Outbox marque
+su confirmación como PUBLISHED. Este control mantiene precedencia de envío HTTP, pero
+no garantiza orden de consumo entre dos tópicos Kafka; consumidores deben correlacionar alertaId.
+Open-Meteo cachea durante cinco minutos y comparte peticiones concurrentes por instancia.
+Medición de prueba: 1346 ms en consulta externa, 0 ms desde caché; varía según red/proveedor.
+El frontend espera hasta 45 segundos para la consulta y 60 para confirmación/cierre.
+Solo los eventos climáticos usan este adaptador; los tres eventos históricos continúan en consola.
+
+Pruebas del adaptador, sin acceso a servicios externos: `npm run test:eda`.
+No confirmar alertas de simulacro en un entorno con consumidores operativos sin coordinación.
+
 ### Carga manual
 
 Mediciones opcionales: `rafagaMaxKmh` (no negativa), `precipitacionAcumuladaMm`
@@ -98,8 +136,14 @@ Mediciones opcionales: `rafagaMaxKmh` (no negativa), `precipitacionAcumuladaMm`
 Son estimaciones respaldadas por la fuente para la vigencia indicada. Ausente no significa cero.
 La carga manual no recalcula criticidad a partir de esas mediciones.
 Open-Meteo consulta `temperature_2m` en Celsius; se conservan extremos del período
-y, al agrupar ubicaciones, la mínima y máxima del grupo. No se detectan olas térmicas
-automáticamente con este cambio.
+y, al agrupar ubicaciones, la mínima y máxima del grupo.
+La detección de calor sostenido requiere 72 horas válidas y consecutivas, divididas
+en tres bloques de 24 horas: cada mínima >= WEATHER_HEAT_DAILY_MIN_C (22 °C)
+y cada máxima >= WEATHER_HEAT_DAILY_MAX_C (32 °C). Sugiere OLA_DE_CALOR / ALTA.
+Es un criterio técnico configurable, no el criterio oficial del SMN ni días civiles.
+No clasifica una hora aislada como ola. Si faltan temperaturas o hay huecos horarios,
+no genera este candidato. El proveedor consulta al menos 72 horas; lluvia/viento
+siguen evaluándose sobre WEATHER_FORECAST_HOURS. Las olas de frío no se detectan aún.
 Confirmación EDA agrega `temperaturaMinC` y `temperaturaMaxC`, nullable double con
 default null en el contrato propuesto. Null indica que no se dispone del dato.
 Las alertas históricas conservan null; las nuevas mediciones viven en evidence JSON.
@@ -118,7 +162,7 @@ Se debe acordar la evolución del contrato con EDA antes de publicar bajo un esq
   La evidencia JSON guarda proveedor MANUAL, fecha, autor, fuente, motivo e IDs del catálogo.
   No se requiere otra migración para este flujo; se usa la tabla weather_alerts existente.
 - Confirmación, descarte y finalización reutilizan los casos de uso existentes.
-  El contrato EDA sigue enviando solo coordenadas, nunca barrios, motivo ni fuente manual.
+  EDA recibe coordenadas y barrios calculados a partir de esas coordenadas; motivo y fuente quedan internos.
   Para ejercicios, acordar un entorno de prueba; confirmar sigue siendo una publicación real
   si EVENT_BUS_DRIVER=citypass. La carga manual no permite afirmar un fenómeno real sin respaldo.
 
