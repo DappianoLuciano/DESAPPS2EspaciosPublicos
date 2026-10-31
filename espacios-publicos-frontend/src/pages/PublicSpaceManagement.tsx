@@ -1,8 +1,9 @@
 import { Alert, Autocomplete, Badge, Box, Button, Card, Flex, Group, Modal, NumberInput, Select, Table, Text, TextInput, Textarea, Title, Container } from '@mantine/core';
 import { useDisclosure, useDebouncedValue } from '@mantine/hooks';
-import { IconEdit, IconMapPin, IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconEdit, IconMapPin, IconPhoto, IconPlus, IconTrash } from '@tabler/icons-react';
+import { Dropzone } from '@mantine/dropzone';
 import { useEffect, useState } from 'react';
-import { createPublicSpace, deletePublicSpace, listPublicSpaces, updatePublicSpace } from '../lib/api';
+import { createPublicSpace, deletePublicSpace, listPublicSpaces, updatePublicSpace, uploadPublicSpaceImage } from '../lib/api';
 import type { PublicSpace, PublicSpacePayload } from '../lib/api';
 
 const emptyForm: PublicSpacePayload = {
@@ -23,6 +24,7 @@ export default function PublicSpaceManagement() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [opened, { open, close }] = useDisclosure(false);
 
   const [addressSearch, setAddressSearch] = useState('');
@@ -86,6 +88,7 @@ export default function PublicSpaceManagement() {
   };
 
   const handleSubmit = async () => {
+    if (uploadingImage || submitting) return;
     setError(null);
     setSubmitting(true);
 
@@ -111,6 +114,22 @@ export default function PublicSpaceManagement() {
       setError(err instanceof Error ? err.message : 'No se pudo guardar el espacio público.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleImageDrop = async (files: File[]) => {
+    const file = files[0];
+    if (!file || uploadingImage || submitting) return;
+
+    setError(null);
+    setUploadingImage(true);
+    try {
+      const { imageUrl } = await uploadPublicSpaceImage(file);
+      setForm(previous => ({ ...previous, imageUrl }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo subir la imagen.');
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -147,7 +166,7 @@ export default function PublicSpaceManagement() {
 
   return (
     <Container size="xl" py={40}>
-      <Modal opened={opened} onClose={close} title={editingSpaceId ? 'Editar Espacio Público' : 'Nuevo Espacio Público'} centered size="lg">
+      <Modal opened={opened} onClose={() => { if (!uploadingImage && !submitting) close(); }} closeButtonProps={{ disabled: uploadingImage || submitting }} title={editingSpaceId ? 'Editar Espacio Público' : 'Nuevo Espacio Público'} centered size="lg">
         <Flex direction="column" gap="md">
           {error && <Alert color="red">{error}</Alert>}
           <TextInput
@@ -217,15 +236,38 @@ export default function PublicSpaceManagement() {
             value={form.exposure}
             onChange={(value) => setForm({ ...form, exposure: value as PublicSpacePayload['exposure'] })}
           />
-          <TextInput
-            label="Imagen URL"
-            placeholder="https://..."
-            value={form.imageUrl || ''}
-            onChange={(event) => setForm({ ...form, imageUrl: event.currentTarget.value })}
-          />
+          <Box>
+            <Text fw={600} mb={6}>Imagen del espacio público</Text>
+            <Dropzone
+              onDrop={handleImageDrop}
+              onReject={() => setError('Seleccioná una sola imagen JPG, PNG o WEBP de hasta 5 MB.')}
+              accept={['image/jpeg', 'image/png', 'image/webp']}
+              maxSize={5 * 1024 ** 2}
+              maxFiles={1}
+              multiple={false}
+              loading={uploadingImage}
+              disabled={submitting}
+            >
+              <Flex align="center" justify="center" gap="md" mih={110} style={{ pointerEvents: 'none' }}>
+                <IconPhoto size={32} />
+                <Box>
+                  <Text fw={600}>Arrastrá una imagen o hacé clic para seleccionarla</Text>
+                  <Text size="sm" c="dimmed">JPG, PNG o WEBP hasta 5 MB</Text>
+                </Box>
+              </Flex>
+            </Dropzone>
+            {form.imageUrl && (
+              <Box mt="sm">
+                <img src={form.imageUrl} alt="Vista previa del espacio público" style={{ display: 'block', width: '100%', height: 180, objectFit: 'cover', borderRadius: 8 }} />
+                <Button mt="xs" variant="subtle" color="red" size="xs" disabled={uploadingImage || submitting} onClick={() => setForm(previous => ({ ...previous, imageUrl: '' }))}>
+                  Quitar imagen
+                </Button>
+              </Box>
+            )}
+          </Box>
           <Flex justify="flex-end" gap="sm" mt="md">
-            <Button variant="default" onClick={close}>Cancelar</Button>
-            <Button onClick={handleSubmit} loading={submitting}>Guardar</Button>
+            <Button variant="default" onClick={close} disabled={uploadingImage || submitting}>Cancelar</Button>
+            <Button onClick={handleSubmit} loading={submitting} disabled={uploadingImage}>Guardar</Button>
           </Flex>
         </Flex>
       </Modal>

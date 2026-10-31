@@ -32,5 +32,20 @@ export function createUploadRoutes(storageService: SupabaseStorageService): Rout
     })
   );
 
+  router.post(
+    "/public-space-image",
+    requirePermission(permissions.UPLOAD_PUBLIC_SPACE_IMAGE),
+    auditAction(permissions.UPLOAD_PUBLIC_SPACE_IMAGE, "public-space-image"),
+    upload.single("file"),
+    asyncHandler(async (request, response) => {
+      if (!request.file) {
+        throw new ValidationError("Debe adjuntar una imagen.");
+      }
+
+      const imageUrl = await storageService.uploadPublicSpaceImage(request.file);
+      response.status(201).json({ imageUrl });
+    })
+  );
+
   return router;
 }

@@ -6,6 +6,14 @@ const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp"];
 
 export class SupabaseStorageService {
   async uploadEventImage(file: Express.Multer.File): Promise<string> {
+    return this.uploadImage(file, "events");
+  }
+
+  async uploadPublicSpaceImage(file: Express.Multer.File): Promise<string> {
+    return this.uploadImage(file, "public-spaces");
+  }
+
+  private async uploadImage(file: Express.Multer.File, folder: string): Promise<string> {
     const supabaseUrl = process.env.SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const bucket = process.env.SUPABASE_EVENT_IMAGES_BUCKET || "event-images";
@@ -23,7 +31,7 @@ export class SupabaseStorageService {
     }
 
     const extension = this.getExtension(file.mimetype);
-    const path = `events/${randomUUID()}.${extension}`;
+    const path = `${folder}/${randomUUID()}.${extension}`;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const { error } = await supabase.storage.from(bucket).upload(path, file.buffer, {

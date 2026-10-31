@@ -372,6 +372,13 @@ export function uploadEventImage(file: File) {
   return uploadRequest<{ imageUrl: string }>('/api/uploads/event-image', formData);
 }
 
+export function uploadPublicSpaceImage(file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return uploadRequest<{ imageUrl: string }>('/api/uploads/public-space-image', formData);
+}
+
 export interface PublicSpacePayload {
   name: string;
   description: string;
