@@ -1,3 +1,6 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/citypass-proxy/:path*", "destination": "https://api.citypass-login.pp.ua/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }

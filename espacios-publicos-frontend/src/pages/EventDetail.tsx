@@ -6,6 +6,8 @@ import { useDisclosure } from '@mantine/hooks';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import BikeRoutePlanner from '../components/BikeRoutePlanner';
+import { markerIconConfig } from '../components/LocationPicker';
 import { getCommunityEvent, listMyCommunityEventRegistrations, registerToCommunityEvent } from '../lib/api';
 import type { CommunityEventCatalogItem } from '../lib/api';
 
@@ -22,8 +24,17 @@ export default function EventDetail() {
   const [mapCoordinates, setMapCoordinates] = useState<[number, number] | null>(null);
   const [mapLoading, setMapLoading] = useState(true);
 
+  // Si el espacio tiene coordenadas guardadas (CU-INT-01) se usan; solo se geocodifica la direccion como respaldo.
+  const storedLatitude = event?.publicSpace?.latitude;
+  const storedLongitude = event?.publicSpace?.longitude;
+  const storedCoordinates: [number, number] | null =
+    typeof storedLatitude === 'number' && typeof storedLongitude === 'number'
+      ? [storedLatitude, storedLongitude]
+      : null;
+  const hasStoredCoordinates = storedCoordinates !== null;
+
   useEffect(() => {
-    if (event?.publicSpace?.address) {
+    if (!hasStoredCoordinates && event?.publicSpace?.address) {
       setMapLoading(true);
       fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(event.publicSpace.address)}&format=json`, {
         headers: {
@@ -39,7 +50,9 @@ export default function EventDetail() {
         .catch(console.error)
         .finally(() => setMapLoading(false));
     }
-  }, [event?.publicSpace?.address]);
+  }, [event?.publicSpace?.address, hasStoredCoordinates]);
+
+  const displayCoordinates = storedCoordinates ?? mapCoordinates;
 
   useEffect(() => {
     if (!id) {
@@ -266,16 +279,16 @@ export default function EventDetail() {
 
             <Title order={3} mt={40} mb="md">Ubicación</Title>
             <Card withBorder radius="md" p={0} h={250} style={{ overflow: 'hidden', position: 'relative', zIndex: 1 }}>
-              {mapLoading ? (
+              {mapLoading && !hasStoredCoordinates ? (
                 <Skeleton height="100%" width="100%" />
-              ) : mapCoordinates ? (
+              ) : displayCoordinates ? (
                 <Box h="100%">
-                  <MapContainer center={mapCoordinates} zoom={15} style={{ height: '100%', width: '100%', zIndex: 1 }}>
+                  <MapContainer center={displayCoordinates} zoom={15} style={{ height: '100%', width: '100%', zIndex: 1 }}>
                     <TileLayer
                       attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     />
-                    <Marker position={mapCoordinates} />
+                    <Marker position={displayCoordinates} icon={markerIconConfig} />
                   </MapContainer>
                 </Box>
               ) : (
@@ -288,6 +301,8 @@ export default function EventDetail() {
                 </Group>
               </Card>
             </Card>
+
+            <BikeRoutePlanner eventId={event.id} />
           </Box>
         </SimpleGrid>
       </Container>

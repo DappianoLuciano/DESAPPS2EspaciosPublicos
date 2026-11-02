@@ -45,6 +45,16 @@ jobs:
           NODE_ENV: test
           DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://user:pass@localhost:5432/test' }}
 
+      - name: Run weather, EDA and image upload regression tests
+        run: |
+          npm run test:eda
+          npm run test:weather-flow
+          npm run test:uploads
+        env:
+          NODE_ENV: test
+          EVENT_BUS_DRIVER: console
+          DATABASE_URL: postgresql://user:pass@localhost:5432/test
+
       - name: Build backend
         run: npm run build
 

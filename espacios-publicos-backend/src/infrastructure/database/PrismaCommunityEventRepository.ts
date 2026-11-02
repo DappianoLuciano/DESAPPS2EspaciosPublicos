@@ -176,6 +176,8 @@ export class PrismaCommunityEventRepository implements CommunityEventRepository 
         name: string;
         address: string;
         zone: string;
+        latitude?: number | null;
+        longitude?: number | null;
       };
       _count: {
         registrations: number;
@@ -207,7 +209,9 @@ export class PrismaCommunityEventRepository implements CommunityEventRepository 
         id: communityEvent.publicSpace.id,
         name: communityEvent.publicSpace.name,
         address: communityEvent.publicSpace.address,
-        zone: communityEvent.publicSpace.zone
+        zone: communityEvent.publicSpace.zone,
+        latitude: communityEvent.publicSpace.latitude ?? null,
+        longitude: communityEvent.publicSpace.longitude ?? null
       }
     };
   }

@@ -6,9 +6,11 @@ import { EventOutboxRepository } from "../../domain/repositories/EventOutboxRepo
 import { PublicSpaceRepository } from "../../domain/repositories/PublicSpaceRepository";
 import { ReservationRepository } from "../../domain/repositories/ReservationRepository";
 import { EventBus } from "../../domain/services/EventBus";
+import { eventNames } from "../../shared/events/eventTypes";
 import { ForbiddenError } from "../../shared/errors/ForbiddenError";
 import { NotFoundError } from "../../shared/errors/NotFoundError";
 import { ValidationError } from "../../shared/errors/ValidationError";
+import { hasCoordinates } from "../../shared/geo/distance";
 import {
   normalizeStringList,
   optionalHttpsUrl,
@@ -69,6 +71,14 @@ export class CreateCommunityEventUseCase {
       throw new ValidationError("El espacio publico indicado no esta habilitado para nuevos eventos.");
     }
 
+    // CU-INT-01: el evento sale al bus con la ubicacion del espacio. Sin ella,
+    // Movilidad no puede recomendar estaciones y el evento queda fuera de la ruta.
+    if (!hasCoordinates(publicSpace)) {
+      throw new ValidationError(
+        "El espacio publico no tiene ubicacion cargada. Marcala en el mapa del espacio antes de publicar eventos."
+      );
+    }
+
     if (capacity > publicSpace.capacity) {
       throw new ValidationError("El cupo del evento supera la capacidad del espacio.");
     }
@@ -110,20 +120,24 @@ export class CreateCommunityEventUseCase {
 
     const event: DomainEvent = {
       id: randomUUID(),
-      name: "cultura.evento_comunitario_publicado",
+      name: eventNames.communityEventPublished(),
+      // Contrato EventoComunitarioPublicado: siempre todos los campos, con null en los opcionales.
       payload: {
-        communityEventId: communityEvent.id,
-        publicSpaceId: communityEvent.publicSpaceId,
-        title: communityEvent.title,
-        category: communityEvent.category,
-        tags: communityEvent.tags,
-        organizerName: communityEvent.organizerName,
-        status: communityEvent.status,
-        capacity: communityEvent.capacity,
-        requiresRegistration: communityEvent.requiresRegistration,
-        startDate: communityEvent.startDate.toISOString(),
-        endDate: communityEvent.endDate.toISOString(),
-        imageUrl: communityEvent.imageUrl || null
+        eventoId: communityEvent.id,
+        espacioId: communityEvent.publicSpaceId,
+        titulo: communityEvent.title,
+        zona: publicSpace.zone ?? null,
+        direccion: publicSpace.address ?? null,
+        latitud: publicSpace.latitude ?? null,
+        longitud: publicSpace.longitude ?? null,
+        inicio: communityEvent.startDate.toISOString(),
+        fin: communityEvent.endDate.toISOString(),
+        capacidad: communityEvent.capacity,
+        cupoMaximo: communityEvent.capacity,
+        inscriptos: 0,
+        estado: communityEvent.status,
+        categoria: communityEvent.category,
+        correlationId: `evento-${communityEvent.id}`
       },
       occurredAt: new Date()
     };

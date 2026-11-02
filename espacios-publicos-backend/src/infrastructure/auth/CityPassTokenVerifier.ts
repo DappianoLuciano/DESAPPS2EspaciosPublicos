@@ -32,12 +32,10 @@ export interface CityPassVerifierOptions {
 
 const DEFAULT_ISSUER = "https://idp.citypass.local";
 const DEFAULT_AUDIENCE = "citypass-espacios-api";
-// El IdP declara este issuer, pero publica sus claves de firma en la URL desplegada.
-const DEFAULT_JWKS_URL = "https://api.citypass-login.pp.ua/.well-known/jwks.json";
+const DEFAULT_JWKS_URL = "https://idp.citypass.local/.well-known/jwks.json";
 const DEFAULT_ADMIN_GROUPS = ["admin", "espacios-admin", "administrador", "municipal_admin", "delegados", "soporte-n2"];
 const DEFAULT_CLOCK_TOLERANCE_SECONDS = 60;
 const DEFAULT_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutos
-const DEFAULT_JWKS_TIMEOUT_MS = 2_000;
 
 export class CityPassTokenVerifier {
   private readonly issuer: string;
@@ -216,8 +214,7 @@ export class CityPassTokenVerifier {
         jwksData = await this.fetchJwksFn(this.jwksUrl);
       } else {
         const response = await fetch(this.jwksUrl, {
-          headers: { Accept: "application/json" },
-          signal: AbortSignal.timeout(Number(process.env.CITYPASS_JWKS_TIMEOUT_MS) || DEFAULT_JWKS_TIMEOUT_MS)
+          headers: { Accept: "application/json" }
         });
 
         if (!response.ok) {

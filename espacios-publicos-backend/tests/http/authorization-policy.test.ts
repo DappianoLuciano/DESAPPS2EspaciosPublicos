@@ -20,6 +20,20 @@ describe("politica de autorizacion", () => {
     expect(hasPermission("municipal_admin", permissions.CREATE_COMMUNITY_EVENT)).toBe(true);
     expect(hasPermission("municipal_admin", permissions.CONFIRM_WEATHER_ALERT)).toBe(true);
     expect(hasPermission("municipal_admin", permissions.CREATE_RESERVATION)).toBe(false);
+    expect(hasPermission("municipal_admin", permissions.CANCEL_COMMUNITY_EVENT)).toBe(true);
+    expect(hasPermission("citizen", permissions.CANCEL_COMMUNITY_EVENT)).toBe(false);
+  });
+
+  it("rechaza a un ciudadano al cancelar un evento", async () => {
+    await request(createApp())
+      .patch("/api/community-events/event-1/cancel")
+      .set(citizenHeaders())
+      .send({ reason: "Motivo" })
+      .expect(403);
+  });
+
+  it("rechaza con 401 la cancelacion de un evento sin identidad", async () => {
+    await request(createApp()).patch("/api/community-events/event-1/cancel").send({}).expect(401);
   });
 
   it("rechaza a un ciudadano en operaciones administrativas", async () => {

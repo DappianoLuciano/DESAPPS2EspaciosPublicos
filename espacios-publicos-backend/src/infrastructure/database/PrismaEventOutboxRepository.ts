@@ -3,6 +3,7 @@ import { DomainEvent } from "../../domain/entities/DomainEvent";
 import { EventOutboxRepository } from "../../domain/repositories/EventOutboxRepository";
 import { ReliableEventOutboxRepository } from "../../domain/repositories/ReliableEventOutboxRepository";
 import { OutboxEvent } from "../../domain/entities/OutboxEvent";
+import { dispatchableEventNames, eventNames } from "../../shared/events/eventTypes";
 import { prisma } from "./prismaClient";
 
 export class PrismaEventOutboxRepository implements EventOutboxRepository, ReliableEventOutboxRepository {
@@ -18,18 +19,14 @@ export class PrismaEventOutboxRepository implements EventOutboxRepository, Relia
   }
 
   async findReady(limit: number, now: Date): Promise<OutboxEvent[]> {
-    // Los eventos historicos del modulo todavia usan publicacion directa. Hasta migrarlos
-    // al flujo transaccional completo, este worker solo debe despachar los contratos climaticos.
-    const weatherEventNames = [
-      process.env.WEATHER_CONFIRMED_EVENT_FQN?.trim() ||
-        "com.citypass.espacios.CriticidadClimaticaConfirmada",
-      process.env.WEATHER_FINALIZED_EVENT_FQN?.trim() ||
-        "com.citypass.espacios.CriticidadClimaticaFinalizada"
-    ];
+    // Solo se despachan los eventos con contrato FQN registrado (clima, eventos, espacios
+    // y reservas). Las filas historicas con nombres viejos ("cultura.*") se dejan como estan.
+    const dispatchableNames = dispatchableEventNames();
     const events = await prisma.eventOutbox.findMany({
       where: {
-        name: { in: weatherEventNames },
-        status: { in: ["PENDING", "FAILED"] },
+        name: { in: dispatchableNames },
+        // FAILED es terminal (se agotaron los intentos); los reintentos pendientes siguen PENDING.
+        status: "PENDING",
         OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }]
       },
       orderBy: { createdAt: "asc" },
@@ -38,12 +35,12 @@ export class PrismaEventOutboxRepository implements EventOutboxRepository, Relia
 
     const ready = [];
     for (const event of events) {
-      if (event.name === weatherEventNames[1] && process.env.EVENT_BUS_DRIVER === "citypass") {
+      if (event.name === eventNames.weatherFinalized() && process.env.EVENT_BUS_DRIVER?.trim().toLowerCase() === "citypass") {
         const payload = event.payload as Record<string, unknown>;
         if (typeof payload.alertaId !== "string") continue;
         const confirmation = await prisma.eventOutbox.findFirst({
           where: {
-            name: weatherEventNames[0], status: "PUBLISHED",
+            name: eventNames.weatherConfirmed(), status: "PUBLISHED",
             payload: { path: ["alertaId"], equals: payload.alertaId }
           }
         });
@@ -81,9 +78,21 @@ export class PrismaEventOutboxRepository implements EventOutboxRepository, Relia
     await prisma.eventOutbox.update({
       where: { id },
       data: {
-        status: "FAILED",
+        status: "PENDING",
         attempts: { increment: 1 },
         nextAttemptAt,
+        lastError: error.slice(0, 2000)
+      }
+    });
+  }
+
+  async markExhausted(id: string, error: string): Promise<void> {
+    await prisma.eventOutbox.update({
+      where: { id },
+      data: {
+        status: "FAILED",
+        attempts: { increment: 1 },
+        nextAttemptAt: null,
         lastError: error.slice(0, 2000)
       }
     });

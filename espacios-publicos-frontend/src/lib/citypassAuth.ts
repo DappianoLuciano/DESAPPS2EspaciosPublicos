@@ -21,16 +21,16 @@ export interface CityPassLoginResponse {
   expires_in: number;
 }
 
-const DEFAULT_IDP_URL = '/citypass-proxy';
+const DEFAULT_IDP_URL = 'https://api.citypass-login.pp.ua';
 const DEFAULT_CLIENT_ID = 'citypass-espacios-web';
 const ADMIN_GROUPS = new Set(['admin', 'espacios-admin', 'administrador', 'municipal_admin', 'delegados', 'soporte-n2']);
 
 function getIdpUrl(): string {
   const envUrl = import.meta.env.VITE_CITYPASS_IDP_URL?.trim();
-  if (!envUrl) {
-    return DEFAULT_IDP_URL;
+  if (envUrl) {
+    return envUrl.replace(/\/+$/, '');
   }
-  return envUrl.replace(/\/+$/, '');
+  return import.meta.env.DEV ? '/citypass-proxy' : DEFAULT_IDP_URL;
 }
 
 function getClientId(): string {

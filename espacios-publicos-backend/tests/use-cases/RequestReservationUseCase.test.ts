@@ -218,7 +218,18 @@ describe("RequestReservationUseCase", () => {
     expect(reservation.status).toBe("CONFIRMED");
     expect(eventOutboxRepository.events).toHaveLength(1);
     expect(eventBus.events).toHaveLength(1);
-    expect(eventBus.events[0].name).toBe("espacios.reserva_confirmada");
+    expect(eventBus.events[0].name).toBe("com.citypass.espacios.ReservaConfirmada");
+    // Contrato ReservaConfirmada para un espacio; sin datos personales del solicitante.
+    expect(eventBus.events[0].payload).toEqual({
+      reservaId: reservation.id,
+      tipoReserva: "ESPACIO",
+      recursoId: "space-1",
+      espacioId: "space-1",
+      cantidadPersonas: 80,
+      inicio: RESERVATION_START.toISOString(),
+      fin: RESERVATION_END.toISOString()
+    });
+    expect(JSON.stringify(eventBus.events[0].payload)).not.toContain("contacto@centro.test");
   });
 
   it("rechaza una reserva cuando no queda cupo en la franja horaria", async () => {

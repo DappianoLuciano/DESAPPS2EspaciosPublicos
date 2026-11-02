@@ -76,11 +76,11 @@ El payload confirmado contiene solamente datos de negocio:
 - Olas de frío y huracanes están disponibles en el catálogo y la demo,
   pero no se detectan automáticamente. Requieren criterios y fuentes adicionales;
   no se infiere un huracán de una ráfaga ni una ola de calor de una sola temperatura.
-  La creación manual queda pendiente de definición.
+  Se pueden cargar manualmente con fuente y motivo, siempre pendientes de confirmación humana.
 - Se agregó una migración independiente para ampliar el enum PostgreSQL;
   no se modificó la migración original ni se aplicaron cambios a bases remotas.
 - Si los contratos ya estaban registrados en EDA, hay que acordar su evolución:
-  el script de registro no actualiza un contrato existente ante un HTTP 409.
+  el script verifica el contrato existente y solo solicita una evolución con `--update-compatible` explícito.
 
 - El mensaje informa un hecho; no ordena acciones. Cada squad decide su politica por nivel.
 - `alertaId` es la clave de negocio para aplicar confirmacion/finalizacion de forma idempotente.
@@ -124,7 +124,16 @@ no garantiza orden de consumo entre dos tópicos Kafka; consumidores deben corre
 Open-Meteo cachea durante cinco minutos y comparte peticiones concurrentes por instancia.
 Medición de prueba: 1346 ms en consulta externa, 0 ms desde caché; varía según red/proveedor.
 El frontend espera hasta 45 segundos para la consulta y 60 para confirmación/cierre.
-Solo los eventos climáticos usan este adaptador; los tres eventos históricos continúan en consola.
+El adaptador y el outbox son compartidos con los casos de uso de main. Se conservan los seis
+contratos: EventoComunitarioPublicado, EventoCancelado, EspacioEstadoCambiado,
+ReservaConfirmada, CriticidadClimaticaConfirmada y CriticidadClimaticaFinalizada.
+Las filas históricas con nombres `cultura.*` no se reproducen automáticamente.
+`FAILED` es terminal al alcanzar EVENT_OUTBOX_MAX_ATTEMPTS; los reintentos siguen `PENDING`.
+La espera de confirmación previa se aplica solo a los cierres climáticos, no a los otros mensajes.
+
+El catálogo está unificado en `scripts/register-event-types.ts`. `npm run eda:register-events`
+opera sobre los seis contratos; `npm run eda:register-weather` selecciona solo los dos de clima.
+Ninguno se ejecuta automáticamente al desplegar o al iniciar la API.
 
 Pruebas del adaptador, sin acceso a servicios externos: `npm run test:eda`.
 No confirmar alertas de simulacro en un entorno con consumidores operativos sin coordinación.
@@ -169,12 +178,13 @@ Se debe acordar la evolución del contrato con EDA antes de publicar bajo un esq
 Con el gateway y el emisor OAuth disponibles, configurar las variables `EVENT_*` y ejecutar una vez:
 
 ```bash
-npm run eda:register-weather
+npm run eda:register-events
 ```
 
-Luego cambiar `EVENT_BUS_DRIVER=citypass`. Esa seleccion aplica solamente a los dos contratos
-climaticos: los eventos historicos del modulo siguen en `ConsoleEventBus` hasta que tengan un
-contrato FQN registrado. En modo `console`, el flujo climatico tampoco depende de LDAP ni de Kafka.
+El script registra los dos contratos climaticos y los cuatro de espacios y cultura
+(`EventoComunitarioPublicado`, `EventoCancelado`, `EspacioEstadoCambiado` y `ReservaConfirmada`;
+ver `docs/eventos-cu-int-01.md`). Luego cambiar `EVENT_BUS_DRIVER=citypass`. En modo `console`,
+ningun flujo depende de LDAP ni de Kafka.
 
 ## Scheduler
 

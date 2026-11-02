@@ -195,7 +195,18 @@ describe("RegisterCitizenToCommunityEventUseCase", () => {
 
     expect(registration.id).toBe("registration-1");
     expect(eventOutboxRepository.events).toHaveLength(1);
-    expect(eventBus.events[0].name).toBe("cultura.ciudadano_inscripto");
+    expect(eventBus.events[0].name).toBe("com.citypass.espacios.ReservaConfirmada");
+    // Contrato ReservaConfirmada para una inscripcion; sin datos personales del ciudadano.
+    expect(eventBus.events[0].payload).toEqual({
+      reservaId: "registration-1",
+      tipoReserva: "EVENTO",
+      recursoId: "event-1",
+      espacioId: "space-1",
+      cantidadPersonas: 1,
+      inicio: EVENT_START.toISOString(),
+      fin: EVENT_END.toISOString()
+    });
+    expect(JSON.stringify(eventBus.events[0].payload)).not.toContain("ana@test.com");
     expect(emailSender.emails).toHaveLength(1);
     expect(emailSender.emails[0].to).toBe("ana@test.com");
     expect(emailSender.emails[0].subject).toContain("Feria de emprendedores");
