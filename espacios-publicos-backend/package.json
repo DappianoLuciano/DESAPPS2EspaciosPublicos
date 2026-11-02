@@ -16,7 +16,11 @@
     "prisma:push": "prisma db push",
     "prisma:seed": "node prisma/seed.js",
     "prisma:studio": "prisma studio",
-    "eda:register-events": "ts-node scripts/register-event-types.ts"
+    "eda:register-events": "ts-node scripts/register-event-types.ts",
+    "eda:register-weather": "ts-node scripts/register-event-types.ts --weather-only",
+    "test:eda": "node --test --require ts-node/register/transpile-only tests/infrastructure/eda-integration.test.cjs",
+    "test:weather-flow": "node --test --require ts-node/register/transpile-only tests/infrastructure/weather-flow-regression.test.cjs",
+    "test:uploads": "node --test --require ts-node/register/transpile-only tests/infrastructure/public-space-image.test.cjs"
   },
   "keywords": [
     "citypass",

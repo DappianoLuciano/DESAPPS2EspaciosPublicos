@@ -211,7 +211,7 @@ export function createContainer() {
   const weatherAlertController = new WeatherAlertController(
     listWeatherAlertsUseCase,
     getWeatherAlertUseCase,
-    runWeatherCycleUseCase,
+    checkWeatherRiskUseCase,
     confirmWeatherAlertUseCase,
     dismissWeatherAlertUseCase,
     finalizeWeatherAlertUseCase,

@@ -4,9 +4,13 @@ import { PrismaEventOutboxRepository } from "../../src/infrastructure/database/P
 import { dispatchableEventNames } from "../../src/shared/events/eventTypes";
 
 const mockFindMany = jest.fn();
+const mockFindFirst = jest.fn();
 
 jest.mock("../../src/infrastructure/database/prismaClient", () => ({
-  prisma: { eventOutbox: { findMany: (...args: unknown[]) => mockFindMany(...args) } }
+  prisma: { eventOutbox: {
+    findMany: (...args: unknown[]) => mockFindMany(...args),
+    findFirst: (...args: unknown[]) => mockFindFirst(...args)
+  } }
 }));
 
 const ESPACIOS_FQNS = [
@@ -81,5 +85,39 @@ describe("outbox: eventos que se despachan al gateway", () => {
     expect(result).toEqual({ processed: 4, published: 4, failed: 0 });
     expect(sent).toEqual(ESPACIOS_FQNS);
     expect(published).toEqual(["event-0", "event-1", "event-2", "event-3"]);
+  });
+
+  it("un cierre pendiente no bloquea los mensajes de los demas casos de uso", async () => {
+    const previousDriver = process.env.EVENT_BUS_DRIVER;
+    process.env.EVENT_BUS_DRIVER = "citypass";
+    const messages: OutboxEvent[] = [...ESPACIOS_FQNS, ...WEATHER_FQNS].map((name, i) => ({
+      id: `mixed-${i}`, name, payload: { alertaId: "alert-1" },
+      occurredAt: new Date(), status: "PENDING", attempts: 0
+    }));
+    mockFindMany.mockResolvedValue(messages);
+    mockFindFirst.mockResolvedValue(null);
+    try {
+      const repository = new PrismaEventOutboxRepository();
+      const waiting = await repository.findReady(25, new Date());
+      expect(waiting.map(event => event.name)).toEqual([...ESPACIOS_FQNS, WEATHER_FQNS[0]]);
+      expect(mockFindFirst).toHaveBeenCalledWith({ where: {
+        name: WEATHER_FQNS[0], status: "PUBLISHED",
+        payload: { path: ["alertaId"], equals: "alert-1" }
+      } });
+
+      mockFindFirst.mockResolvedValue({ id: "confirmation" });
+      const ready = await repository.findReady(25, new Date());
+      expect(ready.map(event => event.name)).toEqual([...ESPACIOS_FQNS, ...WEATHER_FQNS]);
+      const sent: string[] = [];
+      const result = await new PublishPendingOutboxEventsUseCase({
+        save: jest.fn(), findReady: async () => ready, markPublished: jest.fn(),
+        markFailed: jest.fn(), markExhausted: jest.fn()
+      }, { publish: async event => void sent.push(event.name) }).execute();
+      expect(result).toEqual({ processed: 6, published: 6, failed: 0 });
+      expect(sent).toEqual([...ESPACIOS_FQNS, ...WEATHER_FQNS]);
+    } finally {
+      if (previousDriver === undefined) delete process.env.EVENT_BUS_DRIVER;
+      else process.env.EVENT_BUS_DRIVER = previousDriver;
+    }
   });
 });

@@ -31,6 +31,50 @@ function forecast(overrides?: Partial<WeatherForecast["points"][number]>): Weath
 }
 
 describe("WeatherRiskEvaluator", () => {
+  function heatForecast(): WeatherForecast {
+    const base = forecast();
+    base.points = Array.from({ length: 72 }, (_, i) => ({
+      ...base.points[0],
+      time: new Date(Date.UTC(2030, 0, 1) + i * 3600_000),
+      temperatureC: i % 24 === 12 ? 33 : 23
+    }));
+    return base;
+  }
+
+  it("detecta calor sostenido durante tres bloques completos de 24 horas", () => {
+    expect(evaluator.evaluate(heatForecast())).toMatchObject({
+      phenomenon: "OLA_DE_CALOR", criticality: "ALTA",
+      evidence: { temperatureMinC: 23, temperatureMaxC: 33, evaluatedHours: 72 }
+    });
+  });
+
+  it("no detecta ola por una sola hora o por menos de 72 horas", () => {
+    expect(evaluator.evaluate(forecast({ temperatureC: 40 }))).toBeNull();
+    const base = heatForecast();
+    base.points.pop();
+    expect(evaluator.evaluate(base)).toBeNull();
+  });
+
+  it("no detecta ola si una noche refresca o falta una temperatura", () => {
+    const base = heatForecast();
+    base.points[30].temperatureC = 18;
+    expect(evaluator.evaluate(base)).toBeNull();
+    delete base.points[30].temperatureC;
+    expect(evaluator.evaluate(base)).toBeNull();
+  });
+
+  it("no acepta huecos horarios", () => {
+    const base = heatForecast();
+    base.points[30].time = new Date(base.points[30].time.getTime() + 60_000);
+    expect(evaluator.evaluate(base)).toBeNull();
+  });
+
+  it("puede evaluar 72 h de calor sin acumular tres dias de lluvia", () => {
+    const base = heatForecast();
+    base.heatPoints = base.points;
+    base.points = base.points.slice(0, 24);
+    expect(evaluator.evaluate(base)?.phenomenon).toBe("OLA_DE_CALOR");
+  });
   it("no crea riesgo cuando el pronostico queda bajo todos los umbrales", () => {
     expect(evaluator.evaluate(forecast())).toBeNull();
   });

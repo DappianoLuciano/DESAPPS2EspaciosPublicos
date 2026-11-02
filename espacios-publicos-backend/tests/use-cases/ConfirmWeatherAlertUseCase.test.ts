@@ -64,6 +64,7 @@ describe("ConfirmWeatherAlertUseCase", () => {
       nivelCriticidad: "CRITICA",
       fenomeno: "TORMENTA_FUERTE",
       ubicaciones: [{ latitud: -34.6037, longitud: -58.3816 }],
+      barrios: ["SAN NICOLAS"],
       vigenciaDesde: current.validFrom.getTime(),
       vigenciaHasta: validUntil.getTime(),
       temperaturaMinC: null,

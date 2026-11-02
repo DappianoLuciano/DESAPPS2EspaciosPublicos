@@ -33,6 +33,8 @@ export function getWeatherLocationConfig(): WeatherLocationConfig {
 export function getWeatherRiskThresholds(): WeatherRiskThresholds {
   return {
     lowWindGustKmh: numberFromEnv("WEATHER_LOW_WIND_GUST_KMH", 35),
+    heatDailyMinC: numberFromEnv("WEATHER_HEAT_DAILY_MIN_C", 22),
+    heatDailyMaxC: numberFromEnv("WEATHER_HEAT_DAILY_MAX_C", 32),
     mediumWindGustKmh: numberFromEnv("WEATHER_MEDIUM_WIND_GUST_KMH", 50),
     highWindGustKmh: numberFromEnv("WEATHER_HIGH_WIND_GUST_KMH", 70),
     criticalWindGustKmh: numberFromEnv("WEATHER_CRITICAL_WIND_GUST_KMH", 100),

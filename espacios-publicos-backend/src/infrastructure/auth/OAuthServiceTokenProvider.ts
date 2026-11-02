@@ -45,12 +45,29 @@ export class OAuthServiceTokenProvider {
     if (!data.access_token) {
       throw new AppError("El servicio de identidad no devolvio un token de servicio.", 502);
     }
+    // Inspección de contrato; la firma la verifica el gateway con JWKS.
+    let claims: Record<string, unknown>;
+    try {
+      claims = JSON.parse(Buffer.from(data.access_token.split(".")[1], "base64url").toString("utf8"));
+    } catch {
+      throw new AppError("El proveedor de identidad no devolvio un JWT utilizable.", 502);
+    }
+    const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
+    const expectedNamespace = process.env.EVENT_NAMESPACE?.trim() || "com.citypass.espacios";
+    if (claims.token_use !== "service" || claims.namespace !== expectedNamespace ||
+      !audiences.includes("citypass") || typeof claims.exp !== "number" || claims.exp * 1000 <= Date.now()) {
+      throw new AppError("El JWT de servicio no cumple el namespace, audiencia, tipo o vigencia esperados para EDA.", 502);
+    }
 
     const expiresIn = Number.isFinite(data.expires_in) ? Number(data.expires_in) : 300;
     this.cachedToken = {
       value: data.access_token,
-      expiresAt: Date.now() + expiresIn * 1000
+      expiresAt: Math.min(Date.now() + expiresIn * 1000, claims.exp * 1000)
     };
     return data.access_token;
+  }
+
+  invalidate(): void {
+    this.cachedToken = undefined;
   }
 }

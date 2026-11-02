@@ -4,8 +4,8 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import 'leaflet/dist/leaflet.css';
-import { useEffect, useMemo } from 'react';
-import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { useEffect } from 'react';
+import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
 
 export interface Coordinates {
   latitude: number;
@@ -14,7 +14,6 @@ export interface Coordinates {
 
 interface LocationPickerProps {
   value: Coordinates | null;
-  onChange: (coordinates: Coordinates) => void;
   height?: number;
 }
 
@@ -31,15 +30,6 @@ export const markerIconConfig = L.icon({
   iconAnchor: [12, 41],
 });
 
-function ClickToMove({ onChange }: { onChange: LocationPickerProps['onChange'] }) {
-  useMapEvents({
-    click(event) {
-      onChange({ latitude: event.latlng.lat, longitude: event.latlng.lng });
-    },
-  });
-  return null;
-}
-
 // Cuando la ubicacion cambia desde el buscador, el mapa la sigue.
 function FollowValue({ value }: { value: Coordinates | null }) {
   const map = useMap();
@@ -52,22 +42,10 @@ function FollowValue({ value }: { value: Coordinates | null }) {
 }
 
 /**
- * Mapa para fijar la ubicacion exacta de un espacio publico.
- * El buscador de direcciones propone un punto; aca se ajusta con un clic o
- * arrastrando el marcador. Las coordenadas son las que usa Movilidad para
- * recomendar estaciones cercanas al evento (CU-INT-01).
+ * Vista previa de la ubicacion resuelta desde una direccion.
+ * No permite modificar las coordenadas con clics ni arrastrando el marcador.
  */
-export default function LocationPicker({ value, onChange, height = 240 }: LocationPickerProps) {
-  const eventHandlers = useMemo(
-    () => ({
-      dragend(event: L.LeafletEvent) {
-        const position = (event.target as L.Marker).getLatLng();
-        onChange({ latitude: position.lat, longitude: position.lng });
-      },
-    }),
-    [onChange],
-  );
-
+export default function LocationPicker({ value, height = 240 }: LocationPickerProps) {
   return (
     <Box>
       <Box
@@ -89,13 +67,11 @@ export default function LocationPicker({ value, onChange, height = 240 }: Locati
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <ClickToMove onChange={onChange} />
           <FollowValue value={value} />
           {value && (
             <Marker
               position={[value.latitude, value.longitude]}
-              draggable
-              eventHandlers={eventHandlers}
+              draggable={false}
               icon={markerIconConfig}
             />
           )}
@@ -104,8 +80,8 @@ export default function LocationPicker({ value, onChange, height = 240 }: Locati
       <Group justify="space-between" mt={6}>
         <Text size="xs" c="dimmed">
           {value
-            ? 'Arrastrá el marcador o hacé clic en el mapa para ajustar el punto exacto.'
-            : 'Buscá la dirección arriba o hacé clic en el mapa para marcar el espacio.'}
+            ? 'Ubicación obtenida de la dirección seleccionada. Para cambiarla, buscá otra dirección.'
+            : 'Ingresá una dirección y presioná «Ubicar dirección» para mostrar el espacio.'}
         </Text>
         {value && (
           <Text size="xs" c="dimmed" ff="monospace">
