@@ -3,7 +3,7 @@ import { EmailSender } from "../../domain/services/EmailSender";
 import { logger } from "../../shared/logging/logger";
 
 export class NodemailerEmailSender implements EmailSender {
-  private transporter: nodemailer.Transporter;
+  private transporter: ReturnType<typeof nodemailer.createTransport>;
   private readonly from: string;
 
   constructor() {
