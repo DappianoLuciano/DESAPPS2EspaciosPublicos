@@ -93,6 +93,9 @@ jobs:
       - name: Run linter
         run: npm run lint
 
+      - name: Test address lookup
+        run: npm run test:address
+
       - name: Build frontend
         run: npm run build
         env:
