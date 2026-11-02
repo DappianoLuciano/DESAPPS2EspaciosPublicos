@@ -12,4 +12,6 @@ export interface CreateCommunityEventInput {
   startDate: string;
   endDate: string;
   imageUrl?: string | null;
+  // sub del token del organizador. Lo completa el controller, nunca el body.
+  organizerSub?: string | null;
 }

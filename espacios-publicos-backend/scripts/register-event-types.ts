@@ -78,6 +78,21 @@ const spacesDefinitions: EventTypeDefinition[] = [
     { name: "categoria", type: "string" },
     { name: "correlationId", type: "string", doc: "evento-<eventoId>" }
   ]),
+  record("ActividadCreada", "E1 squad 3: se creo una actividad (evento comunitario) en un espacio publico.", [
+    { name: "correlationId", type: "string", doc: "act-<actividadId>" },
+    { name: "actividadId", type: "string" },
+    { name: "titulo", type: "string" },
+    { name: "estado", type: "string", doc: "Siempre PROGRAMADA" },
+    { name: "capacidad", type: "int" },
+    { name: "fechaHoraInicio", type: { type: "long", logicalType: "timestamp-millis" } },
+    { name: "fechaHoraFinalizacion", type: { type: "long", logicalType: "timestamp-millis" } },
+    { name: "ubicacion", type: { type: "record", name: "Ubicacion", fields: [
+      { name: "lat", type: "double" }, { name: "lng", type: "double" }
+    ] } },
+    { name: "direccion", type: "string" },
+    { name: "espacioNombre", type: "string" },
+    { name: "actorSub", type: nullable("string"), default: null }
+  ]),
   record("EventoCancelado", "Un administrador cancelo un evento comunitario.", [
     { name: "eventoId", type: "string" },
     { name: "espacioId", type: "string" },

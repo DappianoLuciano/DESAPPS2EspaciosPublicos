@@ -27,7 +27,8 @@ export class CommunityEventController {
     const communityEvent = await this.createCommunityEventUseCase.execute({
       ...request.body,
       organizerName: request.user?.name,
-      organizerProfileEnabled: request.user?.role === "municipal_admin"
+      organizerProfileEnabled: request.user?.role === "municipal_admin",
+      organizerSub: request.user?.id ?? null
     });
     response.status(201).json(communityEvent);
   };

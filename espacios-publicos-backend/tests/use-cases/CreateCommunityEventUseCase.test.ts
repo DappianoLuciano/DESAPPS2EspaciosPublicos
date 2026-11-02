@@ -230,10 +230,15 @@ describe("CreateCommunityEventUseCase", () => {
 
     expect(communityEvent.status).toBe("ACTIVE");
     expect(communityEvent.requiresRegistration).toBe(true);
-    expect(eventOutboxRepository.events).toHaveLength(1);
-    expect(eventBus.events).toHaveLength(1);
-    expect(eventBus.events[0].name).toBe("com.citypass.espacios.EventoComunitarioPublicado");
+    // EventoComunitarioPublicado (CU-INT-01) y despues ActividadCreada (E1 squad 3).
+    expect(eventOutboxRepository.events).toHaveLength(2);
+    expect(eventBus.events).toHaveLength(2);
+    expect(eventBus.events.map((event) => event.name)).toEqual([
+      "com.citypass.espacios.EventoComunitarioPublicado",
+      "com.citypass.espacios.ActividadCreada"
+    ]);
     expect(eventOutboxRepository.events[0]).toBe(eventBus.events[0]);
+    expect(eventOutboxRepository.events[1]).toBe(eventBus.events[1]);
     // Contrato EventoComunitarioPublicado: exactamente estos campos, con null en los opcionales.
     expect(eventBus.events[0].payload).toEqual({
       eventoId: communityEvent.id,
@@ -252,6 +257,57 @@ describe("CreateCommunityEventUseCase", () => {
       categoria: communityEvent.category,
       correlationId: `evento-${communityEvent.id}`
     });
+  });
+
+  it("publica ActividadCreada (E1 squad 3) con el payload exacto del contrato", async () => {
+    const { useCase, eventBus } = createUseCase();
+
+    const communityEvent = await useCase.execute({ ...validInput, organizerSub: "sub-organizador-1" });
+
+    const activityCreated = eventBus.events.find(
+      (event) => event.name === "com.citypass.espacios.ActividadCreada"
+    );
+    expect(activityCreated?.payload).toEqual({
+      correlationId: `act-${communityEvent.id}`,
+      actividadId: communityEvent.id,
+      titulo: "Feria de emprendedores",
+      estado: "PROGRAMADA",
+      capacidad: 300,
+      fechaHoraInicio: EVENT_START.getTime(),
+      fechaHoraFinalizacion: EVENT_END.getTime(),
+      ubicacion: { lat: -34.6066, lng: -58.4357 },
+      direccion: "CABA",
+      espacioNombre: "Parque Centenario",
+      actorSub: "sub-organizador-1"
+    });
+  });
+
+  it("ActividadCreada lleva actorSub null si no hay organizador autenticado", async () => {
+    const { useCase, eventBus } = createUseCase();
+
+    await useCase.execute(validInput);
+
+    expect(eventBus.events[1].name).toBe("com.citypass.espacios.ActividadCreada");
+    expect(eventBus.events[1].payload.actorSub).toBeNull();
+  });
+
+  it("publica ActividadCreada para una actividad que empieza en 1 minuto y termina a los 10", async () => {
+    const { useCase, eventBus } = createUseCase();
+    const startDate = new Date(Date.now() + 60_000);
+    const endDate = new Date(Date.now() + 10 * 60_000);
+
+    const communityEvent = await useCase.execute({
+      ...validInput,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString()
+    });
+
+    const payload = eventBus.events[1].payload;
+    expect(communityEvent.status).toBe("ACTIVE");
+    expect(payload.fechaHoraInicio).toBe(startDate.getTime());
+    expect(payload.fechaHoraFinalizacion).toBe(endDate.getTime());
+    expect(typeof payload.fechaHoraInicio).toBe("number");
+    expect(typeof payload.fechaHoraFinalizacion).toBe("number");
   });
 
   it("permite publicar un evento de libre acceso cuando no requiere inscripcion previa", async () => {
