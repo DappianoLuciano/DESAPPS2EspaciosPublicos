@@ -72,6 +72,13 @@ const catalogItem: CommunityEventCatalogItem = {
 };
 
 describe("ListCommunityEventsUseCase", () => {
+  it("solicita también suspendidos y cancelados para que el front pueda informar su estado", async () => {
+    const repository = new FakeCommunityEventRepository();
+    repository.catalogItems = [{ ...catalogItem, status: "SUSPENDED", statusReason: "Alerta climática" }];
+    const result = await new ListCommunityEventsUseCase(repository).execute({});
+    expect(repository.lastFilters?.includeUnavailable).toBe(true);
+    expect(result.items[0].statusReason).toBe("Alerta climática");
+  });
   it("devuelve eventos activos con cupo disponible segun filtros", async () => {
     const repository = new FakeCommunityEventRepository();
     repository.catalogItems = [catalogItem];

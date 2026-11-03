@@ -25,37 +25,19 @@ import {
   checkWeatherNow,
   confirmWeatherAlert,
   dismissWeatherAlert,
-  finalizeWeatherAlert,
   listWeatherAlerts,
   listWeatherLocations,
   createManualWeatherAlert,
 } from '../lib/api';
 import type { WeatherAlert, WeatherCriticality, WeatherPhenomenon, WeatherLocation } from '../lib/api';
-
-const criticalityColors: Record<WeatherCriticality, string> = {
-  BAJA: 'blue',
-  MEDIA: 'yellow',
-  ALTA: 'orange',
-  CRITICA: 'red',
-};
+import { weatherCriticalityColors as criticalityColors, weatherPhenomenonLabels as phenomenonLabels } from '../lib/weatherAlertPresentation';
+import WeatherMeasuresButton from '../components/WeatherMeasuresButton';
 
 const statusLabels = {
   PENDING: 'Pendiente de validación',
   CONFIRMED: 'Confirmada',
   DISMISSED: 'Descartada',
   FINALIZED: 'Finalizada',
-};
-
-const phenomenonLabels: Record<WeatherPhenomenon, string> = {
-  TORMENTA_FUERTE: 'Tormenta fuerte',
-  LLUVIA_INTENSA: 'Lluvia intensa',
-  VIENTO_FUERTE: 'Viento fuerte',
-  OLA_DE_CALOR: 'Ola de calor',
-  OLA_DE_FRIO: 'Ola de frío',
-  GRANIZO: 'Granizo',
-  TORMENTA_ELECTRICA: 'Tormenta eléctrica',
-  HURACAN: 'Huracán',
-  NIEVE: 'Nieve',
 };
 
 export default function WeatherAlerts() {
@@ -276,24 +258,6 @@ export default function WeatherAlerts() {
       await loadAlerts();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'No se pudo procesar la alerta.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const finalize = async (alert: WeatherAlert) => {
-    setSubmitting(true);
-    setError(null);
-    try {
-      const result = await finalizeWeatherAlert(alert.id);
-      setNotice(
-        result.delivery.failed > 0
-          ? 'La alerta finalizó. El evento de cierre quedó pendiente de reintento.'
-          : 'La alerta finalizó y se emitió el evento de cierre.'
-      );
-      await loadAlerts();
-    } catch (finalizeError) {
-      setError(finalizeError instanceof Error ? finalizeError.message : 'No se pudo finalizar la alerta.');
     } finally {
       setSubmitting(false);
     }
@@ -586,8 +550,10 @@ export default function WeatherAlerts() {
                           </>
                         )}
                         {alert.status === 'CONFIRMED' && (
-                          <Button size="xs" variant="light" loading={submitting} onClick={() => finalize(alert)}>Finalizar</Button>
+                          <WeatherMeasuresButton alert={alert} finish onUpdated={() => { void loadAlerts(); }} />
                         )}
+                        {(alert.status === 'CONFIRMED' || alert.status === 'FINALIZED') &&
+                          <WeatherMeasuresButton alert={alert} onUpdated={() => { void loadAlerts(); }} />}
                       </Group>
                     </Table.Td>
                   </Table.Tr>

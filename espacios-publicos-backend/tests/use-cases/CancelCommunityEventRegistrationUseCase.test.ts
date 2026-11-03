@@ -4,6 +4,17 @@ import { CommunityEventRepository } from "../../src/domain/repositories/Communit
 import { ForbiddenError } from "../../src/shared/errors/ForbiddenError";
 
 describe("cancelacion de inscripciones propias", () => {
+  it("dar de baja una inscripción no reanuda un evento suspendido", async () => {
+    const updateStatus = jest.fn();
+    const deleteById = jest.fn();
+    const useCase = new CancelCommunityEventRegistrationUseCase(
+      { updateStatus } as never,
+      { findById: jest.fn().mockResolvedValue({ ...registration, communityEvent: { status: "SUSPENDED" } }), deleteById } as never
+    );
+    await useCase.execute("registration-1", "propietario@example.com");
+    expect(deleteById).toHaveBeenCalled();
+    expect(updateStatus).not.toHaveBeenCalled();
+  });
   const registration = {
     id: "registration-1",
     communityEventId: "event-1",

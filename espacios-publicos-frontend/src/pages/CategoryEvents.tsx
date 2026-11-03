@@ -16,7 +16,7 @@ export default function CategoryEvents() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    listCommunityEvents({ category: categoryName, availableOnly: true, upcomingOnly: true })
+    listCommunityEvents({ category: categoryName, upcomingOnly: true })
       .then((response) => setEvents(response.items))
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));

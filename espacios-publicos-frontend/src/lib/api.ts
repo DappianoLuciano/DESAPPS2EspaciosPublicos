@@ -112,7 +112,9 @@ export interface CommunityEventCatalogItem {
   requiresRegistration: boolean;
   startDate: string;
   endDate: string;
-  status: 'ACTIVE' | 'ACTIVE_FULL' | 'CANCELLED';
+  status: 'ACTIVE' | 'ACTIVE_FULL' | 'SUSPENDED' | 'CANCELLED';
+  statusReason?: string | null;
+  activeWeatherAlertIds?: string[];
   imageUrl?: string | null;
   publicSpace: {
     id: string;
@@ -151,7 +153,8 @@ export interface CommunityEvent {
   requiresRegistration: boolean;
   startDate: string;
   endDate: string;
-  status: 'ACTIVE' | 'ACTIVE_FULL' | 'CANCELLED';
+  status: 'ACTIVE' | 'ACTIVE_FULL' | 'SUSPENDED' | 'CANCELLED';
+  statusReason?: string | null;
   imageUrl?: string | null;
   createdAt: string;
 }
@@ -173,7 +176,8 @@ export interface CitizenCommunityEventRegistration {
     requiresRegistration: boolean;
     startDate: string;
     endDate: string;
-    status: 'ACTIVE' | 'ACTIVE_FULL' | 'CANCELLED';
+    status: 'ACTIVE' | 'ACTIVE_FULL' | 'SUSPENDED' | 'CANCELLED';
+    statusReason?: string | null;
     imageUrl?: string | null;
     publicSpace: {
       id: string;
@@ -435,6 +439,7 @@ export type WeatherPhenomenon =
 export type WeatherAlertStatus = 'PENDING' | 'CONFIRMED' | 'DISMISSED' | 'FINALIZED';
 
 export interface WeatherAlert {
+  activeRestrictionCount?: number;
   id: string;
   zone: string;
   latitude: number;
@@ -480,13 +485,44 @@ export interface WeatherCycleResult {
   delivery: { processed: number; published: number; failed: number };
 }
 
-export function listWeatherAlerts(status?: WeatherAlertStatus) {
+export function listWeatherAlerts(status?: WeatherAlertStatus, signal?: AbortSignal) {
   const query = status ? `?status=${encodeURIComponent(status)}` : '';
-  return request<WeatherAlert[]>(`/api/admin/weather-alerts${query}`, { signal: AbortSignal.timeout(30_000) });
+  return request<WeatherAlert[]>(`/api/admin/weather-alerts${query}`, {
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000),
+  });
 }
 
 export interface WeatherLocation {
   id: string; name: string; locality: string; latitude: number; longitude: number;
+}
+
+export interface WeatherImpactPlan {
+  alertId: string; status: WeatherAlertStatus; validFrom: string; validUntil: string;
+  neighborhoods: string[]; canApply: boolean; activeSpaceCount: number; activeEventCount: number;
+  appliedSpaces: { id: string; name: string }[];
+  appliedEvents: { id: string; title: string }[];
+  spaces: {
+    id: string; name: string; zone?: string; exposure?: string; restricted: boolean;
+    events: { id: string; title: string; startDate: string; endDate: string; status: string; restricted: boolean; selectable: boolean }[];
+  }[];
+}
+
+export function getWeatherImpact(id: string, signal?: AbortSignal) {
+  return request<WeatherImpactPlan>(`/api/admin/weather-alerts/${encodeURIComponent(id)}/impact`, {
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000),
+  });
+}
+
+export function applyWeatherRestrictions(id: string, payload: { spaceIds: string[]; eventIds: string[]; reason: string }) {
+  return request<WeatherImpactPlan>(`/api/admin/weather-alerts/${encodeURIComponent(id)}/restrictions`, {
+    method: 'POST', body: JSON.stringify(payload),
+  });
+}
+
+export function releaseWeatherRestrictions(id: string) {
+  return request<WeatherImpactPlan>(`/api/admin/weather-alerts/${encodeURIComponent(id)}/restrictions/release`, {
+    method: 'POST', body: JSON.stringify({}),
+  });
 }
 
 export function listWeatherLocations() {
@@ -650,6 +686,13 @@ export function cancelCommunityEvent(id: string, reason?: string) {
   return request<CommunityEvent>(`/api/community-events/${encodeURIComponent(id)}/cancel`, {
     method: 'PATCH',
     body: JSON.stringify(reason ? { reason } : {}),
+  });
+}
+
+export function changeCommunityEventSuspension(id: string, action: 'suspend' | 'resume', reason?: string) {
+  return request<CommunityEvent>(`/api/community-events/${encodeURIComponent(id)}/${action}`, {
+    method: 'PATCH',
+    body: JSON.stringify(action === 'suspend' ? { reason } : {}),
   });
 }
 

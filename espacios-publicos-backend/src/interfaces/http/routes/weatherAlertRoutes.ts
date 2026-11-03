@@ -47,6 +47,13 @@ export function createWeatherAlertRoutes(controller: WeatherAlertController): Ro
     allowBodyFields(["nivelCriticidad", "vigenciaHasta"]),
     asyncHandler(controller.confirm)
   );
+  router.get("/:id/impact", requirePermission(permissions.VIEW_WEATHER_ALERTS), asyncHandler(controller.impact));
+  router.post("/:id/restrictions", requirePermission(permissions.CONFIRM_WEATHER_ALERT),
+    auditAction("weather-alert.restrictions.apply", "weather-alert"),
+    allowBodyFields(["spaceIds", "eventIds", "reason"]), asyncHandler(controller.applyRestrictions));
+  router.post("/:id/restrictions/release", requirePermission(permissions.FINALIZE_WEATHER_ALERT),
+    auditAction("weather-alert.restrictions.release", "weather-alert"),
+    allowBodyFields([]), asyncHandler(controller.releaseRestrictions));
   router.post(
     "/:id/dismiss",
     requirePermission(permissions.DISMISS_WEATHER_ALERT),

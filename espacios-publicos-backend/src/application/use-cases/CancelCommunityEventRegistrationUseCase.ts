@@ -29,7 +29,7 @@ export class CancelCommunityEventRegistrationUseCase {
     await this.communityEventRegistrationRepository.deleteById(normalizedRegistrationId);
 
     if (registration.communityEvent.status === "ACTIVE_FULL") {
-      await this.communityEventRepository.updateStatus(registration.communityEventId, "ACTIVE");
+      await this.communityEventRepository.updateStatus(registration.communityEventId, "ACTIVE", undefined, "ACTIVE_FULL");
     }
   }
 }

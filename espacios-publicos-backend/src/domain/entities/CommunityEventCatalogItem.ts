@@ -15,6 +15,8 @@ export interface CommunityEventCatalogItem {
   startDate: Date;
   endDate: Date;
   status: CommunityEventStatus;
+  statusReason?: string | null;
+  activeWeatherAlertIds?: string[];
   imageUrl?: string | null;
   publicSpace: {
     id: string;

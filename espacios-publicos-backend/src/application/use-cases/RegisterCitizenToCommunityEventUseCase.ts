@@ -61,7 +61,7 @@ export class RegisterCitizenToCommunityEventUseCase {
     );
 
     if (currentRegistrations >= communityEvent.capacity) {
-      await this.communityEventRepository.updateStatus(communityEvent.id, "ACTIVE_FULL");
+      await this.communityEventRepository.updateStatus(communityEvent.id, "ACTIVE_FULL", undefined, "ACTIVE");
       throw new ValidationError("El evento no tiene cupos disponibles.");
     }
 
@@ -74,7 +74,7 @@ export class RegisterCitizenToCommunityEventUseCase {
     const remainingCapacity = communityEvent.capacity - (currentRegistrations + 1);
 
     if (remainingCapacity === 0) {
-      await this.communityEventRepository.updateStatus(communityEvent.id, "ACTIVE_FULL");
+      await this.communityEventRepository.updateStatus(communityEvent.id, "ACTIVE_FULL", undefined, "ACTIVE");
     }
 
     const event: DomainEvent = {

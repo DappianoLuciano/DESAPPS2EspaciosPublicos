@@ -8,6 +8,7 @@ export interface CommunityEventCatalogFilters {
   date?: Date;
   availableOnly?: boolean;
   upcomingOnly?: boolean;
+  includeUnavailable?: boolean;
 }
 
 export interface CommunityEventRepository {
@@ -17,5 +18,5 @@ export interface CommunityEventRepository {
   findActiveCatalogById(id: string): Promise<CommunityEventCatalogItem | null>;
   findActiveCatalog(filters: CommunityEventCatalogFilters): Promise<CommunityEventCatalogItem[]>;
   findOverlapping(publicSpaceId: string, startDate: Date, endDate: Date): Promise<CommunityEvent[]>;
-  updateStatus(id: string, status: CommunityEventStatus): Promise<CommunityEvent>;
+  updateStatus(id: string, status: CommunityEventStatus, reason?: string | null, expectedStatus?: CommunityEventStatus): Promise<CommunityEvent>;
 }

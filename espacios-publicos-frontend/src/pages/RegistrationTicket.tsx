@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import EventAvailabilityNotice from '../components/EventAvailabilityNotice';
+import { eventAvailability } from '../lib/eventAvailability';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Container, Card, Title, Text, Badge, Loader, Center, Group, Button, Stack, ThemeIcon, Image } from '@mantine/core';
 import { IconArrowLeft, IconDownload, IconCheck, IconX, IconCalendar, IconUser, IconMapPin } from '@tabler/icons-react';
@@ -82,7 +84,7 @@ export default function RegistrationTicket() {
   }
 
   const event = registration.communityEvent;
-  const isValid = event.status !== 'CANCELLED' && new Date(event.endDate) >= new Date();
+  const isValid = !eventAvailability(event).unavailable && new Date(event.endDate) >= new Date();
 
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleString('es-AR', {
@@ -108,7 +110,8 @@ export default function RegistrationTicket() {
             </Badge>
           </Stack>
 
-          {qrCode && (
+          <EventAvailabilityNotice event={event} />
+          {qrCode && isValid && (
             <Stack align="center" gap={4}>
               <Image src={qrCode} alt="Código QR de la inscripción" w={160} h={160} />
               <Text size="xs" c="dimmed" ta="center">
@@ -145,6 +148,7 @@ export default function RegistrationTicket() {
               size="xs"
               leftSection={<IconDownload size={14} />}
               loading={downloading}
+              disabled={!isValid}
               onClick={async () => {
                 setDownloading(true);
                 try {

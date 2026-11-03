@@ -13,7 +13,7 @@ import { EventOutboxRepository } from "../../src/domain/repositories/EventOutbox
 import { PublicSpaceRepository } from "../../src/domain/repositories/PublicSpaceRepository";
 import { ReservationRepository } from "../../src/domain/repositories/ReservationRepository";
 import { EventBus } from "../../src/domain/services/EventBus";
-import { WeatherAlertRepository } from "../../src/domain/repositories/WeatherAlertRepository";
+import { WeatherRestrictionRepository } from "../../src/domain/repositories/WeatherRestrictionRepository";
 
 class FakePublicSpaceRepository implements PublicSpaceRepository {
   public spaces: PublicSpace[] = [];
@@ -161,8 +161,8 @@ function createUseCase(weatherBlocked = false) {
   const qrGenerator = new FakeQrGenerator();
   const emailSender = new FakeEmailSender();
   const weatherAlertRepository = {
-    hasBlockingAlert: jest.fn().mockResolvedValue(weatherBlocked)
-  } as unknown as WeatherAlertRepository;
+    hasBlockingRestriction: jest.fn().mockResolvedValue(weatherBlocked)
+  } as unknown as WeatherRestrictionRepository;
 
   publicSpaceRepository.spaces.push({
     id: "space-1",

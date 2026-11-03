@@ -2,7 +2,7 @@ import { Alert, Box, Button, Card, Flex, Group, Modal, SimpleGrid, Table, Text, 
 import { IconCalendarEvent, IconEye, IconPlayerPlay, IconUsersGroup } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { cancelCommunityEvent, listCommunityEvents } from '../lib/api';
+import { cancelCommunityEvent, changeCommunityEventSuspension, listCommunityEvents } from '../lib/api';
 import type { CommunityEventCatalogItem } from '../lib/api';
 
 export default function EventManagement() {
@@ -11,6 +11,7 @@ export default function EventManagement() {
   const [error, setError] = useState<string | null>(null);
   const [now] = useState(() => Date.now());
   const [eventToCancel, setEventToCancel] = useState<CommunityEventCatalogItem | null>(null);
+  const [action, setAction] = useState<'cancel' | 'suspend' | 'resume'>('cancel');
   const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -29,9 +30,10 @@ export default function EventManagement() {
 
   const activeEvents = events.filter((event) => event.status === 'ACTIVE').length;
 
-  const openCancelModal = (event: CommunityEventCatalogItem) => {
+  const openCancelModal = (event: CommunityEventCatalogItem, nextAction: 'cancel' | 'suspend' | 'resume' = 'cancel') => {
+    setAction(nextAction);
     setEventToCancel(event);
-    setCancelReason('');
+    setCancelReason(nextAction === 'suspend' ? 'Suspendido por alerta climática. Pendiente de revisión por la administración.' : '');
     setCancelError(null);
   };
 
@@ -50,15 +52,17 @@ export default function EventManagement() {
     setCancelling(true);
 
     try {
-      await cancelCommunityEvent(eventToCancel.id, cancelReason.trim() || undefined);
+      const updated = action === 'cancel'
+        ? await cancelCommunityEvent(eventToCancel.id, cancelReason.trim() || undefined)
+        : await changeCommunityEventSuspension(eventToCancel.id, action, cancelReason.trim());
       const cancelledId = eventToCancel.id;
 
       setEvents((current) =>
-        current.map((event) => (event.id === cancelledId ? { ...event, status: 'CANCELLED' } : event))
+        current.map((event) => (event.id === cancelledId ? { ...event, status: updated.status, statusReason: updated.statusReason } : event))
       );
       setEventToCancel(null);
     } catch (err) {
-      setCancelError(err instanceof Error ? err.message : 'No se pudo cancelar el evento.');
+      setCancelError(err instanceof Error ? err.message : 'No se pudo actualizar el evento.');
     } finally {
       setCancelling(false);
     }
@@ -83,6 +87,8 @@ export default function EventManagement() {
         return <Badge color="blue" variant="light">Completo</Badge>;
       case 'CANCELLED':
         return <Badge color="red" variant="light">Cancelado</Badge>;
+      case 'SUSPENDED':
+        return <Badge color="orange" variant="light">Suspendido</Badge>;
       default:
         return <Badge color="gray" variant="light">Sin estado</Badge>;
     }
@@ -90,28 +96,33 @@ export default function EventManagement() {
 
   return (
     <Box px={{ base: 'md', md: 40 }} py={40}>
-      <Modal opened={eventToCancel !== null} onClose={closeCancelModal} title="Cancelar evento" centered>
+      <Modal opened={eventToCancel !== null} onClose={closeCancelModal} title={action === 'suspend' ? 'Suspender temporalmente' : action === 'resume' ? 'Reanudar evento' : 'Cancelar definitivamente'} centered>
         <Flex direction="column" gap="md">
           <Text size="sm">
-            ¿Seguro que querés cancelar <strong>{eventToCancel?.title}</strong>? Dejará de estar disponible
-            para inscripciones y se avisará al resto de CityPass+. Esta acción no se puede deshacer.
+            <strong>{eventToCancel?.title}</strong>
+            {action === 'suspend'
+              ? ': se bloquearán nuevas inscripciones y se conservarán las existentes. La suspensión será visible para los ciudadanos hasta su reanudación manual.'
+              : action === 'resume'
+                ? ': verificá que las condiciones del clima y del espacio permitan retomar la actividad. Se conservarán los inscriptos y se habilitarán los cupos restantes.'
+                : ': el evento no se realizará y dejará de admitir inscripciones. Se publicará la cancelación por el canal de eventos configurado. Esta acción no se puede deshacer.'}
           </Text>
           {cancelError && <Alert color="red">{cancelError}</Alert>}
-          <Textarea
-            label="Motivo (opcional)"
+          {action !== 'resume' && <Textarea
+            label={action === 'suspend' ? 'Motivo visible para los ciudadanos' : 'Motivo visible para los ciudadanos (opcional)'}
+            required={action === 'suspend'}
             placeholder="Ej: Pronóstico de tormenta"
             autosize
             minRows={2}
             maxLength={500}
             value={cancelReason}
             onChange={(event) => setCancelReason(event.currentTarget.value)}
-          />
+          />}
           <Group justify="flex-end">
             <Button variant="default" onClick={closeCancelModal} disabled={cancelling}>
               Volver
             </Button>
-            <Button color="red" onClick={handleCancel} loading={cancelling}>
-              Cancelar evento
+            <Button color={action === 'cancel' ? 'red' : action === 'suspend' ? 'orange' : 'blue'} onClick={handleCancel} loading={cancelling} disabled={action === 'suspend' && !cancelReason.trim()}>
+              {action === 'suspend' ? 'Confirmar suspensión' : action === 'resume' ? 'Reanudar evento' : 'Cancelar definitivamente'}
             </Button>
           </Group>
         </Flex>
@@ -197,7 +208,10 @@ export default function EventManagement() {
                   </Table.Td>
                   <Table.Td>{formatDate(event.startDate)}</Table.Td>
                   <Table.Td>{event.registeredCount}/{event.capacity}</Table.Td>
-                  <Table.Td>{getStatusBadge(event.status)}</Table.Td>
+                  <Table.Td>
+                    {getStatusBadge(event.status)}
+                    {event.statusReason && <Text size="xs" mt={6} maw={220}>{event.statusReason}</Text>}
+                  </Table.Td>
                   <Table.Td>
                     <ActionIcon
                       component={Link}
@@ -211,15 +225,21 @@ export default function EventManagement() {
                   </Table.Td>
                   <Table.Td>
                     {canCancel(event) && (
-                      <Button
-                        size="xs"
-                        color="red"
-                        variant="light"
-                        onClick={() => openCancelModal(event)}
-                        aria-label={`Cancelar evento ${event.title}`}
-                      >
-                        Cancelar evento
-                      </Button>
+                      <Group gap="xs" wrap="wrap">
+                        <Button size="xs" variant="light" disabled={!!event.activeWeatherAlertIds?.length} color={event.status === 'SUSPENDED' ? 'blue' : 'orange'} onClick={() => openCancelModal(event, event.status === 'SUSPENDED' ? 'resume' : 'suspend')}>
+                          {event.status === 'SUSPENDED' ? 'Reanudar' : 'Suspender'}
+                        </Button>
+                        {!!event.activeWeatherAlertIds?.length && <Text size="xs" component={Link} to="/admin/weather-alerts">Gestionar desde la alerta climática</Text>}
+                        <Button
+                          size="xs"
+                          color="red"
+                          variant="light"
+                          onClick={() => openCancelModal(event)}
+                          aria-label={`Cancelar evento ${event.title}`}
+                        >
+                          Cancelar evento
+                        </Button>
+                      </Group>
                     )}
                   </Table.Td>
                 </Table.Tr>

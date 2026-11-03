@@ -1,6 +1,7 @@
 import { Badge, Box, Card, Flex, Image, Text } from '@mantine/core';
 import { IconCalendarEvent, IconMapPin } from '@tabler/icons-react';
 import type { CommunityEventCatalogItem } from '../lib/api';
+import { eventAvailability } from '../lib/eventAvailability';
 
 const DEFAULT_EVENT_IMAGE =
   'https://images.unsplash.com/photo-1540039155733-d7696d4eb98b?auto=format&fit=crop&q=80';
@@ -11,6 +12,7 @@ interface EventCardProps {
 }
 
 export default function EventCard({ event, onClick }: EventCardProps) {
+  const availability = eventAvailability(event);
   const eventDate = new Date(event.startDate);
   const formatDateTime = (date: string) => new Intl.DateTimeFormat('es-AR', {
     day: '2-digit',
@@ -44,7 +46,14 @@ export default function EventCard({ event, onClick }: EventCardProps) {
           alt={`Imagen de ${event.title}`}
           h={190}
           fit="cover"
+          style={availability.imageStyle}
         />
+        {availability.unavailable && (
+          <Box bg="#111" c="white" px="md" py="sm" style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
+            <Text fw={700} size="sm">{availability.label}</Text>
+            {availability.reason && <Text size="xs" lineClamp={2}>{availability.reason}</Text>}
+          </Box>
+        )}
         <Box
           bg="white"
           ta="center"
