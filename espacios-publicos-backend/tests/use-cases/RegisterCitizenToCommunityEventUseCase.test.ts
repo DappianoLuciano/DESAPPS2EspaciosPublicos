@@ -127,6 +127,21 @@ class FakeEmailSender {
   }
 }
 
+const SPACE = {
+  id: "space-1",
+  name: "Plaza",
+  description: "d",
+  address: "Av. Siempreviva 742",
+  zone: "Mataderos",
+  capacity: 100,
+  latitude: -34.65,
+  longitude: -58.5,
+  status: "ENABLED" as const,
+  createdAt: new Date()
+};
+
+const PUBLISHED = "com.citypass.espacios.EventoComunitarioPublicado";
+
 class FakeQrGenerator {
   async generate(_data: string): Promise<string> {
     return "fake-qr-data-uri";
@@ -170,7 +185,8 @@ function createUseCase(capacity = 2, requiresRegistration = true) {
     eventOutboxRepository,
     eventBus,
     new FakeQrGenerator(),
-    emailSender
+    emailSender,
+    { findById: async (id: string) => (id === SPACE.id ? SPACE : null) }
   );
 
   return {
@@ -194,7 +210,8 @@ describe("RegisterCitizenToCommunityEventUseCase", () => {
     });
 
     expect(registration.id).toBe("registration-1");
-    expect(eventOutboxRepository.events).toHaveLength(1);
+    // ReservaConfirmada + la republicacion de EventoComunitarioPublicado.
+    expect(eventOutboxRepository.events).toHaveLength(2);
     expect(eventBus.events[0].name).toBe("com.citypass.espacios.ReservaConfirmada");
     // Contrato ReservaConfirmada para una inscripcion; sin datos personales del ciudadano.
     expect(eventBus.events[0].payload).toEqual({
@@ -253,5 +270,71 @@ describe("RegisterCitizenToCommunityEventUseCase", () => {
 
     const communityEvent = await communityEventRepository.findById("event-1");
     expect(communityEvent?.status).toBe("ACTIVE_FULL");
+  });
+
+  describe("republicacion de EventoComunitarioPublicado", () => {
+    function published(events: DomainEvent[]) {
+      return events.filter((event) => event.name === PUBLISHED);
+    }
+
+    it("al inscribirse publica el evento con el total actual de inscriptos y el mismo eventoId", async () => {
+      const { useCase, eventBus, eventOutboxRepository } = createUseCase(3);
+
+      await useCase.execute({ communityEventId: "event-1", citizenName: "Ana", citizenEmail: "ana@test.com" });
+      await useCase.execute({ communityEventId: "event-1", citizenName: "Beto", citizenEmail: "beto@test.com" });
+
+      const events = published(eventBus.events);
+      expect(events).toHaveLength(2);
+      expect(published(eventOutboxRepository.events).map((event) => event.id)).toEqual(
+        events.map((event) => event.id)
+      );
+      // Cada publicacion es un DomainEvent nuevo, pero siempre del mismo evento comunitario.
+      expect(events[0].id).not.toBe(events[1].id);
+      expect(events[1].payload).toEqual({
+        eventoId: "event-1",
+        espacioId: "space-1",
+        titulo: "Feria de emprendedores",
+        zona: "Mataderos",
+        direccion: "Av. Siempreviva 742",
+        latitud: -34.65,
+        longitud: -58.5,
+        inicio: EVENT_START.toISOString(),
+        fin: EVENT_END.toISOString(),
+        capacidad: 3,
+        cupoMaximo: 3,
+        inscriptos: 2,
+        estado: "ACTIVE",
+        categoria: "Cultura",
+        correlationId: "evento-event-1"
+      });
+      expect(events[0].payload.inscriptos).toBe(1);
+    });
+
+    it("al llenar el cupo publica estado ACTIVE_FULL con inscriptos igual al cupo", async () => {
+      const { useCase, eventBus } = createUseCase(1);
+
+      await useCase.execute({ communityEventId: "event-1", citizenName: "Ana", citizenEmail: "ana@test.com" });
+
+      const [event] = published(eventBus.events);
+      expect(event.payload).toEqual(expect.objectContaining({ inscriptos: 1, estado: "ACTIVE_FULL" }));
+    });
+
+    it("no publica nada cuando la inscripcion falla por cupo lleno", async () => {
+      const { useCase, eventBus, eventOutboxRepository, communityEventRepository } = createUseCase(1);
+
+      await useCase.execute({ communityEventId: "event-1", citizenName: "Ana", citizenEmail: "ana@test.com" });
+      const busBefore = eventBus.events.length;
+      const outboxBefore = eventOutboxRepository.events.length;
+
+      // Se fuerza el camino de "sin cupo" con el evento todavia ACTIVE (dos pedidos casi simultaneos).
+      communityEventRepository.events[0].status = "ACTIVE";
+
+      await expect(
+        useCase.execute({ communityEventId: "event-1", citizenName: "Beto", citizenEmail: "beto@test.com" })
+      ).rejects.toThrow("El evento no tiene cupos disponibles.");
+
+      expect(eventBus.events).toHaveLength(busBefore);
+      expect(eventOutboxRepository.events).toHaveLength(outboxBefore);
+    });
   });
 });

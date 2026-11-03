@@ -615,15 +615,33 @@ export interface RoutePath {
   durationSeconds: number;
 }
 
+interface RoutePlanIncidentBase {
+  source: string;
+  category: string | null;
+  zone: string | null;
+}
+
+/** Incidente con coordenadas a 1000 m o menos del evento. */
+export interface RoutePlanRadiusIncident extends RoutePlanIncidentBase {
+  matchedBy: 'RADIUS';
+  latitude: number;
+  longitude: number;
+  distanceMeters: number;
+}
+
+/** Emergencia sin coordenadas en el mismo barrio que el espacio: no se dibuja en el mapa. */
+export interface RoutePlanZoneIncident extends RoutePlanIncidentBase {
+  matchedBy: 'ZONE';
+  latitude: null;
+  longitude: null;
+  distanceMeters: null;
+}
+
+export type RoutePlanIncident = RoutePlanRadiusIncident | RoutePlanZoneIncident;
+
 export interface EventRoutePlan {
   destination: { eventId: string; title: string; latitude: number; longitude: number; address: string };
-  incidents: Array<{
-    source: string;
-    category: string | null;
-    latitude: number;
-    longitude: number;
-    distanceMeters: number;
-  }>;
+  incidents: RoutePlanIncident[];
   dropoff: {
     stationName: string;
     latitude: number;
