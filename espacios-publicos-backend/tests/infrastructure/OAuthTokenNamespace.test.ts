@@ -8,6 +8,18 @@ function jwt(payload: Record<string, unknown>): string {
   return `${encode({ alg: "RS256", kid: "k1" })}.${encode(payload)}.firma-secreta`;
 }
 
+// Claims que exige el contrato EDA: token de servicio, audiencia citypass, vigente y del namespace del modulo.
+function serviceClaims(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    sub: "svc",
+    token_use: "service",
+    aud: "citypass",
+    namespace: "com.citypass.espacios",
+    exp: Math.floor(Date.now() / 1000) + 900,
+    ...overrides
+  };
+}
+
 function tokenResponse(accessToken: string): Response {
   return new Response(JSON.stringify({ access_token: accessToken, expires_in: 900 }), { status: 200 });
 }
@@ -29,15 +41,12 @@ describe("OAuthServiceTokenProvider: namespace del token", () => {
   const provider = () => new OAuthServiceTokenProvider("https://auth.test/oauth/token", "svc-espacios", SECRET);
   const warnings = () => readLoggedLines(write).filter((line) => line.level === 40);
 
-  it("avisa si el namespace no es com.citypass.espacios, sin loguear el token ni el secret", async () => {
-    const token = jwt({ sub: "svc", namespace: "com.citypass.reclamos" });
+  it("rechaza un token con otro namespace, sin loguear el token ni el secret", async () => {
+    const token = jwt(serviceClaims({ namespace: "com.citypass.reclamos" }));
     fetchSpy.mockResolvedValueOnce(tokenResponse(token));
 
-    expect(await provider().getToken()).toBe(token);
+    await expect(provider().getToken()).rejects.toMatchObject({ statusCode: 502 });
 
-    expect(warnings()).toContainEqual(
-      expect.objectContaining({ namespaceEnToken: "com.citypass.reclamos", namespaceEsperado: "com.citypass.espacios" })
-    );
     const output = JSON.stringify(write.mock.calls);
     expect(output).not.toContain(token);
     expect(output).not.toContain("firma-secreta");
@@ -45,26 +54,24 @@ describe("OAuthServiceTokenProvider: namespace del token", () => {
     expect(output).not.toContain(Buffer.from(`svc-espacios:${SECRET}`).toString("base64"));
   });
 
-  it("avisa si el token no trae namespace o no es un JWT", async () => {
-    fetchSpy.mockResolvedValueOnce(tokenResponse(jwt({ sub: "svc" })));
-    await provider().getToken();
-    fetchSpy.mockResolvedValueOnce(tokenResponse("token-opaco"));
-    await provider().getToken();
+  it("rechaza un token sin namespace o que no es un JWT", async () => {
+    fetchSpy.mockResolvedValueOnce(tokenResponse(jwt(serviceClaims({ namespace: undefined }))));
+    await expect(provider().getToken()).rejects.toMatchObject({ statusCode: 502 });
 
-    expect(warnings()).toHaveLength(2);
-    expect(warnings()[0]).toMatchObject({ namespaceEnToken: null });
+    fetchSpy.mockResolvedValueOnce(tokenResponse("token-opaco"));
+    await expect(provider().getToken()).rejects.toMatchObject({ statusCode: 502 });
   });
 
-  it("no avisa cuando el namespace es el del modulo", async () => {
-    fetchSpy.mockResolvedValueOnce(tokenResponse(jwt({ sub: "svc", namespace: "com.citypass.espacios" })));
+  it("acepta el token del namespace del modulo sin avisar", async () => {
+    const token = jwt(serviceClaims());
+    fetchSpy.mockResolvedValueOnce(tokenResponse(token));
 
-    await provider().getToken();
-
+    expect(await provider().getToken()).toBe(token);
     expect(warnings()).toHaveLength(0);
   });
 
   it("revisa el token al obtenerlo, no en cada uso del cache", async () => {
-    fetchSpy.mockResolvedValueOnce(tokenResponse(jwt({ sub: "svc", namespace: "otro" })));
+    fetchSpy.mockResolvedValueOnce(tokenResponse(jwt(serviceClaims())));
     const tokenProvider = provider();
 
     await tokenProvider.getToken();
@@ -72,6 +79,5 @@ describe("OAuthServiceTokenProvider: namespace del token", () => {
     await tokenProvider.getToken();
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(warnings()).toHaveLength(1);
   });
 });

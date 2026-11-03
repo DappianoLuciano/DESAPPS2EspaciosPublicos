@@ -92,6 +92,61 @@ el script de suscripciones). Detalle en `espacios-publicos-backend/docs/eventos-
 `VITE_API_URL` (debe ser la URL real de producción del backend, `https://`),
 `VITE_GOOGLE_CLIENT_ID`.
 
+### Login federado, EDA y clima (integración de featuresDidi sobre cc10001)
+
+No copiar ni commitear el `.env` local: agregar únicamente las variables faltantes en
+Settings → Environment Variables de cada proyecto, conservando las de los demás casos
+de uso. Los secretos van solo en backend. Después de cambiar variables, desplegar nuevamente.
+
+Backend, para el gateway de pruebas acordado:
+
+```dotenv
+EVENT_BUS_DRIVER=citypass
+EVENT_GATEWAY_API_URL=https://test.citypass.mrfranco.net.ar/api/v1
+EVENT_AUTH_TOKEN_URL=https://api.citypass-login.pp.ua/oauth/token
+EVENT_CLIENT_ID=grupo7
+EVENT_CLIENT_SECRET=<secreto vigente entregado por Login Federado>
+EVENT_NAMESPACE=com.citypass.espacios
+EVENT_OUTBOX_MAX_ATTEMPTS=10
+CITYPASS_IDP_ISSUER=https://idp.citypass.local
+CITYPASS_IDP_JWKS_URL=https://api.citypass-login.pp.ua/.well-known/jwks.json
+CITYPASS_IDP_AUDIENCE=citypass-espacios-api
+CITYPASS_ADMIN_GROUPS=admin,espacios-admin,administrador,municipal_admin,delegados,soporte-n2
+CITYPASS_STRICT_AUDIENCE=false
+FRONTEND_URL=https://<dominio-del-frontend>
+CORS_ALLOWED_ORIGINS=https://<dominio-del-frontend>
+CRON_SECRET=<secreto aleatorio del scheduler>
+```
+
+Conservar los seis FQN `*_EVENT_FQN` del `.env.example`, además de
+`GATEWAY_WEBHOOK_TOKEN` y las variables de ruteo configuradas para CU-INT-01.
+El mismo bus publica clima, eventos comunitarios, cancelaciones, cambios de espacios y
+reservas. No se reemplaza la integración existente de main por un bus exclusivo del clima.
+El backend obtiene/renueva el JWT de servicio; no cargar access tokens copiados de un curl.
+
+Frontend:
+
+```dotenv
+VITE_API_URL=https://<dominio-del-backend>
+VITE_CITYPASS_IDP_URL=https://api.citypass-login.pp.ua
+VITE_CITYPASS_CLIENT_ID=citypass-espacios-web
+```
+
+`VITE_API_URL` no lleva `/api`: las rutas ya lo agregan. No poner `EVENT_CLIENT_SECRET`,
+credenciales de base de datos ni la clave privada de Storage en variables `VITE_*`.
+Mantener el rewrite `/citypass-proxy/:path*` de `espacios-publicos-frontend/vercel.json`.
+En Vercel no se usan `npm run dev`, puertos locales ni un proceso Node permanente.
+
+Para la consulta horaria, configurar en GitHub Actions `WEATHER_CYCLE_URL` (URL completa
+del backend terminada en `/api/internal/weather-cycle`) y `WEATHER_CRON_SECRET` (igual a
+`CRON_SECRET`). El workflow omite la ejecución si faltan esos secretos. No se activa un
+temporizador en memoria dentro de la función serverless.
+
+Antes de mergear, probar Preview con backend y base de pruebas y autorizar su origen CORS.
+No usar una Preview que publique alertas de simulacro sobre consumidores o datos reales
+sin acuerdo del equipo. El registro/evolución de contratos y las migraciones de Prisma son
+pasos coordinados separados: no se ejecutan automáticamente al desplegar.
+
 ## 🔥 Incidente de septiembre 2026 (para referencia)
 
 **Síntoma:** los deploys de `espacios-publicos-backend` y

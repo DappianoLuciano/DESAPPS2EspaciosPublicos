@@ -17,6 +17,10 @@
     "prisma:seed": "node prisma/seed.js",
     "prisma:studio": "prisma studio",
     "eda:register-events": "ts-node scripts/register-event-types.ts",
+    "eda:register-weather": "ts-node scripts/register-event-types.ts --weather-only",
+    "test:eda": "node --test --require ts-node/register/transpile-only tests/infrastructure/eda-integration.test.cjs",
+    "test:weather-flow": "node --test --require ts-node/register/transpile-only tests/infrastructure/weather-flow-regression.test.cjs",
+    "test:uploads": "node --test --require ts-node/register/transpile-only tests/infrastructure/public-space-image.test.cjs",
     "eda:register-subscriptions": "ts-node scripts/register-subscriptions.ts"
   },
   "keywords": [
@@ -38,7 +42,7 @@
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.3.0",
-    "nodemailer": "^9.1.1",
+    "nodemailer": "^10.3.1",
     "pino": "^10.3.1",
     "qrcode": "^1.5.4"
   },

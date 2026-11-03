@@ -13,6 +13,18 @@ const NAMES = [
   "EVENT_CLIENT_SECRET"
 ];
 
+// JWT de servicio valido para el contrato EDA (el provider valida namespace, audiencia, tipo y vigencia).
+function serviceToken(): string {
+  const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  const claims = {
+    token_use: "service",
+    aud: "citypass",
+    namespace: "com.citypass.espacios",
+    exp: Math.floor(Date.now() / 1000) + 900
+  };
+  return `${encode({ alg: "RS256" })}.${encode(claims)}.firma`;
+}
+
 describe("EVENT_AUTH_TOKEN_URL por defecto", () => {
   const saved = Object.fromEntries(NAMES.map((name) => [name, process.env[name]]));
 
@@ -55,9 +67,10 @@ describe("EVENT_AUTH_TOKEN_URL por defecto", () => {
     process.env.EVENT_GATEWAY_API_URL = "https://gateway.test/api/v1";
     process.env.EVENT_CLIENT_ID = "svc-espacios";
     process.env.EVENT_CLIENT_SECRET = "secreto";
+    const token = serviceToken();
     const fetchSpy = jest
       .spyOn(global, "fetch")
-      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "tok", expires_in: 900 }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: token, expires_in: 900 }), { status: 200 }))
       .mockResolvedValueOnce(new Response("{}", { status: 202 }));
 
     try {
@@ -72,7 +85,7 @@ describe("EVENT_AUTH_TOKEN_URL por defecto", () => {
       expect((fetchSpy.mock.calls[0][1]?.headers as Record<string, string>).Authorization).toBe(
         `Basic ${Buffer.from("svc-espacios:secreto").toString("base64")}`
       );
-      expect((fetchSpy.mock.calls[1][1]?.headers as Record<string, string>).Authorization).toBe("Bearer tok");
+      expect((fetchSpy.mock.calls[1][1]?.headers as Record<string, string>).Authorization).toBe(`Bearer ${token}`);
     } finally {
       fetchSpy.mockRestore();
     }

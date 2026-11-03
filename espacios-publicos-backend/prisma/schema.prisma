@@ -247,14 +247,18 @@ model CityIncident {
   source     String
   externalId String
   category   String?
-  latitude   Float
-  longitude  Float
+  // Emergencias no publica coordenadas, solo el barrio: esos incidentes quedan con
+  // latitude/longitude en null y se ubican por zone.
+  latitude   Float?
+  longitude  Float?
+  zone       String?
   active     Boolean  @default(true)
   reportedAt DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   @@unique([source, externalId])
   @@index([active])
+  @@index([active, zone])
   @@map("city_incidents")
 }
 
