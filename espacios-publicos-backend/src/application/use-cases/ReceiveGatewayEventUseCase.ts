@@ -36,19 +36,19 @@ const INCIDENT_TYPES: Record<string, IncidentTypeConfig> = {
     idField: "reclamoId",
     location: "coordinates"
   },
-  "com.citypass.emergencias.EmergenciaCreada": {
-    kind: "created",
-    source: "EMERGENCIAS",
-    idField: "emergenciaId",
-    location: "zone",
-    closingStates: EMERGENCY_CLOSING_STATES
-  },
   "com.citypass.reclamos.ReclamoActualizado": {
     kind: "updated",
     source: "RECLAMOS",
     idField: "reclamoId",
     closingStates: ["RESUELTO", "RECHAZADO", "CERRADO"],
     stateFields: ["estadoNuevo"]
+  },
+  "com.citypass.emergencias.EmergenciaCreada": {
+    kind: "created",
+    source: "EMERGENCIAS",
+    idField: "emergenciaId",
+    location: "zone",
+    closingStates: EMERGENCY_CLOSING_STATES
   },
   "com.citypass.emergencias.EmergenciaActualizada": {
     kind: "updated",
@@ -64,6 +64,13 @@ const INCIDENT_TYPES: Record<string, IncidentTypeConfig> = {
 const KNOWN_EVENT_TYPES: readonly string[] = [
   ...Object.keys(INCIDENT_TYPES),
   MOBILITY_RECOMMENDATION_EVENT_TYPE
+];
+
+// Tópicos a los que este modulo se suscribe en el gateway: son exactamente los tipos que el webhook
+// sabe procesar. scripts/register-subscriptions.ts los da de alta a partir de esta lista.
+export const GATEWAY_SUBSCRIPTION_TOPICS: readonly string[] = [
+  MOBILITY_RECOMMENDATION_EVENT_TYPE,
+  ...Object.keys(INCIDENT_TYPES)
 ];
 
 export class ReceiveGatewayEventUseCase {

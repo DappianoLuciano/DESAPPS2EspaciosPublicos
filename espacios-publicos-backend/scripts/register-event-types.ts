@@ -1,12 +1,13 @@
 import "dotenv/config";
-import { OAuthServiceTokenProvider } from "../src/infrastructure/auth/OAuthServiceTokenProvider";
+import { OAuthServiceTokenProvider, resolveEventAuthTokenUrl } from "../src/infrastructure/auth/OAuthServiceTokenProvider";
 
 // Registra en el Event Gateway los contratos que publica este modulo: los de clima y los
 // de eventos comunitarios, espacios y reservas (CU-INT-01). Son records Avro; los campos
 // opcionales son uniones ["null", tipo] con default null.
 //
 // Uso:  npm run eda:register-events
-// Requiere EVENT_GATEWAY_API_URL, EVENT_AUTH_TOKEN_URL, EVENT_CLIENT_ID y EVENT_CLIENT_SECRET.
+// Requiere EVENT_GATEWAY_API_URL, EVENT_CLIENT_ID y EVENT_CLIENT_SECRET. EVENT_AUTH_TOKEN_URL es opcional
+// (por defecto https://api.citypass-login.pp.ua/oauth/token).
 // Consulta y verifica los contratos existentes; solo los actualiza con --update-compatible.
 // --weather-only permite operar solo sobre los dos contratos climaticos.
 
@@ -107,7 +108,7 @@ export const definitions: EventTypeDefinition[] = [...weatherDefinitions, ...spa
 async function main() {
   const gatewayUrl = required("EVENT_GATEWAY_API_URL").replace(/\/+$/, "");
   const token = await new OAuthServiceTokenProvider(
-    required("EVENT_AUTH_TOKEN_URL"), required("EVENT_CLIENT_ID"), required("EVENT_CLIENT_SECRET")
+    resolveEventAuthTokenUrl(), required("EVENT_CLIENT_ID"), required("EVENT_CLIENT_SECRET")
   ).getToken();
   if (process.env.EVENT_TYPE_NAMESPACE?.trim() && process.env.EVENT_TYPE_NAMESPACE.trim() !== NAMESPACE) {
     throw new Error("EVENT_TYPE_NAMESPACE y EVENT_NAMESPACE deben coincidir con el namespace del JWT.");
