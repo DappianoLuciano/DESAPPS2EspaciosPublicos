@@ -18,6 +18,7 @@ import {
   requireText
 } from "../../shared/validation/inputValidation";
 import { CreateCommunityEventInput } from "../dtos/CreateCommunityEventInput";
+import { buildCommunityEventPublishedEvent } from "../events/communityEventPublished";
 
 export class CreateCommunityEventUseCase {
   constructor(
@@ -118,29 +119,8 @@ export class CreateCommunityEventUseCase {
       imageUrl
     });
 
-    const event: DomainEvent = {
-      id: randomUUID(),
-      name: eventNames.communityEventPublished(),
-      // Contrato EventoComunitarioPublicado: siempre todos los campos, con null en los opcionales.
-      payload: {
-        eventoId: communityEvent.id,
-        espacioId: communityEvent.publicSpaceId,
-        titulo: communityEvent.title,
-        zona: publicSpace.zone ?? null,
-        direccion: publicSpace.address ?? null,
-        latitud: publicSpace.latitude ?? null,
-        longitud: publicSpace.longitude ?? null,
-        inicio: communityEvent.startDate.toISOString(),
-        fin: communityEvent.endDate.toISOString(),
-        capacidad: communityEvent.capacity,
-        cupoMaximo: communityEvent.capacity,
-        inscriptos: 0,
-        estado: communityEvent.status,
-        categoria: communityEvent.category,
-        correlationId: `evento-${communityEvent.id}`
-      },
-      occurredAt: new Date()
-    };
+    // Recien creado: todavia no hay inscriptos.
+    const event = buildCommunityEventPublishedEvent(communityEvent, publicSpace, 0);
 
     await this.eventOutboxRepository.save(event);
     await this.eventBus.publish(event);
