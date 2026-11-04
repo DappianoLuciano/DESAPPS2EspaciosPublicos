@@ -9,11 +9,14 @@ import {
   Group,
   Loader,
   Modal,
+  NumberInput,
   Select,
   SimpleGrid,
   Stack,
+  Switch,
   Text,
   TextInput,
+  Textarea,
   ThemeIcon,
   Title,
 } from '@mantine/core';
@@ -31,6 +34,7 @@ import {
   completeTowService,
   listTowInterventions,
   requestTow,
+  simulateMobilityObstruction,
 } from '../lib/api';
 import type { TowIntervention, TowInterventionStatus } from '../lib/api';
 
@@ -45,6 +49,37 @@ const statusConfig: Record<
 
 type StatusFilter = TowInterventionStatus | 'ALL';
 
+interface SimulationForm {
+  reclamoId: string;
+  correlationId: string;
+  direccion: string;
+  barrio: string;
+  latitud: number;
+  longitud: number;
+  impactoCirculacion: string;
+  desvioSugerido: string;
+  afectaCiclovia: boolean;
+  requiereIntervencionInmediata: boolean;
+  requiereGrua: boolean;
+}
+
+function createSimulationForm(): SimulationForm {
+  const suffix = Date.now().toString();
+  return {
+    reclamoId: `reclamo-demo-${suffix}`,
+    correlationId: `corr-demo-${suffix}`,
+    direccion: 'Av. Corrientes 1000',
+    barrio: 'San Nicolás',
+    latitud: -34.6037,
+    longitud: -58.3816,
+    impactoCirculacion: 'ALTO',
+    desvioSugerido: 'Desviar por Av. Córdoba',
+    afectaCiclovia: true,
+    requiereIntervencionInmediata: true,
+    requiereGrua: true,
+  };
+}
+
 export default function TowInterventionManagement() {
   const [interventions, setInterventions] = useState<TowIntervention[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,6 +91,10 @@ export default function TowInterventionManagement() {
   const [action, setAction] = useState<'request' | 'complete' | null>(null);
   const [patente, setPatente] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [simulationOpen, setSimulationOpen] = useState(false);
+  const [simulationForm, setSimulationForm] = useState<SimulationForm>(
+    createSimulationForm
+  );
 
   const loadInterventions = useCallback(async (background = false) => {
     if (background) setRefreshing(true);
@@ -164,8 +203,142 @@ export default function TowInterventionManagement() {
     setPatente('');
   };
 
+  const openSimulation = () => {
+    setSimulationForm(createSimulationForm());
+    setError(null);
+    setSimulationOpen(true);
+  };
+
+  const submitSimulation = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      await simulateMobilityObstruction({
+        ...simulationForm,
+        estacionesAfectadasIds: [],
+        evaluadoAt: Date.now(),
+      });
+      setNotice(
+        simulationForm.requiereGrua
+          ? 'Caso recibido: quedó pendiente de solicitud de grúa.'
+          : 'Caso recibido: se resolvió automáticamente porque no requiere grúa.'
+      );
+      setSimulationOpen(false);
+      await loadInterventions(true);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'No se pudo cargar el caso simulado.'
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <Container size="xl" py={{ base: 24, sm: 40 }}>
+      <Modal
+        opened={simulationOpen}
+        onClose={() => { if (!submitting) setSimulationOpen(false); }}
+        title="Simular evaluación de Movilidad"
+        centered
+        size="lg"
+      >
+        <Stack gap="md">
+          <Alert color="violet" icon={<IconRoute size={18} />}>
+            Control temporal para probar el flujo antes de conectar el evento real de
+            Movilidad. No guarda información en la base de datos.
+          </Alert>
+          {error && <Alert color="red" icon={<IconAlertTriangle size={18} />}>{error}</Alert>}
+          <SimpleGrid cols={{ base: 1, sm: 2 }}>
+            <TextInput
+              label="ID del reclamo"
+              value={simulationForm.reclamoId}
+              onChange={(event) => setSimulationForm((current) => ({ ...current, reclamoId: event.currentTarget.value }))}
+              required
+            />
+            <TextInput
+              label="ID de correlación"
+              value={simulationForm.correlationId}
+              onChange={(event) => setSimulationForm((current) => ({ ...current, correlationId: event.currentTarget.value }))}
+              required
+            />
+          </SimpleGrid>
+          <TextInput
+            label="Dirección"
+            value={simulationForm.direccion}
+            onChange={(event) => setSimulationForm((current) => ({ ...current, direccion: event.currentTarget.value }))}
+            required
+          />
+          <TextInput
+            label="Barrio"
+            value={simulationForm.barrio}
+            onChange={(event) => setSimulationForm((current) => ({ ...current, barrio: event.currentTarget.value }))}
+            required
+          />
+          <SimpleGrid cols={{ base: 1, sm: 2 }}>
+            <NumberInput
+              label="Latitud"
+              value={simulationForm.latitud}
+              decimalScale={6}
+              onChange={(value) => setSimulationForm((current) => ({ ...current, latitud: Number(value) }))}
+              required
+            />
+            <NumberInput
+              label="Longitud"
+              value={simulationForm.longitud}
+              decimalScale={6}
+              onChange={(value) => setSimulationForm((current) => ({ ...current, longitud: Number(value) }))}
+              required
+            />
+          </SimpleGrid>
+          <Select
+            label="Impacto en la circulación"
+            value={simulationForm.impactoCirculacion}
+            onChange={(value) => setSimulationForm((current) => ({ ...current, impactoCirculacion: value || 'MEDIO' }))}
+            data={['BAJO', 'MEDIO', 'ALTO', 'CRITICO']}
+          />
+          <Textarea
+            label="Desvío sugerido"
+            value={simulationForm.desvioSugerido}
+            onChange={(event) => setSimulationForm((current) => ({ ...current, desvioSugerido: event.currentTarget.value }))}
+            minRows={2}
+            required
+          />
+          <SimpleGrid cols={{ base: 1, sm: 3 }}>
+            <Switch
+              label="Afecta ciclovía"
+              checked={simulationForm.afectaCiclovia}
+              onChange={(event) => setSimulationForm((current) => ({ ...current, afectaCiclovia: event.currentTarget.checked }))}
+            />
+            <Switch
+              label="Intervención inmediata"
+              checked={simulationForm.requiereIntervencionInmediata}
+              onChange={(event) => setSimulationForm((current) => ({ ...current, requiereIntervencionInmediata: event.currentTarget.checked }))}
+            />
+            <Switch
+              label="Requiere grúa"
+              checked={simulationForm.requiereGrua}
+              onChange={(event) => setSimulationForm((current) => ({ ...current, requiereGrua: event.currentTarget.checked }))}
+              color="violet"
+            />
+          </SimpleGrid>
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setSimulationOpen(false)} disabled={submitting}>Cancelar</Button>
+            <Button
+              color="violet"
+              leftSection={<IconRoute size={17} />}
+              onClick={submitSimulation}
+              loading={submitting}
+              disabled={!simulationForm.reclamoId.trim() || !simulationForm.correlationId.trim() || !simulationForm.direccion.trim() || !simulationForm.barrio.trim()}
+            >
+              Cargar caso
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
       <Modal
         opened={action === 'request'}
         onClose={closeModal}
@@ -250,14 +423,19 @@ export default function TowInterventionManagement() {
             Solicitá la grúa y confirmá manualmente el retiro del vehículo.
           </Text>
         </Box>
-        <Button
-          variant="light"
-          leftSection={<IconRefresh size={18} />}
-          loading={refreshing}
-          onClick={() => void loadInterventions(true)}
-        >
-          Actualizar
-        </Button>
+        <Group>
+          <Button color="violet" variant="light" leftSection={<IconRoute size={18} />} onClick={openSimulation}>
+            Simular caso
+          </Button>
+          <Button
+            variant="light"
+            leftSection={<IconRefresh size={18} />}
+            loading={refreshing}
+            onClick={() => void loadInterventions(true)}
+          >
+            Actualizar
+          </Button>
+        </Group>
       </Group>
 
       {notice && (

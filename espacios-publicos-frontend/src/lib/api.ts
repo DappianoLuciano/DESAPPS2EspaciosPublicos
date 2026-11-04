@@ -217,6 +217,22 @@ export interface TowIntervention {
   updatedAt: string;
 }
 
+export interface SimulateMobilityObstructionPayload {
+  reclamoId: string;
+  correlationId: string;
+  latitud: number;
+  longitud: number;
+  direccion: string;
+  barrio: string;
+  afectaCiclovia: boolean;
+  estacionesAfectadasIds: number[];
+  impactoCirculacion: string;
+  desvioSugerido: string;
+  requiereIntervencionInmediata: boolean;
+  requiereGrua: boolean;
+  evaluadoAt: number;
+}
+
 async function request<T>(path: string, options?: RequestInit, isRetry = false): Promise<T> {
   const response = await fetchWithTimeout(`${API_URL}${path}`, {
     ...options,
@@ -396,6 +412,15 @@ export function updateAdminProfile(payload: UpdateAdminProfilePayload) {
 
 export function listTowInterventions() {
   return request<TowIntervention[]>('/api/admin/tow-interventions');
+}
+
+export function simulateMobilityObstruction(
+  payload: SimulateMobilityObstructionPayload
+) {
+  return request<TowIntervention>('/api/admin/tow-interventions/simulate', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 }
 
 export function requestTow(interventionId: string, patente: string) {
