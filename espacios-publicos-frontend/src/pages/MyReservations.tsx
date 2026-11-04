@@ -2,13 +2,16 @@ import { Alert, Badge, Box, Button, Card, Container, Flex, Image, Loader, Simple
 import { IconCalendarEvent, IconCheck, IconHistory, IconMapPin, IconPlayerPlay } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import EmergencyNotice from '../components/EmergencyNotice';
 import { useAuth } from '../context/AuthContext';
+import { useEmergencyNotices } from '../lib/useEmergencyNotices';
 import { listMyCommunityEventRegistrations } from '../lib/api';
 import type { CitizenCommunityEventRegistration } from '../lib/api';
 
 export default function MyReservations() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const notices = useEmergencyNotices();
   const [reservations, setReservations] = useState<CitizenCommunityEventRegistration[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -116,6 +119,8 @@ export default function MyReservations() {
                   {status.label}
                 </Badge>
               </Card.Section>
+
+              <EmergencyNotice notice={notices.get(event.id)} />
 
               <Flex align="center" gap="xs" mt="md" mb="xs" c="dimmed">
                 <IconCalendarEvent size="1.2rem" />

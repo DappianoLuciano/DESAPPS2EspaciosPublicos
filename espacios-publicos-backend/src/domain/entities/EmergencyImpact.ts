@@ -68,3 +68,11 @@ export interface EmergencyImpactSummary {
   releasedSpaces: number;
   problems: number;
 }
+
+/** Aviso publico de un evento comunitario afectado: sin datos personales. */
+export interface EmergencyEventNotice {
+  eventId: string;
+  status: EmergencyImpactStatus;
+  startDate: Date;
+  endDate: Date;
+}

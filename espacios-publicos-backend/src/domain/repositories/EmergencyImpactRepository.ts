@@ -3,6 +3,7 @@ import {
   CreateEmergencyImpactData,
   CreateSpaceProblemData,
   EmergencyCaseRecord,
+  EmergencyEventNotice,
   EmergencyImpactRecord,
   EmergencyImpactSummary,
   SpaceProblemRecord
@@ -38,4 +39,6 @@ export interface EmergencyImpactRepository {
   listImpacts(): Promise<EmergencyImpactRecord[]>;
   listProblems(): Promise<SpaceProblemRecord[]>;
   getSummary(): Promise<EmergencyImpactSummary>;
+  /** Eventos suspendidos, pendientes de reprogramar o reprogramados que todavia no terminaron. */
+  listEventNotices(now: Date): Promise<EmergencyEventNotice[]>;
 }

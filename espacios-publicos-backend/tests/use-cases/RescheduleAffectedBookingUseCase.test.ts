@@ -40,7 +40,7 @@ function setup(current: EmergencyImpactRecord | null, overlapping: Array<{ id: s
       findOverlapping: jest.fn().mockResolvedValue(overlapping)
     } as never,
     { findById: jest.fn(), findOverlapping: jest.fn().mockResolvedValue([]) } as never,
-    { countByEventId: jest.fn() },
+    { countByEventId: jest.fn(), findByEventId: jest.fn().mockResolvedValue([]) },
     eventBus,
     { save: jest.fn() },
     emailSender

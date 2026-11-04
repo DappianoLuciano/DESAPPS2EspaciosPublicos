@@ -8,7 +8,7 @@ import { EventBus } from "../../domain/services/EventBus";
 import { buildProblemRegisteredEvent, buildSpaceReleasedEvent } from "../events/emergencyEventBuilders";
 import { EmergencyResolved } from "../events/emergencyEvents";
 import { nearbySpaces } from "./FindNearbyBookingsUseCase";
-import { notifyOrganizer } from "./emergencyNotifications";
+import { AttendeeSource, notifyImpact } from "./emergencyNotifications";
 
 const PUBLIC_SPACE_CAUSE = "ESPACIO_PUBLICO";
 const UNCLASSIFIED_PROBLEM = "SIN_CLASIFICAR";
@@ -37,7 +37,8 @@ export class HandleEmergencyResolvedUseCase {
     >,
     private readonly publicSpaceRepository: Pick<PublicSpaceRepository, "findAll">,
     private readonly eventBus: EventBus,
-    private readonly emailSender: EmailSender
+    private readonly emailSender: EmailSender,
+    private readonly attendees: AttendeeSource
   ) {}
 
   async execute(emergency: EmergencyResolved): Promise<boolean> {
@@ -91,8 +92,9 @@ export class HandleEmergencyResolvedUseCase {
       await this.eventBus.publish(event);
 
       for (const [index, impact] of spaceImpacts.entries()) {
-        await notifyOrganizer(
+        await notifyImpact(
           this.emailSender,
+          this.attendees,
           impact,
           "Novedades de tu reserva",
           RELEASE_MESSAGES[releases[index].status]

@@ -22,6 +22,8 @@ export function createNearbySpacesRoutes(controller: EmergencyImpactController):
 export function createEmergencyImpactRoutes(controller: EmergencyImpactController): Router {
   const router = Router();
 
+  // Publica, como el catalogo de eventos: los ciudadanos ven el aviso. No trae datos personales.
+  router.get("/notices", asyncHandler(controller.notices));
   router.get("/", requirePermission(permissions.VIEW_EMERGENCY_IMPACTS), asyncHandler(controller.list));
   router.post(
     "/:id/reschedule",

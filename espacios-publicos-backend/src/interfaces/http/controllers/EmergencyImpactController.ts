@@ -64,6 +64,10 @@ export class EmergencyImpactController {
     response.json(await this.getImpacts.execute());
   };
 
+  notices = async (_request: Request, response: Response): Promise<void> => {
+    response.json(await this.getImpacts.notices());
+  };
+
   reschedule = async (request: Request, response: Response): Promise<void> => {
     response.json(await this.rescheduleBooking.execute({
       impactId: request.params.id,

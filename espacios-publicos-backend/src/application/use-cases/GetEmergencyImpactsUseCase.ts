@@ -2,8 +2,12 @@ import { EmergencyImpactRepository } from "../../domain/repositories/EmergencyIm
 
 export class GetEmergencyImpactsUseCase {
   constructor(
-    private readonly impacts: Pick<EmergencyImpactRepository, "listImpacts" | "listProblems" | "getSummary">
+    private readonly impacts: Pick<EmergencyImpactRepository, "listImpacts" | "listProblems" | "getSummary" | "listEventNotices">
   ) {}
+
+  notices() {
+    return this.impacts.listEventNotices(new Date());
+  }
 
   async execute() {
     const [summary, impacts, problems] = await Promise.all([

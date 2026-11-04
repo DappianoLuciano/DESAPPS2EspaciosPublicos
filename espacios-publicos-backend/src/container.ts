@@ -178,13 +178,15 @@ export function createContainer() {
     emergencyImpactRepository,
     findNearbyBookingsUseCase,
     eventBus,
-    emailSender
+    emailSender,
+    communityEventRegistrationRepository
   );
   const handleEmergencyResolvedUseCase = new HandleEmergencyResolvedUseCase(
     emergencyImpactRepository,
     publicSpaceRepository,
     eventBus,
-    emailSender
+    emailSender,
+    communityEventRegistrationRepository
   );
   const receiveGatewayEventUseCase = new ReceiveGatewayEventUseCase(
     new PrismaInboundEventRepository(),

@@ -764,3 +764,14 @@ export function deriveSpaceProblem(id: string, derivedTo: string) {
     body: JSON.stringify({ derivedTo }),
   });
 }
+
+export interface EmergencyEventNotice {
+  eventId: string;
+  status: EmergencyImpactStatus;
+  startDate: string;
+  endDate: string;
+}
+
+export function listEmergencyEventNotices() {
+  return request<EmergencyEventNotice[]>('/api/emergency-impacts/notices');
+}

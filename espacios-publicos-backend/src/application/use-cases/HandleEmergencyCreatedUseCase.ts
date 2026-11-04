@@ -6,7 +6,7 @@ import { logger } from "../../shared/logging/logger";
 import { buildReservationAffectedEvent } from "../events/emergencyEventBuilders";
 import { EmergencyCreated } from "../events/emergencyEvents";
 import { FindNearbyBookingsUseCase, NearbySpaceBookings } from "./FindNearbyBookingsUseCase";
-import { notifyOrganizer } from "./emergencyNotifications";
+import { AttendeeSource, notifyImpact } from "./emergencyNotifications";
 
 const DEFAULT_WINDOW_HOURS = 2;
 
@@ -46,7 +46,8 @@ export class HandleEmergencyCreatedUseCase {
     private readonly impacts: Pick<EmergencyImpactRepository, "findCase" | "saveCase" | "createImpact">,
     private readonly findNearbyBookings: Pick<FindNearbyBookingsUseCase, "execute">,
     private readonly eventBus: EventBus,
-    private readonly emailSender: EmailSender
+    private readonly emailSender: EmailSender,
+    private readonly attendees: AttendeeSource
   ) {}
 
   async execute(emergency: EmergencyCreated): Promise<boolean> {
@@ -73,8 +74,9 @@ export class HandleEmergencyCreatedUseCase {
 
       if (await this.impacts.createImpact(impact, event)) {
         await this.eventBus.publish(event);
-        await notifyOrganizer(
+        await notifyImpact(
           this.emailSender,
+          this.attendees,
           impact,
           "Tu reserva fue suspendida por una emergencia cercana",
           "Hubo una emergencia cerca del espacio reservado y suspendimos la reserva. Te avisamos cuando se resuelva."

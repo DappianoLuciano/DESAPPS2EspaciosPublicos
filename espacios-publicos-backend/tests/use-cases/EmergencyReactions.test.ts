@@ -2,6 +2,7 @@ import { EmergencyResolved, parseEmergencyCreated, parseEmergencyResolved } from
 import { FindNearbyBookingsUseCase, nearbySpaces } from "../../src/application/use-cases/FindNearbyBookingsUseCase";
 import { HandleEmergencyCreatedUseCase } from "../../src/application/use-cases/HandleEmergencyCreatedUseCase";
 import { HandleEmergencyResolvedUseCase } from "../../src/application/use-cases/HandleEmergencyResolvedUseCase";
+import { CommunityEvent } from "../../src/domain/entities/CommunityEvent";
 import { DomainEvent } from "../../src/domain/entities/DomainEvent";
 import {
   CreateEmergencyImpactData,
@@ -98,23 +99,29 @@ function createStore() {
   };
 }
 
-function setup(spaces: PublicSpace[] = [space()], reservations: Reservation[] = [reservation()]) {
+function setup(
+  spaces: PublicSpace[] = [space()],
+  reservations: Reservation[] = [reservation()],
+  events: CommunityEvent[] = []
+) {
   const store = createStore();
   const eventBus = { publish: jest.fn().mockResolvedValue(undefined) };
   const emailSender = { send: jest.fn().mockResolvedValue(undefined) };
   const spaceRepository = { findAll: jest.fn().mockResolvedValue(spaces) };
+  const attendees = { findByEventId: jest.fn().mockResolvedValue([]) };
   const finder = new FindNearbyBookingsUseCase(
     spaceRepository,
     { findOverlapping: jest.fn().mockResolvedValue(reservations) },
-    { findOverlapping: jest.fn().mockResolvedValue([]) }
+    { findOverlapping: jest.fn().mockResolvedValue(events) }
   );
 
   return {
     store,
     eventBus,
     emailSender,
-    created: new HandleEmergencyCreatedUseCase(store, finder, eventBus, emailSender),
-    resolved: new HandleEmergencyResolvedUseCase(store, spaceRepository, eventBus, emailSender)
+    attendees,
+    created: new HandleEmergencyCreatedUseCase(store, finder, eventBus, emailSender, attendees),
+    resolved: new HandleEmergencyResolvedUseCase(store, spaceRepository, eventBus, emailSender, attendees)
   };
 }
 
@@ -269,6 +276,53 @@ describe("CU-01: al resolverse la emergencia", () => {
 
     expect([...store.impacts.values()][0].status).toBe("A_REPROGRAMAR");
     expect(store.outbox[1].payload).toMatchObject({ reservasConfirmadas: [], reservasReprogramadas: [] });
+  });
+});
+
+describe("CU-01: avisos a inscriptos", () => {
+  const event = { id: "evento-1", organizerName: "Cultura", startDate: hours(1), endDate: hours(3) } as CommunityEvent;
+  const inscriptos = [
+    { citizenName: "Ana <b>", citizenEmail: "ana@test.com" },
+    { citizenName: "Beto", citizenEmail: "beto@test.com" }
+  ];
+
+  it("avisa a cada inscripto por separado al suspender y al liberar", async () => {
+    const { created: createdHandler, resolved, emailSender, attendees } = setup([space()], [], [event]);
+    attendees.findByEventId.mockResolvedValue(inscriptos);
+
+    await createdHandler.execute(created);
+    await resolved.execute(resolvedWith([]));
+
+    const recipients = emailSender.send.mock.calls.map(([to]) => to);
+    expect(recipients).toEqual(["ana@test.com", "beto@test.com", "ana@test.com", "beto@test.com"]);
+    expect(emailSender.send.mock.calls[0][2]).not.toContain("<b>");
+  });
+
+  it("no busca inscriptos para una reserva de espacio", async () => {
+    const { created: createdHandler, attendees } = setup();
+
+    await createdHandler.execute(created);
+
+    expect(attendees.findByEventId).not.toHaveBeenCalled();
+  });
+
+  it("si falla un mail sigue con los demas y no frena el flujo", async () => {
+    const { created: createdHandler, emailSender, attendees, eventBus } = setup([space()], [], [event]);
+    attendees.findByEventId.mockResolvedValue(inscriptos);
+    emailSender.send.mockRejectedValueOnce(new Error("smtp"));
+
+    await expect(createdHandler.execute(created)).resolves.toBe(true);
+
+    expect(emailSender.send).toHaveBeenCalledTimes(2);
+    expect(eventBus.publish).toHaveBeenCalledTimes(1);
+  });
+
+  it("si falla la consulta de inscriptos no frena el flujo", async () => {
+    const { created: createdHandler, attendees, eventBus } = setup([space()], [], [event]);
+    attendees.findByEventId.mockRejectedValue(new Error("base"));
+
+    await expect(createdHandler.execute(created)).resolves.toBe(true);
+    expect(eventBus.publish).toHaveBeenCalledTimes(1);
   });
 });
 

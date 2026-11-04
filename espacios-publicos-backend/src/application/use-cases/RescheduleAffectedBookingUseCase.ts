@@ -12,7 +12,7 @@ import { ValidationError } from "../../shared/errors/ValidationError";
 import { requireText } from "../../shared/validation/inputValidation";
 import { buildCommunityEventPublishedEvent } from "../events/communityEventPublished";
 import { buildReservationAffectedEvent } from "../events/emergencyEventBuilders";
-import { notifyOrganizer } from "./emergencyNotifications";
+import { notifyImpact } from "./emergencyNotifications";
 
 const REPROGRAMMABLE: readonly string[] = ["SUSPENDIDA", "A_REPROGRAMAR", "REPROGRAMADA"];
 
@@ -41,7 +41,7 @@ export class RescheduleAffectedBookingUseCase {
     private readonly publicSpaceRepository: Pick<PublicSpaceRepository, "findById">,
     private readonly reservationRepository: Pick<ReservationRepository, "findById" | "findOverlapping">,
     private readonly communityEventRepository: Pick<CommunityEventRepository, "findById" | "findOverlapping">,
-    private readonly registrations: Pick<CommunityEventRegistrationRepository, "countByEventId">,
+    private readonly registrations: Pick<CommunityEventRegistrationRepository, "countByEventId" | "findByEventId">,
     private readonly eventBus: EventBus,
     private readonly eventOutboxRepository: EventOutboxRepository,
     private readonly emailSender: EmailSender
@@ -87,8 +87,9 @@ export class RescheduleAffectedBookingUseCase {
 
     await this.eventBus.publish(event);
     await this.republishEvent(impact);
-    await notifyOrganizer(
+    await notifyImpact(
       this.emailSender,
+      this.registrations,
       updated,
       "Tu reserva fue reprogramada",
       `El nuevo horario es del ${formatLocalDate(startDate)} al ${formatLocalDate(endDate)}.`

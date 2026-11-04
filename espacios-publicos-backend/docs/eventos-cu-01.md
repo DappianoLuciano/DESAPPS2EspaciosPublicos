@@ -59,10 +59,19 @@ Requieren rol administrador y las acciones quedan auditadas.
   y publica `ReservaAfectada` con `accion = REPROGRAMADA`.
 - `PATCH /api/emergency-impacts/problems/:id/derive` con `{ derivedTo }`.
 
+`GET /api/emergency-impacts/notices` es publica, como el catalogo: devuelve los eventos afectados, sin datos
+personales, para mostrar el aviso en Mis Reservas y en el detalle del evento.
+
+## Avisos por mail
+
+Al suspender, liberar y reprogramar se avisa al organizador. En un evento comunitario tambien a cada inscripto,
+con un mail individual. Un envio que falla se loguea y no frena la emergencia ni se reintenta.
+
 ## Limitaciones conocidas
 
 - La suspension vive en `emergency_booking_impacts`: `Reservation.status` y `CommunityEvent.status` no
-  cambian. Un evento afectado sigue aceptando inscripciones; `SUSPENDED` llega con el PR #36.
+  cambian. Un evento afectado muestra el aviso, pero sigue aceptando inscripciones; `SUSPENDED` llega con el
+  PR #36.
 - Una emergencia no bloquea reservas nuevas en el espacio.
 - Los eventos comunitarios no guardan el mail del organizador: el aviso va a
   `EMERGENCY_NOTIFICATIONS_EMAIL`, si esta definido, y siempre se ve en el backoffice.

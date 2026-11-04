@@ -5,6 +5,7 @@ import {
   CreateSpaceProblemData,
   EmergencyBookingType,
   EmergencyCaseRecord,
+  EmergencyEventNotice,
   EmergencyImpactRecord,
   EmergencyImpactStatus,
   EmergencyImpactSummary,
@@ -158,6 +159,27 @@ export class PrismaEmergencyImpactRepository implements EmergencyImpactRepositor
   async listProblems(): Promise<SpaceProblemRecord[]> {
     const rows = await prisma.publicSpaceProblem.findMany({ orderBy: { createdAt: "desc" }, take: 200 });
     return rows.map(toProblem);
+  }
+
+  async listEventNotices(now: Date): Promise<EmergencyEventNotice[]> {
+    const rows = await prisma.emergencyBookingImpact.findMany({
+      where: {
+        bookingType: "COMMUNITY_EVENT",
+        OR: [
+          { status: "SUSPENDIDA", releasedAt: null },
+          { status: "A_REPROGRAMAR" },
+          { status: "REPROGRAMADA", endDate: { gt: now } }
+        ]
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    return rows.map((row) => ({
+      eventId: row.bookingId,
+      status: row.status as EmergencyImpactStatus,
+      startDate: row.startDate,
+      endDate: row.endDate
+    }));
   }
 
   async getSummary(): Promise<EmergencyImpactSummary> {
