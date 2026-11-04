@@ -115,7 +115,8 @@ describe("outbox: eventos que se despachan al gateway", () => {
         save: jest.fn(), findReady: async () => ready, markPublished: jest.fn(),
         markFailed: jest.fn(), markExhausted: jest.fn()
       }, { publish: async event => void sent.push(event.name) }).execute();
-      expect(result).toEqual({ processed: 6, published: 6, failed: 0 });
+      const total = ESPACIOS_FQNS.length + WEATHER_FQNS.length;
+      expect(result).toEqual({ processed: total, published: total, failed: 0 });
       expect(sent).toEqual([...ESPACIOS_FQNS, ...WEATHER_FQNS]);
     } finally {
       if (previousDriver === undefined) delete process.env.EVENT_BUS_DRIVER;

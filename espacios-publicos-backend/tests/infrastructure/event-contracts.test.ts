@@ -1,10 +1,10 @@
 import { definitions } from "../../scripts/register-event-types";
 
 describe("registro unificado de contratos EDA", () => {
-  it("conserva los seis contratos, sin duplicar el catalogo climatico", () => {
+  it("conserva los siete contratos, sin duplicar el catalogo climatico", () => {
     expect(definitions.map(item => item.name)).toEqual([
       "CriticidadClimaticaConfirmada", "CriticidadClimaticaFinalizada",
-      "EventoComunitarioPublicado", "EventoCancelado", "EspacioEstadoCambiado", "ReservaConfirmada"
+      "EventoComunitarioPublicado", "ActividadCreada", "EventoCancelado", "EspacioEstadoCambiado", "ReservaConfirmada"
     ]);
   });
 
@@ -18,6 +18,15 @@ describe("registro unificado de contratos EDA", () => {
     for (const [name, fields] of Object.entries(expected)) {
       expect(definitions.find(item => item.name === name)?.fields.map(field => field.name)).toEqual(fields);
     }
+  });
+
+  it("registra ActividadCreada (E1 del squad 3) con el contrato acordado", () => {
+    const actividad = definitions.find(item => item.name === "ActividadCreada")!;
+    expect(actividad.fields.map(field => field.name)).toEqual([
+      "correlationId", "actividadId", "titulo", "estado", "capacidad", "fechaHoraInicio",
+      "fechaHoraFinalizacion", "ubicacion", "direccion", "espacioNombre", "actorSub"
+    ]);
+    expect(actividad.fields).toContainEqual({ name: "actorSub", type: ["null", "string"], default: null });
   });
 
   it("incluye barrios y temperaturas en el unico contrato de confirmacion", () => {
