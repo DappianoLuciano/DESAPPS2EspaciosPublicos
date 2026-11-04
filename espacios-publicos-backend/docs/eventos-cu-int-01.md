@@ -91,7 +91,7 @@ Para que el gateway llame al webhook hay que dar de alta una suscripcion por top
 npm run eda:register-subscriptions
 ```
 
-Hace `POST {EVENT_GATEWAY_API_URL}/subscriptions` con `{topic, callbackUrl}` para cada uno de los cinco topicos
+Hace `POST {EVENT_GATEWAY_API_URL}/subscriptions` con `{topic, callbackUrl}` para cada uno de los topicos
 (`GATEWAY_SUBSCRIPTION_TOPICS`, exportados desde `ReceiveGatewayEventUseCase`: la misma lista que el webhook
 sabe procesar). `callbackUrl = {PUBLIC_BACKEND_URL}/webhooks/citypass?token={GATEWAY_WEBHOOK_TOKEN}`. Requiere
 `EVENT_GATEWAY_API_URL`, `EVENT_CLIENT_ID`, `EVENT_CLIENT_SECRET`, `PUBLIC_BACKEND_URL` y `GATEWAY_WEBHOOK_TOKEN`.

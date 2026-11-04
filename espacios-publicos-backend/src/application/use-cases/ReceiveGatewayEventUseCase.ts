@@ -5,12 +5,36 @@ import { CommunityEventRepository } from "../../domain/repositories/CommunityEve
 import { DestinationRecommendationRepository } from "../../domain/repositories/DestinationRecommendationRepository";
 import { InboundEventRepository } from "../../domain/repositories/InboundEventRepository";
 import { ValidationError } from "../../shared/errors/ValidationError";
+import { EmergencyReactions, parseEmergencyCreated, parseEmergencyResolved } from "../events/emergencyEvents";
 import { logger } from "../../shared/logging/logger";
 
 export type ReceiveGatewayEventOutcome = "processed" | "duplicate" | "ignored";
 
 export const MOBILITY_RECOMMENDATION_EVENT_TYPE =
   "com.citypass.movilidad.RecomendacionDestinoActualizada";
+
+export const EMERGENCY_RESOLVED_EVENT_TYPE = "com.citypass.emergencias.EmergenciaResuelta";
+
+// El gateway usa el FQN como topico; el documento del CU-01 los nombra con puntos. Se aceptan los
+// dos. Emergencias publica hoy EmergenciaEstadoActualizado y EmergenciaCerrada, sin causas ni
+// ubicacion: esos cierres liberan lo afectado, pero no pueden registrar una problematica.
+const EMERGENCY_CREATED_TYPES: readonly string[] = [
+  "emergencia.creada",
+  "com.citypass.emergencias.EmergenciaCreada"
+];
+const EMERGENCY_STATE_UPDATED_EVENT_TYPE = "com.citypass.emergencias.EmergenciaEstadoActualizado";
+const EMERGENCY_CLOSED_EVENT_TYPE = "com.citypass.emergencias.EmergenciaCerrada";
+const EMERGENCY_RESOLVED_TYPES: readonly string[] = [
+  "emergencia.resuelta",
+  EMERGENCY_RESOLVED_EVENT_TYPE,
+  EMERGENCY_CLOSED_EVENT_TYPE
+];
+const EMERGENCY_UPDATED_TYPES: readonly string[] = [
+  "emergencia.estado.actualizado",
+  "com.citypass.emergencias.EmergenciaActualizada",
+  EMERGENCY_STATE_UPDATED_EVENT_TYPE
+];
+const EMERGENCY_ATTENDED_STATES: readonly string[] = ["RESUELTA", "CERRADA"];
 
 const EMERGENCY_CLOSING_STATES = ["RESUELTA", "CERRADA", "DESCARTADA", "CANCELADA"] as const;
 
@@ -63,14 +87,21 @@ const INCIDENT_TYPES: Record<string, IncidentTypeConfig> = {
 /** FQN conocidos, para resolver un tipo que llega sin namespace (ej. "EmergenciaCreada"). */
 const KNOWN_EVENT_TYPES: readonly string[] = [
   ...Object.keys(INCIDENT_TYPES),
-  MOBILITY_RECOMMENDATION_EVENT_TYPE
+  MOBILITY_RECOMMENDATION_EVENT_TYPE,
+  EMERGENCY_STATE_UPDATED_EVENT_TYPE,
+  EMERGENCY_CLOSED_EVENT_TYPE,
+  EMERGENCY_RESOLVED_EVENT_TYPE
 ];
 
 // Tópicos a los que este modulo se suscribe en el gateway: son exactamente los tipos que el webhook
 // sabe procesar. scripts/register-subscriptions.ts los da de alta a partir de esta lista.
 export const GATEWAY_SUBSCRIPTION_TOPICS: readonly string[] = [
   MOBILITY_RECOMMENDATION_EVENT_TYPE,
-  ...Object.keys(INCIDENT_TYPES)
+  ...Object.keys(INCIDENT_TYPES),
+  EMERGENCY_STATE_UPDATED_EVENT_TYPE,
+  EMERGENCY_CLOSED_EVENT_TYPE,
+  // Va ultimo: si G6 todavia no lo registro, el script falla despues de suscribir los demas.
+  EMERGENCY_RESOLVED_EVENT_TYPE
 ];
 
 export class ReceiveGatewayEventUseCase {
@@ -78,7 +109,8 @@ export class ReceiveGatewayEventUseCase {
     private readonly inboundEventRepository: InboundEventRepository,
     private readonly cityIncidentRepository: CityIncidentRepository,
     private readonly destinationRecommendationRepository: DestinationRecommendationRepository,
-    private readonly communityEventRepository: Pick<CommunityEventRepository, "findById">
+    private readonly communityEventRepository: Pick<CommunityEventRepository, "findById">,
+    private readonly emergencyReactions?: EmergencyReactions
   ) {}
 
   /** Recibe el sobre { metadata, data } que entrega el dispatcher del gateway. */
@@ -87,7 +119,9 @@ export class ReceiveGatewayEventUseCase {
     const isRecommendation = eventType === MOBILITY_RECOMMENDATION_EVENT_TYPE;
     const incidentType = INCIDENT_TYPES[eventType];
 
-    if (!incidentType && !isRecommendation) {
+    const reactsToEmergency = this.reactsToEmergency(eventType, data);
+
+    if (!incidentType && !isRecommendation && !reactsToEmergency) {
       return "ignored";
     }
 
@@ -96,14 +130,20 @@ export class ReceiveGatewayEventUseCase {
       return "duplicate";
     }
 
-    let processed: boolean;
+    let processed = false;
 
     if (isRecommendation) {
       processed = await this.processRecommendation(data);
-    } else if (incidentType.kind === "created") {
+    } else if (incidentType?.kind === "created") {
       processed = await this.processIncidentCreated(incidentType, data);
-    } else {
+    } else if (incidentType) {
       processed = await this.processIncidentUpdated(incidentType, data);
+    }
+
+    // CU-01: va despues del alta o baja del incidente. Si falla, el gateway reintenta y lo anterior
+    // es idempotente; el eventId recien se registra cuando las dos partes terminaron.
+    if (reactsToEmergency && (await this.reactToEmergency(eventType, data))) {
+      processed = true;
     }
 
     if (!processed) {
@@ -113,6 +153,34 @@ export class ReceiveGatewayEventUseCase {
     await this.inboundEventRepository.record(eventId, eventType);
 
     return "processed";
+  }
+
+  private reactsToEmergency(eventType: string, data: Record<string, unknown>): boolean {
+    return (
+      this.emergencyReactions !== undefined &&
+      (EMERGENCY_CREATED_TYPES.includes(eventType) ||
+        EMERGENCY_RESOLVED_TYPES.includes(eventType) ||
+        (EMERGENCY_UPDATED_TYPES.includes(eventType) &&
+          EMERGENCY_ATTENDED_STATES.includes(readState(data, ["estado", "estadoNuevo", "nuevoEstado"]) ?? "")))
+    );
+  }
+
+  private async reactToEmergency(eventType: string, data: Record<string, unknown>): Promise<boolean> {
+    if (EMERGENCY_CREATED_TYPES.includes(eventType)) {
+      const created = parseEmergencyCreated(data);
+      return created ? this.emergencyReactions!.onCreated(created) : false;
+    }
+
+    const resolved = parseEmergencyResolved(data);
+
+    if (!resolved) {
+      return false;
+    }
+
+    // EmergenciaResuelta tambien cierra el incidente del plan de llegada.
+    await this.cityIncidentRepository.deactivate("EMERGENCIAS", resolved.emergenciaId);
+
+    return this.emergencyReactions!.onResolved(resolved);
   }
 
   // Movilidad publica la estacion de devolucion recomendada para un evento nuestro.
@@ -238,6 +306,11 @@ function parseEnvelope(envelope: unknown): {
   const body = asRecord(envelope);
   const metadata = body ? asRecord(body.metadata) : null;
   const data = body ? asRecord(body.data) : null;
+
+  // Sobre estilo CloudEvents del CU-01: id y type van en la raiz.
+  if (body && !metadata && data && isNonEmptyString(body.specversion) && isNonEmptyString(body.id) && isNonEmptyString(body.type)) {
+    return { eventId: body.id, eventType: resolveEventType(body.type.trim()), data };
+  }
 
   // El gateway informa el tipo en metadata.eventType; algunos emisores lo mandan en metadata.type.
   const rawType = metadata

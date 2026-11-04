@@ -1,11 +1,12 @@
 import { definitions } from "../../scripts/register-event-types";
 
 describe("registro unificado de contratos EDA", () => {
-  it("conserva los ocho contratos, sin duplicar el catalogo climatico", () => {
+  it("conserva los contratos, sin duplicar el catalogo climatico", () => {
     expect(definitions.map(item => item.name)).toEqual([
       "CriticidadClimaticaConfirmada", "CriticidadClimaticaFinalizada",
       "EventoComunitarioPublicado", "ActividadCreada", "ActividadModificada", "EventoCancelado",
-      "EspacioEstadoCambiado", "ReservaConfirmada"
+      "EspacioEstadoCambiado", "ReservaConfirmada",
+      "ReservaAfectada", "EspacioLiberado", "ProblematicaRegistrada"
     ]);
   });
 
