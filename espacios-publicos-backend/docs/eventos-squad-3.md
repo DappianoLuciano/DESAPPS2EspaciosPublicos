@@ -28,7 +28,8 @@ bus, asi que los reintentos los maneja el outbox (ver `eventos-cu-int-01.md`).
 - El payload lo arma `buildActivityCreatedPayload` (exportada desde el use case).
 - `actorSub` lo completa el controller con `request.user.id`; el cliente no lo puede mandar en el body.
 - La ubicacion siempre esta: el use case ya rechaza espacios sin coordenadas.
-- El contrato se registra en el gateway con `npm run eda:register-events`.
+- El contrato se registra en el gateway con `npm run eda:register-events`. Para sumar `categoria` a un
+  contrato ya registrado hace falta `--update-compatible` (ver `eventos-analitica.md`).
 
 ## Demo
 
