@@ -29,6 +29,10 @@ Emergencias publica hoy. Esos cierres no traen causas, asi que liberan pero no r
   `ProblematicaRegistrada`. El tipo sale de `tipoProblematica`; si falta, queda `SIN_CLASIFICAR`.
 - Sin reservas afectadas y sin esa causa, no hace nada.
 
+Una falsa alarma (A1) tambien libera lo suspendido y nunca registra problematicas. Se reconoce por
+`EmergenciaCancelada`, `emergencia.cancelada` o los estados `CANCELADA` y `DESCARTADA`. El documento no lista
+a Espacios entre los consumidores de `emergencia.cancelada`; se agrego para no dejar reservas suspendidas.
+
 Cada operacion es idempotente por `emergenciaId` (RNI-04). Una `EmergenciaCreada` que llega despues
 de la resolucion no suspende nada.
 
@@ -62,8 +66,6 @@ Requieren rol administrador y las acciones quedan auditadas.
 - Una emergencia no bloquea reservas nuevas en el espacio.
 - Los eventos comunitarios no guardan el mail del organizador: el aviso va a
   `EMERGENCY_NOTIFICATIONS_EMAIL`, si esta definido, y siempre se ve en el backoffice.
-- `emergencia.cancelada` no se consume porque el documento no lo incluye. Tras una falsa alarma (A1), lo
-  suspendido queda asi hasta reprogramarlo desde el backoffice.
 
 ## Puesta en marcha
 
@@ -72,8 +74,8 @@ En este orden, coordinado con el responsable de la base:
 1. Aplicar `prisma/migrations/20261104120000_cu_01_emergency_impacts`. Solo crea tablas.
 2. `npm run eda:register-events`
 3. Desplegar el backend.
-4. `npm run eda:register-subscriptions`. `EmergenciaResuelta` va ultimo: si Emergencias todavia no lo
-   registro, el script falla en ese topico despues de suscribir los demas.
+4. `npm run eda:register-subscriptions`. `EmergenciaCancelada` y `EmergenciaResuelta` van ultimos: si
+   Emergencias todavia no los registro, el script falla ahi despues de suscribir los demas.
 
 ## Prueba local
 

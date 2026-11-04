@@ -249,6 +249,17 @@ describe("CU-01: al resolverse la emergencia", () => {
     expect(published(eventBus)).toEqual(["ProblematicaRegistrada"]);
   });
 
+  it("una falsa alarma confirma la reserva y una EmergenciaCreada tardia no la vuelve a suspender", async () => {
+    const { created: createdHandler, resolved, eventBus, store } = setup();
+
+    await createdHandler.execute(created);
+    await resolved.execute(resolvedWith([]));
+    await createdHandler.execute(created);
+
+    expect(published(eventBus)).toEqual(["ReservaAfectada", "EspacioLiberado"]);
+    expect([...store.impacts.values()][0].status).toBe("CONFIRMADA");
+  });
+
   it("deja para reprogramar la reserva cuyo horario ya paso", async () => {
     const past = reservation({ startDate: hours(-3), endDate: hours(-1) });
     const { created: createdHandler, resolved, store } = setup([space()], [past]);

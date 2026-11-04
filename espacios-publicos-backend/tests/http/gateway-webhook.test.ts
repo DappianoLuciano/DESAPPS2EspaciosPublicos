@@ -521,11 +521,11 @@ describe("CU-01 en el webhook", () => {
     expect(cityIncidents.deactivate).toHaveBeenCalledWith("EMERGENCIAS", "EMG-1");
   });
 
-  it("EmergenciaActualizada solo reacciona con estado RESUELTA", async () => {
+  it("EmergenciaActualizada solo reacciona cuando la emergencia termino", async () => {
     const { useCase, reactions } = build();
     const type = "com.citypass.emergencias.EmergenciaActualizada";
 
-    await useCase.execute(gatewayEvent(type, { emergenciaId: "EMG-1", estado: "CANCELADA" }));
+    await useCase.execute(gatewayEvent(type, { emergenciaId: "EMG-1", estado: "EN_ATENCION" }));
     expect(reactions.onResolved).not.toHaveBeenCalled();
 
     await useCase.execute(gatewayEvent(type, { emergenciaId: "EMG-1", estado: "RESUELTA" }));
@@ -541,6 +541,22 @@ describe("CU-01 en el webhook", () => {
     }));
 
     expect(reactions.onResolved).toHaveBeenCalledTimes(2);
+  });
+
+  it("una falsa alarma libera lo suspendido e ignora las causas (A1)", async () => {
+    const { useCase, reactions } = build();
+    const causas = { emergenciaId: "EMG-1", causasRelacionadas: ["ESPACIO_PUBLICO"] };
+
+    await useCase.execute(gatewayEvent("emergencia.cancelada", causas));
+    await useCase.execute(gatewayEvent("EmergenciaCancelada", causas));
+    await useCase.execute(gatewayEvent("com.citypass.emergencias.EmergenciaActualizada", {
+      ...causas, estado: "DESCARTADA"
+    }));
+
+    expect(reactions.onResolved).toHaveBeenCalledTimes(3);
+    for (const [emergency] of reactions.onResolved.mock.calls) {
+      expect(emergency).toMatchObject({ emergenciaId: "EMG-1", causes: [] });
+    }
   });
 
   it("si la reaccion falla no registra el evento, para que el gateway reintente", async () => {

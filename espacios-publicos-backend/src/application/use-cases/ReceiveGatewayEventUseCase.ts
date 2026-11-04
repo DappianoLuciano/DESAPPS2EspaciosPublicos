@@ -24,17 +24,23 @@ const EMERGENCY_CREATED_TYPES: readonly string[] = [
 ];
 const EMERGENCY_STATE_UPDATED_EVENT_TYPE = "com.citypass.emergencias.EmergenciaEstadoActualizado";
 const EMERGENCY_CLOSED_EVENT_TYPE = "com.citypass.emergencias.EmergenciaCerrada";
+const EMERGENCY_CANCELLED_EVENT_TYPE = "com.citypass.emergencias.EmergenciaCancelada";
+// Falsa alarma (A1): se libera lo suspendido, pero no hay causas que atender.
+const EMERGENCY_CANCELLED_TYPES: readonly string[] = ["emergencia.cancelada", EMERGENCY_CANCELLED_EVENT_TYPE];
 const EMERGENCY_RESOLVED_TYPES: readonly string[] = [
   "emergencia.resuelta",
   EMERGENCY_RESOLVED_EVENT_TYPE,
-  EMERGENCY_CLOSED_EVENT_TYPE
+  EMERGENCY_CLOSED_EVENT_TYPE,
+  ...EMERGENCY_CANCELLED_TYPES
 ];
 const EMERGENCY_UPDATED_TYPES: readonly string[] = [
   "emergencia.estado.actualizado",
   "com.citypass.emergencias.EmergenciaActualizada",
   EMERGENCY_STATE_UPDATED_EVENT_TYPE
 ];
-const EMERGENCY_ATTENDED_STATES: readonly string[] = ["RESUELTA", "CERRADA"];
+const EMERGENCY_CANCELLED_STATES: readonly string[] = ["CANCELADA", "DESCARTADA"];
+const EMERGENCY_FINISHED_STATES: readonly string[] = ["RESUELTA", "CERRADA", ...EMERGENCY_CANCELLED_STATES];
+const EMERGENCY_STATE_FIELDS: readonly string[] = ["estado", "estadoNuevo", "nuevoEstado"];
 
 const EMERGENCY_CLOSING_STATES = ["RESUELTA", "CERRADA", "DESCARTADA", "CANCELADA"] as const;
 
@@ -90,6 +96,7 @@ const KNOWN_EVENT_TYPES: readonly string[] = [
   MOBILITY_RECOMMENDATION_EVENT_TYPE,
   EMERGENCY_STATE_UPDATED_EVENT_TYPE,
   EMERGENCY_CLOSED_EVENT_TYPE,
+  EMERGENCY_CANCELLED_EVENT_TYPE,
   EMERGENCY_RESOLVED_EVENT_TYPE
 ];
 
@@ -100,7 +107,8 @@ export const GATEWAY_SUBSCRIPTION_TOPICS: readonly string[] = [
   ...Object.keys(INCIDENT_TYPES),
   EMERGENCY_STATE_UPDATED_EVENT_TYPE,
   EMERGENCY_CLOSED_EVENT_TYPE,
-  // Va ultimo: si G6 todavia no lo registro, el script falla despues de suscribir los demas.
+  // Van ultimos: si G6 todavia no los registro, el script falla despues de suscribir los demas.
+  EMERGENCY_CANCELLED_EVENT_TYPE,
   EMERGENCY_RESOLVED_EVENT_TYPE
 ];
 
@@ -161,7 +169,7 @@ export class ReceiveGatewayEventUseCase {
       (EMERGENCY_CREATED_TYPES.includes(eventType) ||
         EMERGENCY_RESOLVED_TYPES.includes(eventType) ||
         (EMERGENCY_UPDATED_TYPES.includes(eventType) &&
-          EMERGENCY_ATTENDED_STATES.includes(readState(data, ["estado", "estadoNuevo", "nuevoEstado"]) ?? "")))
+          EMERGENCY_FINISHED_STATES.includes(readState(data, EMERGENCY_STATE_FIELDS) ?? "")))
     );
   }
 
@@ -180,7 +188,11 @@ export class ReceiveGatewayEventUseCase {
     // EmergenciaResuelta tambien cierra el incidente del plan de llegada.
     await this.cityIncidentRepository.deactivate("EMERGENCIAS", resolved.emergenciaId);
 
-    return this.emergencyReactions!.onResolved(resolved);
+    const cancelled =
+      EMERGENCY_CANCELLED_TYPES.includes(eventType) ||
+      EMERGENCY_CANCELLED_STATES.includes(readState(data, EMERGENCY_STATE_FIELDS) ?? "");
+
+    return this.emergencyReactions!.onResolved(cancelled ? { ...resolved, causes: [] } : resolved);
   }
 
   // Movilidad publica la estacion de devolucion recomendada para un evento nuestro.
