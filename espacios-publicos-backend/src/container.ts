@@ -67,6 +67,12 @@ import { getWeatherLocationConfig, getWeatherRiskThresholds } from "./infrastruc
 import { InternalWeatherController } from "./interfaces/http/controllers/InternalWeatherController";
 import { WeatherAlertController } from "./interfaces/http/controllers/WeatherAlertController";
 import { CreateManualWeatherAlertUseCase } from "./application/use-cases/CreateManualWeatherAlertUseCase";
+import { CompleteTowServiceUseCase } from "./application/use-cases/CompleteTowServiceUseCase";
+import { ListTowInterventionsUseCase } from "./application/use-cases/ListTowInterventionsUseCase";
+import { ProcessMobilityObstructionEvaluatedUseCase } from "./application/use-cases/ProcessMobilityObstructionEvaluatedUseCase";
+import { RequestTowUseCase } from "./application/use-cases/RequestTowUseCase";
+import { InMemoryTowInterventionRepository } from "./infrastructure/database/InMemoryTowInterventionRepository";
+import { TowInterventionController } from "./interfaces/http/controllers/TowInterventionController";
 
 // Este archivo arma las dependencias en un solo lugar para que los controllers no creen objetos por su cuenta.
 export function createContainer() {
@@ -78,6 +84,7 @@ export function createContainer() {
   const communityEventRegistrationRepository = new PrismaCommunityEventRegistrationRepository();
   const eventOutboxRepository = new PrismaEventOutboxRepository();
   const weatherAlertRepository = new PrismaWeatherAlertRepository();
+  const towInterventionRepository = new InMemoryTowInterventionRepository();
   // EVENT_BUS_DRIVER=console deja los eventos en el log (desarrollo local); citypass los publica
   // en el gateway. Los casos de uso guardan el evento en el outbox y lo publican por este bus,
   // que ademas deja el estado del registro al dia y reintenta desde el outbox si el gateway falla.
@@ -221,6 +228,15 @@ export function createContainer() {
     finalizeWeatherAlertUseCase,
     new CreateManualWeatherAlertUseCase(weatherAlertRepository)
   );
+  const processMobilityObstructionEvaluatedUseCase =
+    new ProcessMobilityObstructionEvaluatedUseCase(towInterventionRepository);
+  const listTowInterventionsUseCase = new ListTowInterventionsUseCase(
+    towInterventionRepository
+  );
+  const requestTowUseCase = new RequestTowUseCase(towInterventionRepository);
+  const completeTowServiceUseCase = new CompleteTowServiceUseCase(
+    towInterventionRepository
+  );
 
   return {
     adminRepository,
@@ -253,6 +269,12 @@ export function createContainer() {
     gatewayWebhookController: new GatewayWebhookController(receiveGatewayEventUseCase),
     chatbotController,
     weatherAlertController,
+    towInterventionController: new TowInterventionController(
+      processMobilityObstructionEvaluatedUseCase,
+      listTowInterventionsUseCase,
+      requestTowUseCase,
+      completeTowServiceUseCase
+    ),
     internalWeatherController: new InternalWeatherController(runWeatherCycleUseCase)
   };
 }
