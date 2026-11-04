@@ -706,3 +706,61 @@ export function askChatbot(message: string, history?: ChatMessage[]) {
     signal: AbortSignal.timeout(30_000),
   });
 }
+
+export type EmergencyImpactStatus = 'SUSPENDIDA' | 'CONFIRMADA' | 'REPROGRAMADA' | 'A_REPROGRAMAR';
+
+export interface EmergencyImpact {
+  id: string;
+  emergenciaId: string;
+  bookingType: 'RESERVATION' | 'COMMUNITY_EVENT';
+  bookingId: string;
+  publicSpaceId: string;
+  startDate: string;
+  endDate: string;
+  status: EmergencyImpactStatus;
+  organizerName: string;
+  rescheduledBy: string | null;
+  releasedAt: string | null;
+  createdAt: string;
+}
+
+export interface SpaceProblem {
+  id: string;
+  emergenciaId: string;
+  publicSpaceId: string | null;
+  type: string;
+  status: 'REGISTRADA' | 'DERIVADA';
+  derivedTo: string | null;
+  createdAt: string;
+}
+
+export interface EmergencyImpactSummary {
+  reservations: number;
+  affectedBookings: number;
+  releasedSpaces: number;
+  problems: number;
+}
+
+export interface EmergencyImpactsResponse {
+  summary: EmergencyImpactSummary;
+  impacts: EmergencyImpact[];
+  problems: SpaceProblem[];
+}
+
+export function getEmergencyImpacts() {
+  return request<EmergencyImpactsResponse>('/api/emergency-impacts');
+}
+
+export function rescheduleEmergencyImpact(id: string, startDate: string, endDate: string) {
+  return request<EmergencyImpact>(`/api/emergency-impacts/${encodeURIComponent(id)}/reschedule`, {
+    method: 'POST',
+    body: JSON.stringify({ startDate, endDate }),
+  });
+}
+
+export function deriveSpaceProblem(id: string, derivedTo: string) {
+  return request<SpaceProblem>(`/api/emergency-impacts/problems/${encodeURIComponent(id)}/derive`, {
+    method: 'PATCH',
+    body: JSON.stringify({ derivedTo }),
+  });
+}

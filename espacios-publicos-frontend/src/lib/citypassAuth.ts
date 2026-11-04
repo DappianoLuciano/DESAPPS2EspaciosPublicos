@@ -78,6 +78,19 @@ export function parseCityPassUser(accessToken: string): User | null {
   };
 }
 
+/** Datos de la sesion para mostrar en pantalla. El token trae el modulo, no la ou completa. */
+export function describeSession(user: User): { uid: string; ou: string; role: string } {
+  const token = localStorage.getItem('citypass_access_token');
+  const payload = token ? decodeJwtPayload(token) : null;
+  const moduleName = payload?.module?.trim();
+
+  return {
+    uid: payload?.preferred_username || user.id,
+    ou: moduleName ? moduleName.charAt(0).toUpperCase() + moduleName.slice(1) : 'sin dato',
+    role: user.role === 'municipal_admin' ? 'Administrador' : 'Ciudadano',
+  };
+}
+
 export async function loginWithCityPass(username: string, password: string): Promise<User> {
   const idpUrl = getIdpUrl();
   const clientId = getClientId();
