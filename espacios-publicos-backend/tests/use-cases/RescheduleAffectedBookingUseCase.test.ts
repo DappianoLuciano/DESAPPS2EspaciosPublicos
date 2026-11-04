@@ -31,6 +31,7 @@ function setup(current: EmergencyImpactRecord | null, overlapping: Array<{ id: s
     rescheduleBooking: jest.fn().mockResolvedValue({ ...current, status: "REPROGRAMADA" })
   };
   const eventBus = { publish: jest.fn().mockResolvedValue(undefined) };
+  const emailSender = { send: jest.fn().mockResolvedValue(undefined) };
   const useCase = new RescheduleAffectedBookingUseCase(
     impacts,
     { findById: jest.fn().mockResolvedValue({ capacity: 20 }) } as never,
@@ -42,10 +43,10 @@ function setup(current: EmergencyImpactRecord | null, overlapping: Array<{ id: s
     { countByEventId: jest.fn() },
     eventBus,
     { save: jest.fn() },
-    { send: jest.fn() }
+    emailSender
   );
 
-  return { useCase, impacts, eventBus };
+  return { useCase, impacts, eventBus, emailSender };
 }
 
 const input = { impactId: "imp-1", startDate: start, endDate: end, actor: "operador" };
@@ -65,6 +66,17 @@ describe("RescheduleAffectedBookingUseCase", () => {
     const { useCase } = setup(impact(), [{ id: "res-1", estimatedAttendees: 10 }]);
 
     await expect(useCase.execute(input)).resolves.toBeDefined();
+  });
+
+  it("avisa la fecha en horario argentino y sin formato tecnico", async () => {
+    const { useCase, impacts, emailSender } = setup(impact({ organizerEmail: "org@test.com" }));
+    impacts.rescheduleBooking.mockResolvedValue(impact({ organizerEmail: "org@test.com" }));
+
+    await useCase.execute({ ...input, startDate: "2030-03-10T21:30:00.000Z", endDate: "2030-03-10T23:00:00.000Z" });
+
+    const html = emailSender.send.mock.calls[0][2] as string;
+    expect(html).toContain("18:30");
+    expect(html).not.toContain("2030-03-10T");
   });
 
   it("rechaza si no hay cupo", async () => {

@@ -16,6 +16,18 @@ import { notifyOrganizer } from "./emergencyNotifications";
 
 const REPROGRAMMABLE: readonly string[] = ["SUSPENDIDA", "A_REPROGRAMAR", "REPROGRAMADA"];
 
+function formatLocalDate(date: Date): string {
+  return new Intl.DateTimeFormat("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: "America/Argentina/Buenos_Aires"
+  }).format(date);
+}
+
 export interface RescheduleBookingInput {
   impactId: unknown;
   startDate: unknown;
@@ -79,7 +91,7 @@ export class RescheduleAffectedBookingUseCase {
       this.emailSender,
       updated,
       "Tu reserva fue reprogramada",
-      `El nuevo horario es del ${startDate.toISOString()} al ${endDate.toISOString()}.`
+      `El nuevo horario es del ${formatLocalDate(startDate)} al ${formatLocalDate(endDate)}.`
     );
 
     return updated;
