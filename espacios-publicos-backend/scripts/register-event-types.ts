@@ -90,6 +90,18 @@ const spacesDefinitions: EventTypeDefinition[] = [
     ] } },
     { name: "direccion", type: "string" },
     { name: "espacioNombre", type: "string" },
+    { name: "actorSub", type: nullable("string"), default: null },
+    { name: "categoria", type: nullable("string"), default: null }
+  ]),
+  record("ActividadModificada", "Cambio el estado de una actividad (evento comunitario).", [
+    { name: "correlationId", type: "string", doc: "act-<actividadId>" },
+    { name: "actividadId", type: "string" },
+    { name: "estadoAnterior", type: "string" },
+    { name: "estadoNuevo", type: "string", doc: "PROGRAMADA | SUSPENDIDA | CANCELADA" },
+    { name: "motivo", type: nullable("string"), default: null },
+    { name: "causaId", type: nullable("string"), default: null },
+    { name: "causaTipo", type: nullable("string"), default: null, doc: "EVENTO_CLIMATICO | RECLAMO | INCIDENTE_VIAL" },
+    { name: "modificadaEn", type: { type: "long", logicalType: "timestamp-millis" } },
     { name: "actorSub", type: nullable("string"), default: null }
   ]),
   record("EventoCancelado", "Un administrador cancelo un evento comunitario.", [
@@ -138,6 +150,8 @@ async function main() {
     CriticidadClimaticaConfirmada: "WEATHER_CONFIRMED_EVENT_FQN",
     CriticidadClimaticaFinalizada: "WEATHER_FINALIZED_EVENT_FQN",
     EventoComunitarioPublicado: "COMMUNITY_EVENT_PUBLISHED_EVENT_FQN",
+    ActividadCreada: "ACTIVITY_CREATED_EVENT_FQN",
+    ActividadModificada: "ACTIVITY_MODIFIED_EVENT_FQN",
     EventoCancelado: "COMMUNITY_EVENT_CANCELLED_EVENT_FQN",
     EspacioEstadoCambiado: "PUBLIC_SPACE_STATUS_CHANGED_EVENT_FQN",
     ReservaConfirmada: "RESERVATION_CONFIRMED_EVENT_FQN"

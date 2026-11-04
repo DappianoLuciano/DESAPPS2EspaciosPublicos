@@ -23,11 +23,13 @@ bus, asi que los reintentos los maneja el outbox (ver `eventos-cu-int-01.md`).
 | `direccion` | `string` | direccion del espacio |
 | `espacioNombre` | `string` | nombre del espacio |
 | `actorSub` | `["null","string"]`, default `null` | `sub` del token del organizador |
+| `categoria` | `["null","string"]`, default `null` | categoria del evento tal cual se cargo (`communityEvent.category`, texto de `EVENT_CATEGORIES` del frontend; no se mapea a otro enum) |
 
 - El payload lo arma `buildActivityCreatedPayload` (exportada desde el use case).
 - `actorSub` lo completa el controller con `request.user.id`; el cliente no lo puede mandar en el body.
 - La ubicacion siempre esta: el use case ya rechaza espacios sin coordenadas.
-- El contrato se registra en el gateway con `npm run eda:register-events`.
+- El contrato se registra en el gateway con `npm run eda:register-events`. Para sumar `categoria` a un
+  contrato ya registrado hace falta `--update-compatible` (ver `eventos-analitica.md`).
 
 ## Demo
 
