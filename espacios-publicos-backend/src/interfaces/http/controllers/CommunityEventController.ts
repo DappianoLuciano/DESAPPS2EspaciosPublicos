@@ -36,7 +36,12 @@ export class CommunityEventController {
   cancel = async (request: Request, response: Response): Promise<void> => {
     const communityEvent = await this.cancelCommunityEventUseCase.execute(
       request.params.id,
-      request.body?.reason
+      request.body?.reason,
+      {
+        causaTipo: request.body?.causaTipo,
+        causaId: request.body?.causaId,
+        actorSub: request.user?.id ?? null
+      }
     );
 
     response.json(communityEvent);
