@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "test": "node --test tests/*.test.cjs",
     "test:address": "node --test tests/address-search.test.cjs",
+    "test:tow": "node --test tests/tow-intervention.test.cjs",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -37,6 +37,13 @@ import {
   simulateMobilityObstruction,
 } from '../lib/api';
 import type { TowIntervention, TowInterventionStatus } from '../lib/api';
+import {
+  createTowSimulationForm,
+  normalizePlate,
+  summarizeTowInterventions,
+  toMobilitySimulationPayload,
+} from '../lib/towIntervention';
+import type { TowSimulationForm } from '../lib/towIntervention';
 
 const statusConfig: Record<
   TowInterventionStatus,
@@ -48,37 +55,6 @@ const statusConfig: Record<
 };
 
 type StatusFilter = TowInterventionStatus | 'ALL';
-
-interface SimulationForm {
-  reclamoId: string;
-  correlationId: string;
-  direccion: string;
-  barrio: string;
-  latitud: number;
-  longitud: number;
-  impactoCirculacion: string;
-  desvioSugerido: string;
-  afectaCiclovia: boolean;
-  requiereIntervencionInmediata: boolean;
-  requiereGrua: boolean;
-}
-
-function createSimulationForm(): SimulationForm {
-  const suffix = Date.now().toString();
-  return {
-    reclamoId: `reclamo-demo-${suffix}`,
-    correlationId: `corr-demo-${suffix}`,
-    direccion: 'Av. Corrientes 1000',
-    barrio: 'San Nicolás',
-    latitud: -34.6037,
-    longitud: -58.3816,
-    impactoCirculacion: 'ALTO',
-    desvioSugerido: 'Desviar por Av. Córdoba',
-    afectaCiclovia: true,
-    requiereIntervencionInmediata: true,
-    requiereGrua: true,
-  };
-}
 
 export default function TowInterventionManagement() {
   const [interventions, setInterventions] = useState<TowIntervention[]>([]);
@@ -92,8 +68,8 @@ export default function TowInterventionManagement() {
   const [patente, setPatente] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [simulationOpen, setSimulationOpen] = useState(false);
-  const [simulationForm, setSimulationForm] = useState<SimulationForm>(
-    createSimulationForm
+  const [simulationForm, setSimulationForm] = useState<TowSimulationForm>(
+    createTowSimulationForm
   );
 
   const loadInterventions = useCallback(async (background = false) => {
@@ -120,12 +96,7 @@ export default function TowInterventionManagement() {
   }, [loadInterventions]);
 
   const counts = useMemo(
-    () => ({
-      total: interventions.length,
-      pending: interventions.filter((item) => item.status === 'PENDING').length,
-      requested: interventions.filter((item) => item.status === 'TOW_REQUESTED').length,
-      completed: interventions.filter((item) => item.status === 'COMPLETED').length,
-    }),
+    () => summarizeTowInterventions(interventions),
     [interventions]
   );
 
@@ -204,7 +175,7 @@ export default function TowInterventionManagement() {
   };
 
   const openSimulation = () => {
-    setSimulationForm(createSimulationForm());
+    setSimulationForm(createTowSimulationForm());
     setError(null);
     setSimulationOpen(true);
   };
@@ -215,11 +186,9 @@ export default function TowInterventionManagement() {
     setError(null);
 
     try {
-      await simulateMobilityObstruction({
-        ...simulationForm,
-        estacionesAfectadasIds: [],
-        evaluadoAt: Date.now(),
-      });
+      await simulateMobilityObstruction(
+        toMobilitySimulationPayload(simulationForm)
+      );
       setNotice(
         simulationForm.requiereGrua
           ? 'Caso recibido: quedó pendiente de solicitud de grúa.'
@@ -610,6 +579,3 @@ function formatDate(value: string): string {
   }).format(date);
 }
 
-function normalizePlate(value: string): string {
-  return value.trim().toUpperCase().replace(/[\s-]/g, '');
-}
