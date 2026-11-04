@@ -192,6 +192,47 @@ export interface CommunityEventRegistration {
   createdAt: string;
 }
 
+export type TowInterventionStatus = 'PENDING' | 'TOW_REQUESTED' | 'COMPLETED';
+
+export interface TowIntervention {
+  id: string;
+  reclamoId: string;
+  correlationId: string;
+  latitud: number;
+  longitud: number;
+  direccion: string;
+  barrio: string;
+  afectaCiclovia: boolean;
+  estacionesAfectadasIds: number[];
+  impactoCirculacion: string;
+  desvioSugerido: string;
+  requiereIntervencionInmediata: boolean;
+  requiereGrua: boolean;
+  patente: string | null;
+  status: TowInterventionStatus;
+  evaluadoAt: string;
+  solicitadoAt: string | null;
+  resueltoAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SimulateMobilityObstructionPayload {
+  reclamoId: string;
+  correlationId: string;
+  latitud: number;
+  longitud: number;
+  direccion: string;
+  barrio: string;
+  afectaCiclovia: boolean;
+  estacionesAfectadasIds: number[];
+  impactoCirculacion: string;
+  desvioSugerido: string;
+  requiereIntervencionInmediata: boolean;
+  requiereGrua: boolean;
+  evaluadoAt: number;
+}
+
 async function request<T>(path: string, options?: RequestInit, isRetry = false): Promise<T> {
   const response = await fetchWithTimeout(`${API_URL}${path}`, {
     ...options,
@@ -367,6 +408,39 @@ export function updateAdminProfile(payload: UpdateAdminProfilePayload) {
     method: 'PUT',
     body: JSON.stringify(payload),
   });
+}
+
+export function listTowInterventions() {
+  return request<TowIntervention[]>('/api/admin/tow-interventions');
+}
+
+export function simulateMobilityObstruction(
+  payload: SimulateMobilityObstructionPayload
+) {
+  return request<TowIntervention>('/api/admin/tow-interventions/simulate', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function requestTow(interventionId: string, patente: string) {
+  return request<TowIntervention>(
+    `/api/admin/tow-interventions/${encodeURIComponent(interventionId)}/request`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ patente }),
+    }
+  );
+}
+
+export function completeTowService(interventionId: string) {
+  return request<TowIntervention>(
+    `/api/admin/tow-interventions/${encodeURIComponent(interventionId)}/complete`,
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }
+  );
 }
 
 export function uploadEventImage(file: File) {

@@ -25,6 +25,7 @@ import { createInternalRoutes } from "./interfaces/http/routes/internalRoutes";
 import { createRoutePlanRoutes } from "./interfaces/http/routes/routePlanRoutes";
 import { createWebhookRoutes } from "./interfaces/http/routes/webhookRoutes";
 import { createWeatherAlertRoutes } from "./interfaces/http/routes/weatherAlertRoutes";
+import { createTowInterventionRoutes } from "./interfaces/http/routes/towInterventionRoutes";
 import { isProductionRuntime } from "./shared/runtime/runtimeMode";
 
 export function createApp() {
@@ -64,6 +65,12 @@ export function createApp() {
   );
   app.use("/api/admin", createAdminRoutes(container.adminController));
   app.use("/api/admin/weather-alerts", createWeatherAlertRoutes(container.weatherAlertController));
+  if (!isProductionRuntime()) {
+    app.use(
+      "/api/admin/tow-interventions",
+      createTowInterventionRoutes(container.towInterventionController)
+    );
+  }
   app.use("/api/internal", createInternalRoutes(container.internalWeatherController));
   app.use("/api/uploads", uploadRateLimiter, createUploadRoutes(container.storageService));
   app.use("/api/public-spaces", createPublicSpaceRoutes(container.publicSpaceController));
