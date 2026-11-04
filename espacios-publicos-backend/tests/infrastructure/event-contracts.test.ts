@@ -24,9 +24,14 @@ describe("registro unificado de contratos EDA", () => {
     const actividad = definitions.find(item => item.name === "ActividadCreada")!;
     expect(actividad.fields.map(field => field.name)).toEqual([
       "correlationId", "actividadId", "titulo", "estado", "capacidad", "fechaHoraInicio",
-      "fechaHoraFinalizacion", "ubicacion", "direccion", "espacioNombre", "actorSub"
+      "fechaHoraFinalizacion", "ubicacion", "direccion", "espacioNombre", "actorSub", "categoria"
     ]);
     expect(actividad.fields).toContainEqual({ name: "actorSub", type: ["null", "string"], default: null });
+  });
+
+  it("agrega categoria a ActividadCreada como opcional, para ser compatible hacia atras", () => {
+    const actividad = definitions.find(item => item.name === "ActividadCreada")!;
+    expect(actividad.fields.at(-1)).toEqual({ name: "categoria", type: ["null", "string"], default: null });
   });
 
   it("incluye barrios y temperaturas en el unico contrato de confirmacion", () => {

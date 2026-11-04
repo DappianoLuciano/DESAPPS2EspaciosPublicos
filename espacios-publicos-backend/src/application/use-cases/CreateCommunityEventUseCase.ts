@@ -161,6 +161,7 @@ export function buildActivityCreatedPayload(
     ubicacion: { lat: publicSpace.latitude, lng: publicSpace.longitude },
     direccion: publicSpace.address,
     espacioNombre: publicSpace.name,
-    actorSub: organizerSub ?? null
+    actorSub: organizerSub ?? null,
+    categoria: communityEvent.category
   };
 }

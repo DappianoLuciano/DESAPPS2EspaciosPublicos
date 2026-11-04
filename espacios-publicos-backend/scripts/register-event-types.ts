@@ -90,7 +90,8 @@ const spacesDefinitions: EventTypeDefinition[] = [
     ] } },
     { name: "direccion", type: "string" },
     { name: "espacioNombre", type: "string" },
-    { name: "actorSub", type: nullable("string"), default: null }
+    { name: "actorSub", type: nullable("string"), default: null },
+    { name: "categoria", type: nullable("string"), default: null }
   ]),
   record("EventoCancelado", "Un administrador cancelo un evento comunitario.", [
     { name: "eventoId", type: "string" },

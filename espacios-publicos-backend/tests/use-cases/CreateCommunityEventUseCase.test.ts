@@ -278,8 +278,10 @@ describe("CreateCommunityEventUseCase", () => {
       ubicacion: { lat: -34.6066, lng: -58.4357 },
       direccion: "CABA",
       espacioNombre: "Parque Centenario",
-      actorSub: "sub-organizador-1"
+      actorSub: "sub-organizador-1",
+      categoria: communityEvent.category
     });
+    expect(activityCreated?.payload.categoria).toBe(validInput.category);
   });
 
   it("ActividadCreada lleva actorSub null si no hay organizador autenticado", async () => {
