@@ -480,7 +480,6 @@ export default function TowInterventionManagement() {
     </Container>
   );
 }
-
 function SummaryCard({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <Card withBorder radius="lg" p="lg">
