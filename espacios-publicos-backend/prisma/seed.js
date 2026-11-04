@@ -93,6 +93,18 @@ const spaces = [
     capacity: 200,
     imageUrl: 'https://images.unsplash.com/photo-1545987796-200677ee1011?auto=format&fit=crop&q=80',
   },
+  {
+    // Squad 3: espacio al aire libre para la demo del festival de 5.000 personas (ActividadCreada).
+    id: 'seed-space-plaza-houssay',
+    name: 'Plaza Houssay',
+    description: 'Plaza al aire libre apta para festivales y eventos masivos.',
+    address: 'Av. Córdoba 2100',
+    zone: 'Recoleta',
+    capacity: 6000,
+    exposure: 'OUTDOOR',
+    latitude: -34.5994,
+    longitude: -58.3988,
+  },
 ];
 
 function futureDate(daysFromNow, hour, minute = 0) {
