@@ -664,10 +664,17 @@ export function getEventRoutePlan(id: string, from?: { latitude: number; longitu
   return request<EventRoutePlan>(`/api/community-events/${encodeURIComponent(id)}/route-plan${query}`);
 }
 
-export function cancelCommunityEvent(id: string, reason?: string) {
+export type CancellationCauseType = 'EVENTO_CLIMATICO' | 'RECLAMO' | 'INCIDENTE_VIAL';
+
+export interface CancellationCause {
+  causaTipo: CancellationCauseType;
+  causaId: string;
+}
+
+export function cancelCommunityEvent(id: string, reason?: string, cause?: CancellationCause) {
   return request<CommunityEvent>(`/api/community-events/${encodeURIComponent(id)}/cancel`, {
     method: 'PATCH',
-    body: JSON.stringify(reason ? { reason } : {}),
+    body: JSON.stringify({ ...(reason ? { reason } : {}), ...cause }),
   });
 }
 
