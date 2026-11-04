@@ -1,12 +1,15 @@
 import "dotenv/config";
+import { OAuthServiceTokenProvider, resolveEventAuthTokenUrl } from "../src/infrastructure/auth/OAuthServiceTokenProvider";
 
 // Registra en el Event Gateway los contratos que publica este modulo: los de clima y los
 // de eventos comunitarios, espacios y reservas (CU-INT-01). Son records Avro; los campos
 // opcionales son uniones ["null", tipo] con default null.
 //
 // Uso:  npm run eda:register-events
-// Requiere EVENT_GATEWAY_API_URL, EVENT_AUTH_TOKEN_URL, EVENT_CLIENT_ID y EVENT_CLIENT_SECRET.
-// Un contrato ya registrado responde 409 y se deja como esta: este script no lo actualiza.
+// Requiere EVENT_GATEWAY_API_URL, EVENT_CLIENT_ID y EVENT_CLIENT_SECRET. EVENT_AUTH_TOKEN_URL es opcional
+// (por defecto https://api.citypass-login.pp.ua/oauth/token).
+// Consulta y verifica los contratos existentes; solo los actualiza con --update-compatible.
+// --weather-only permite operar solo sobre los dos contratos climaticos.
 
 interface EventTypeDefinition {
   type: "record";
@@ -16,12 +19,7 @@ interface EventTypeDefinition {
   fields: Array<Record<string, unknown>>;
 }
 
-const NAMESPACE = process.env.EVENT_TYPE_NAMESPACE?.trim() || "com.citypass.espacios";
-
-const gatewayUrl = required("EVENT_GATEWAY_API_URL").replace(/\/+$/, "");
-const tokenUrl = required("EVENT_AUTH_TOKEN_URL");
-const clientId = required("EVENT_CLIENT_ID");
-const clientSecret = required("EVENT_CLIENT_SECRET");
+const NAMESPACE = process.env.EVENT_NAMESPACE?.trim() || process.env.EVENT_TYPE_NAMESPACE?.trim() || "com.citypass.espacios";
 
 const nullable = (type: string) => ["null", type];
 
@@ -47,6 +45,7 @@ const weatherDefinitions: EventTypeDefinition[] = [
     { name: "ubicaciones", type: { type: "array", items: { type: "record", name: "UbicacionClimatica", fields: [
       { name: "latitud", type: "double" }, { name: "longitud", type: "double" }
     ] } } },
+    { name: "barrios", type: { type: "array", items: "string" }, default: [] },
     { name: "vigenciaDesde", type: { type: "long", logicalType: "timestamp-millis" } },
     { name: "vigenciaHasta", type: { type: "long", logicalType: "timestamp-millis" } },
     { name: "temperaturaMinC", type: nullable("double"), default: null },
@@ -119,12 +118,65 @@ const spacesDefinitions: EventTypeDefinition[] = [
   ])
 ];
 
-const definitions: EventTypeDefinition[] = [...weatherDefinitions, ...spacesDefinitions];
+export const definitions: EventTypeDefinition[] = [...weatherDefinitions, ...spacesDefinitions];
 
 async function main() {
-  const token = await getToken();
+  const gatewayUrl = required("EVENT_GATEWAY_API_URL").replace(/\/+$/, "");
+  const token = await new OAuthServiceTokenProvider(
+    resolveEventAuthTokenUrl(), required("EVENT_CLIENT_ID"), required("EVENT_CLIENT_SECRET")
+  ).getToken();
+  if (process.env.EVENT_TYPE_NAMESPACE?.trim() && process.env.EVENT_TYPE_NAMESPACE.trim() !== NAMESPACE) {
+    throw new Error("EVENT_TYPE_NAMESPACE y EVENT_NAMESPACE deben coincidir con el namespace del JWT.");
+  }
+  const listResponse = await fetch(`${gatewayUrl}/event-types`, {
+    headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(20_000)
+  });
+  if (!listResponse.ok) throw new Error("No se pudo consultar el catalogo EDA.");
+  const existingTypes = await listResponse.json() as Array<{ fqn: string; schemaId: number }>;
+  const selected = process.argv.includes("--weather-only") ? weatherDefinitions : definitions;
+  const configuredNames: Record<string, string> = {
+    CriticidadClimaticaConfirmada: "WEATHER_CONFIRMED_EVENT_FQN",
+    CriticidadClimaticaFinalizada: "WEATHER_FINALIZED_EVENT_FQN",
+    EventoComunitarioPublicado: "COMMUNITY_EVENT_PUBLISHED_EVENT_FQN",
+    EventoCancelado: "COMMUNITY_EVENT_CANCELLED_EVENT_FQN",
+    EspacioEstadoCambiado: "PUBLIC_SPACE_STATUS_CHANGED_EVENT_FQN",
+    ReservaConfirmada: "RESERVATION_CONFIRMED_EVENT_FQN"
+  };
 
-  for (const definition of definitions) {
+  for (const definition of selected) {
+    const expectedFqn = `${NAMESPACE}.${definition.name}`;
+    const configuredFqn = process.env[configuredNames[definition.name]]?.trim();
+    if (configuredFqn && configuredFqn !== expectedFqn) {
+      throw new Error("El FQN configurado no coincide con el contrato: " + expectedFqn);
+    }
+    const existing = existingTypes.find(item => item.fqn === expectedFqn);
+    if (existing) {
+      const schemaResponse = await fetch(`${gatewayUrl}/schemas/ids/${existing.schemaId}`, {
+        headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(20_000)
+      });
+      if (!schemaResponse.ok) throw new Error("No se pudo leer el esquema existente: " + expectedFqn);
+      const schemaBody = await schemaResponse.json() as { schema?: string };
+      if (!schemaBody.schema) throw new Error("Respuesta de esquema no reconocida: " + expectedFqn);
+      const schema = JSON.parse(schemaBody.schema);
+      const dataField = schema.fields?.find((field: { name: string }) => field.name === "data");
+      const fields = dataField?.type?.fields || schema.fields;
+      if (JSON.stringify(normalize(fields)) !== JSON.stringify(normalize(definition.fields))) {
+        if (!process.argv.includes("--update-compatible")) {
+          throw new Error("El esquema registrado difiere del local: " + expectedFqn + ". Coordinar su evolucion con EDA.");
+        }
+        const update = await fetch(`${gatewayUrl}/event-types/${encodeURIComponent(expectedFqn)}`, {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify(definition), signal: AbortSignal.timeout(20_000)
+        });
+        const result = await update.text();
+        if (!update.ok) throw new Error("EDA no acepto la evolucion: " + update.status + " " + result);
+        process.stdout.write(expectedFqn + ": esquema actualizado " + result + "\n");
+      } else {
+        process.stdout.write(`${expectedFqn}: contrato existente verificado (schemaId ${existing.schemaId}).\n`);
+      }
+      continue;
+    }
     const response = await fetch(`${gatewayUrl}/event-types`, {
       method: "POST",
       headers: {
@@ -132,37 +184,31 @@ async function main() {
         "Content-Type": "application/json",
         Accept: "application/json"
       },
-      body: JSON.stringify(definition)
+      body: JSON.stringify(definition),
+      signal: AbortSignal.timeout(20_000)
     });
 
     if (response.status === 409) {
-      process.stdout.write(`${definition.name}: ya estaba registrado.\n`);
-      continue;
+      throw new Error(`${expectedFqn}: registrado concurrentemente; volver a ejecutar para verificarlo.`);
     }
 
     const body = await response.text();
     if (!response.ok) {
       throw new Error(`${definition.name}: ${response.status} ${body}`);
     }
-    process.stdout.write(`${definition.name}: registrado ${body}\n`);
+    const registered = JSON.parse(body) as { fqn?: string; schemaId?: number };
+    if (registered.fqn !== expectedFqn) throw new Error("EDA registro un FQN inesperado.");
+    process.stdout.write(`${registered.fqn}: registrado (schemaId ${registered.schemaId}).\n`);
   }
 }
 
-async function getToken(): Promise<string> {
-  const basic = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
-  const response = await fetch(tokenUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${basic}`,
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: new URLSearchParams({ grant_type: "client_credentials" })
-  });
-  const body = (await response.json()) as { access_token?: string; error_description?: string };
-  if (!response.ok || !body.access_token) {
-    throw new Error(body.error_description || `No se pudo obtener el token (${response.status}).`);
-  }
-  return body.access_token;
+function normalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(normalize);
+  if (value && typeof value === "object") return Object.fromEntries(
+    Object.entries(value).filter(([key]) => !["doc", "namespace", "aliases"].includes(key))
+      .sort(([a], [b]) => a.localeCompare(b)).map(([key, val]) => [key, normalize(val)])
+  );
+  return value;
 }
 
 function required(name: string): string {
@@ -171,7 +217,7 @@ function required(name: string): string {
   return value;
 }
 
-void main().catch((error) => {
+if (require.main === module) void main().catch((error) => {
   process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
   process.exitCode = 1;
 });

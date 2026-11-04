@@ -3,7 +3,7 @@ import { DomainEvent } from "../../domain/entities/DomainEvent";
 import { EventOutboxRepository } from "../../domain/repositories/EventOutboxRepository";
 import { ReliableEventOutboxRepository } from "../../domain/repositories/ReliableEventOutboxRepository";
 import { OutboxEvent } from "../../domain/entities/OutboxEvent";
-import { dispatchableEventNames } from "../../shared/events/eventTypes";
+import { dispatchableEventNames, eventNames } from "../../shared/events/eventTypes";
 import { prisma } from "./prismaClient";
 
 export class PrismaEventOutboxRepository implements EventOutboxRepository, ReliableEventOutboxRepository {
@@ -33,7 +33,23 @@ export class PrismaEventOutboxRepository implements EventOutboxRepository, Relia
       take: limit
     });
 
-    return events.map((event) => ({
+    const ready = [];
+    for (const event of events) {
+      if (event.name === eventNames.weatherFinalized() && process.env.EVENT_BUS_DRIVER?.trim().toLowerCase() === "citypass") {
+        const payload = event.payload as Record<string, unknown>;
+        if (typeof payload.alertaId !== "string") continue;
+        const confirmation = await prisma.eventOutbox.findFirst({
+          where: {
+            name: eventNames.weatherConfirmed(), status: "PUBLISHED",
+            payload: { path: ["alertaId"], equals: payload.alertaId }
+          }
+        });
+        // Un cierre no debe adelantar a una confirmación todavía pendiente de entrega.
+        if (!confirmation) continue;
+      }
+      ready.push(event);
+    }
+    return ready.map((event) => ({
       id: event.id,
       name: event.name,
       payload: event.payload as Record<string, unknown>,

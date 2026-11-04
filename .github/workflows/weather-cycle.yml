@@ -7,7 +7,6 @@ on:
 
 jobs:
   run-weather-cycle:
-    if: ${{ secrets.WEATHER_CYCLE_URL != '' && secrets.WEATHER_CRON_SECRET != '' }}
     runs-on: ubuntu-latest
     steps:
       - name: Invoke protected weather cycle
@@ -15,6 +14,10 @@ jobs:
           WEATHER_CYCLE_URL: ${{ secrets.WEATHER_CYCLE_URL }}
           WEATHER_CRON_SECRET: ${{ secrets.WEATHER_CRON_SECRET }}
         run: |
+          if [ -z "${WEATHER_CYCLE_URL}" ] || [ -z "${WEATHER_CRON_SECRET}" ]; then
+            echo "Weather cycle skipped: configure WEATHER_CYCLE_URL and WEATHER_CRON_SECRET."
+            exit 0
+          fi
           curl --fail-with-body --silent --show-error \
             --request POST \
             -H "Authorization: Bearer ${WEATHER_CRON_SECRET}" \

@@ -12,6 +12,7 @@ export interface WeatherForecast {
   latitude: number;
   longitude: number;
   points: WeatherForecastPoint[];
+  heatPoints?: WeatherForecastPoint[];
 }
 
 export interface WeatherForecastProvider {

@@ -17,6 +17,8 @@ interface OpenMeteoResponse {
 }
 
 export class OpenMeteoWeatherProvider implements WeatherForecastProvider {
+  private cached?: { forecasts: WeatherForecast[]; expiresAt: number };
+  private inFlight?: Promise<WeatherForecast[]>;
   constructor(
     private readonly location: WeatherLocationConfig,
     private readonly baseUrl = process.env.OPEN_METEO_URL?.trim() || "https://api.open-meteo.com/v1/forecast"
@@ -27,13 +29,27 @@ export class OpenMeteoWeatherProvider implements WeatherForecastProvider {
   }
 
   async getForecasts(): Promise<WeatherForecast[]> {
+    if (this.cached && this.cached.expiresAt > Date.now()) return this.cached.forecasts;
+    if (this.inFlight) return this.inFlight;
+    this.inFlight = this.fetchForecasts();
+    try {
+      const forecasts = await this.inFlight;
+      this.cached = { forecasts, expiresAt: Date.now() + 5 * 60_000 };
+      return forecasts;
+    } finally {
+      this.inFlight = undefined;
+    }
+  }
+
+  private async fetchForecasts(): Promise<WeatherForecast[]> {
     const locations = this.location.locations || [this.location];
     const url = new URL(this.baseUrl);
     url.searchParams.set("latitude", locations.map((point) => point.latitude).join(","));
     url.searchParams.set("longitude", locations.map((point) => point.longitude).join(","));
     url.searchParams.set("hourly", "precipitation,weather_code,wind_gusts_10m,temperature_2m");
     url.searchParams.set("temperature_unit", "celsius");
-    url.searchParams.set("forecast_hours", String(this.location.forecastHours));
+    // Se necesitan 72 horas para evaluar calor sostenido; el resto conserva su horizonte.
+    url.searchParams.set("forecast_hours", String(Math.max(72, this.location.forecastHours)));
     url.searchParams.set("timeformat", "unixtime");
     url.searchParams.set("timezone", "America/Argentina/Buenos_Aires");
 
@@ -68,7 +84,8 @@ export class OpenMeteoWeatherProvider implements WeatherForecastProvider {
       zone: this.location.zone,
       latitude: locations[index].latitude,
       longitude: locations[index].longitude,
-      points
+      points: points.slice(0, this.location.forecastHours),
+      heatPoints: points
     };
     });
   }

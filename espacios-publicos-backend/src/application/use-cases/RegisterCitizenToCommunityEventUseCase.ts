@@ -12,6 +12,8 @@ import { ValidationError } from "../../shared/errors/ValidationError";
 import { requireEmail, requireText } from "../../shared/validation/inputValidation";
 import { RegisterCitizenToCommunityEventInput } from "../dtos/RegisterCitizenToCommunityEventInput";
 import { QrGenerator } from "../../domain/services/QrGenerator";
+import { PublicSpaceRepository } from "../../domain/repositories/PublicSpaceRepository";
+import { buildCommunityEventPublishedEvent } from "../events/communityEventPublished";
 
 export class RegisterCitizenToCommunityEventUseCase {
   constructor(
@@ -20,7 +22,8 @@ export class RegisterCitizenToCommunityEventUseCase {
     private readonly eventOutboxRepository: EventOutboxRepository,
     private readonly eventBus: EventBus,
     private readonly qrGenerator: QrGenerator,
-    private readonly emailSender: EmailSender
+    private readonly emailSender: EmailSender,
+    private readonly publicSpaceRepository: Pick<PublicSpaceRepository, "findById">
   ) {}
 
   async execute(input: RegisterCitizenToCommunityEventInput): Promise<CommunityEventRegistration> {
@@ -73,9 +76,10 @@ export class RegisterCitizenToCommunityEventUseCase {
 
     const remainingCapacity = communityEvent.capacity - (currentRegistrations + 1);
 
-    if (remainingCapacity === 0) {
-      await this.communityEventRepository.updateStatus(communityEvent.id, "ACTIVE_FULL");
-    }
+    const updatedEvent =
+      remainingCapacity === 0
+        ? await this.communityEventRepository.updateStatus(communityEvent.id, "ACTIVE_FULL")
+        : communityEvent;
 
     const event: DomainEvent = {
       id: randomUUID(),
@@ -95,6 +99,14 @@ export class RegisterCitizenToCommunityEventUseCase {
 
     await this.eventOutboxRepository.save(event);
     await this.eventBus.publish(event);
+
+    // Cambiaron los inscriptos (y quizas el estado): se republica el evento con el total actual.
+    const space = await this.publicSpaceRepository.findById(updatedEvent.publicSpaceId);
+    const inscriptos = await this.communityEventRegistrationRepository.countByEventId(updatedEvent.id);
+    const published = buildCommunityEventPublishedEvent(updatedEvent, space, inscriptos);
+
+    await this.eventOutboxRepository.save(published);
+    await this.eventBus.publish(published);
 
     const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
     const eventUrl = `${frontendUrl}/event/${communityEvent.id}`;

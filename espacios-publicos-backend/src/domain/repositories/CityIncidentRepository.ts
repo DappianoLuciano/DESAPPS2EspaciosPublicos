@@ -11,4 +11,9 @@ export interface CityIncidentRepository {
   /** Cierre. Si el incidente nunca se registro, no hace nada. */
   deactivate(source: CityIncidentSource, externalId: string): Promise<void>;
   findActiveInBounds(bounds: GeoBounds): Promise<CityIncidentRecord[]>;
+  /**
+   * Activos sin coordenadas que tienen barrio. La comparacion con la zona del espacio
+   * (sin tildes ni mayusculas) la hace quien llama.
+   */
+  findActiveWithoutCoordinatesWithZone(): Promise<CityIncidentRecord[]>;
 }

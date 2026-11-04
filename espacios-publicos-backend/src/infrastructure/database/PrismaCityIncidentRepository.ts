@@ -36,4 +36,16 @@ export class PrismaCityIncidentRepository implements CityIncidentRepository {
 
     return rows as CityIncidentRecord[];
   }
+
+  async findActiveWithoutCoordinatesWithZone(): Promise<CityIncidentRecord[]> {
+    const rows = await prisma.cityIncident.findMany({
+      where: {
+        active: true,
+        zone: { not: null },
+        OR: [{ latitude: null }, { longitude: null }]
+      }
+    });
+
+    return rows as CityIncidentRecord[];
+  }
 }

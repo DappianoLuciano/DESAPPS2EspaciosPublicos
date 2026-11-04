@@ -61,6 +61,7 @@ function incident(overrides: Partial<CityIncidentRecord>): CityIncidentRecord {
     category: "BACHE",
     latitude: -34.6037,
     longitude: -58.3816,
+    zone: null,
     active: true,
     reportedAt: new Date(),
     updatedAt: new Date(),
@@ -96,6 +97,7 @@ function mockFetch(overrides: { bike?: () => Response; foot?: () => Response } =
 describe("GET /api/community-events/:id/route-plan", () => {
   const originalFetch = global.fetch;
   const findActiveInBounds = jest.fn();
+  const findActiveWithoutCoordinatesWithZone = jest.fn();
   let eventRecord: typeof communityEvent | null;
   let spaceRecord: typeof space | null;
   let recommendationRecord: DestinationRecommendation | null;
@@ -104,7 +106,7 @@ describe("GET /api/community-events/:id/route-plan", () => {
     const useCase = new GetEventRoutePlanUseCase(
       { findById: async () => eventRecord } as never,
       { findById: async () => spaceRecord } as never,
-      { findActiveInBounds } as never,
+      { findActiveInBounds, findActiveWithoutCoordinatesWithZone } as never,
       { findByEventId: async () => recommendationRecord, saveIfNewer: jest.fn() },
       new OsrmRoutingService({ bike: BIKE, foot: FOOT })
     );
@@ -124,6 +126,7 @@ describe("GET /api/community-events/:id/route-plan", () => {
     spaceRecord = { ...space };
     recommendationRecord = recommendation();
     findActiveInBounds.mockResolvedValue([]);
+    findActiveWithoutCoordinatesWithZone.mockResolvedValue([]);
     global.fetch = mockFetch() as never;
   });
 
@@ -299,6 +302,63 @@ describe("GET /api/community-events/:id/route-plan", () => {
     ]);
     expect(response.body.incidents[0].distanceMeters).toBeGreaterThan(170);
     expect(response.body.incidents[0].distanceMeters).toBeLessThan(185);
+  });
+
+  it("marca los incidentes por radio con matchedBy RADIUS", async () => {
+    findActiveInBounds.mockResolvedValue([incident({ externalId: "cerca", latitude: -34.6037 + 0.0016 })]);
+
+    const response = await request(buildApp()).get("/api/community-events/event-1/route-plan").expect(200);
+
+    expect(response.body.incidents).toHaveLength(1);
+    expect(response.body.incidents[0]).toEqual(
+      expect.objectContaining({ matchedBy: "RADIUS", zone: null, longitude: -58.3816 })
+    );
+    expect(response.body.incidents[0].distanceMeters).toBeGreaterThan(0);
+  });
+
+  it("suma las emergencias sin coordenadas del mismo barrio, sin tildes ni mayusculas", async () => {
+    spaceRecord = { ...space, zone: "Villa Pueyrredón" };
+    findActiveInBounds.mockResolvedValue([incident({ externalId: "cerca", latitude: -34.6037 + 0.0016 })]);
+    findActiveWithoutCoordinatesWithZone.mockResolvedValue([
+      incident({ source: "EMERGENCIAS", externalId: "emg-1", category: "INCENDIO", latitude: null, longitude: null, zone: "VILLA PUEYRREDON " }),
+      incident({ source: "EMERGENCIAS", externalId: "emg-2", category: "MEDICA", latitude: null, longitude: null, zone: "Palermo" })
+    ]);
+
+    const response = await request(buildApp()).get("/api/community-events/event-1/route-plan").expect(200);
+
+    expect(response.body.incidents).toHaveLength(2);
+    expect(response.body.incidents[0].matchedBy).toBe("RADIUS");
+    expect(response.body.incidents[1]).toEqual({
+      source: "EMERGENCIAS",
+      category: "INCENDIO",
+      latitude: null,
+      longitude: null,
+      distanceMeters: null,
+      zone: "VILLA PUEYRREDON ",
+      matchedBy: "ZONE"
+    });
+  });
+
+  it("si el espacio no tiene zona no cruza incidentes por barrio", async () => {
+    spaceRecord = { ...space, zone: undefined as never };
+    findActiveWithoutCoordinatesWithZone.mockResolvedValue([
+      incident({ source: "EMERGENCIAS", latitude: null, longitude: null, zone: "Centro" })
+    ]);
+
+    const response = await request(buildApp()).get("/api/community-events/event-1/route-plan").expect(200);
+
+    expect(response.body.incidents).toEqual([]);
+    expect(findActiveWithoutCoordinatesWithZone).not.toHaveBeenCalled();
+  });
+
+  it("si falla la lectura por zona mantiene los de radio y avisa una sola vez", async () => {
+    findActiveInBounds.mockRejectedValue(new Error("base caida"));
+    findActiveWithoutCoordinatesWithZone.mockRejectedValue(new Error("base caida"));
+
+    const response = await request(buildApp()).get("/api/community-events/event-1/route-plan").expect(200);
+
+    expect(response.body.incidents).toEqual([]);
+    expect(response.body.warnings).toEqual(["No se pudieron consultar los incidentes cercanos."]);
   });
 
   it("responde 404 si el evento no existe", async () => {

@@ -1,11 +1,16 @@
-import { Alert, Autocomplete, Badge, Box, Button, Card, Flex, Group, Modal, NumberInput, Select, Table, Text, TextInput, Textarea, Title, Container } from '@mantine/core';
-import { useDisclosure, useDebouncedValue } from '@mantine/hooks';
-import { IconEdit, IconMapPin, IconPlus, IconTrash } from '@tabler/icons-react';
-import { useEffect, useState } from 'react';
-import { createPublicSpace, deletePublicSpace, listPublicSpaces, updatePublicSpace } from '../lib/api';
+import { Alert, Badge, Box, Button, Card, Flex, Group, Modal, NumberInput, Select, Table, Text, TextInput, Textarea, Title, Container } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
+import { IconEdit, IconMapPin, IconPhoto, IconPlus, IconTrash } from '@tabler/icons-react';
+import { Dropzone } from '@mantine/dropzone';
+import { useEffect, useRef, useState } from 'react';
+import { createPublicSpace, deletePublicSpace, listPublicSpaces, updatePublicSpace, uploadPublicSpaceImage } from '../lib/api';
 import type { PublicSpace, PublicSpacePayload } from '../lib/api';
 import LocationPicker from '../components/LocationPicker';
 import type { Coordinates } from '../components/LocationPicker';
+import { createAddressSearch } from '../lib/addressSearch';
+import type { AddressMatch } from '../lib/addressSearch';
+
+const searchAddress = createAddressSearch();
 
 const emptyForm: PublicSpacePayload = {
   name: '',
@@ -33,30 +38,56 @@ export default function PublicSpaceManagement() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [opened, { open, close }] = useDisclosure(false);
 
-  const [addressSearch, setAddressSearch] = useState('');
-  const [debouncedSearch] = useDebouncedValue(addressSearch, 500);
-  const [addressOptions, setAddressOptions] = useState<any[]>([]);
+  const [addressOptions, setAddressOptions] = useState<AddressMatch[]>([]);
+  const [locatingAddress, setLocatingAddress] = useState(false);
+  const [addressError, setAddressError] = useState<string | null>(null);
+  const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
+  const addressRequest = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    if (debouncedSearch.trim().length < 3) {
-      setAddressOptions([]);
-      return;
-    }
+  useEffect(() => () => addressRequest.current?.abort(), []);
+
+  const resetAddressSearch = () => {
+    addressRequest.current?.abort();
+    addressRequest.current = null;
+    setAddressOptions([]);
+    setSelectedAddress(null);
+    setLocatingAddress(false);
+    setAddressError(null);
+  };
+
+  const applyAddress = (match: AddressMatch) => {
+    setSelectedAddress(match.id);
+    setAddressError(null);
+    setForm(previous => ({ ...previous, address: match.label, zone: match.zone,
+      latitude: match.latitude, longitude: match.longitude }));
+  };
+
+  const locateAddress = async () => {
+    if (locatingAddress || submitting) return;
+    addressRequest.current?.abort();
     const controller = new AbortController();
-    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(debouncedSearch)}&format=json&addressdetails=1&limit=6&countrycodes=ar&accept-language=es`, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'DesarrolloApp2/1.0 (local@example.com)'
-      }
-    })
-      .then(res => res.json())
-      .then(data => setAddressOptions(data))
-      .catch(console.error);
-
-    return () => controller.abort();
-  }, [debouncedSearch]);
+    addressRequest.current = controller;
+    setLocatingAddress(true);
+    setAddressError(null);
+    setAddressOptions([]);
+    setSelectedAddress(null);
+    setForm(previous => ({ ...previous, latitude: null, longitude: null, zone: '' }));
+    try {
+      const matches = await searchAddress(form.address, controller.signal,
+        import.meta.env.VITE_GEOCODING_URL?.trim() || undefined);
+      if (controller.signal.aborted) return;
+      setAddressOptions(matches);
+      if (matches.length === 1) applyAddress(matches[0]);
+      else if (matches.length === 0) setAddressError('No encontramos esa dirección. Agregá la localidad o provincia y volvé a buscar.');
+    } catch (err) {
+      if (!controller.signal.aborted) setAddressError(err instanceof Error ? err.message : 'No se pudo ubicar la dirección.');
+    } finally {
+      if (addressRequest.current === controller) setLocatingAddress(false);
+    }
+  };
 
   const loadSpaces = () => {
     setLoading(true);
@@ -73,7 +104,7 @@ export default function PublicSpaceManagement() {
   const openCreateModal = () => {
     setEditingSpaceId(null);
     setForm(emptyForm);
-    setAddressSearch('');
+    resetAddressSearch();
     setError(null);
     open();
   };
@@ -92,12 +123,13 @@ export default function PublicSpaceManagement() {
       exposure: space.exposure || 'MIXED',
       imageUrl: space.imageUrl || '',
     });
-    setAddressSearch(space.address);
+    resetAddressSearch();
     setError(null);
     open();
   };
 
   const handleSubmit = async () => {
+    if (uploadingImage || submitting || locatingAddress) return;
     setError(null);
     setSubmitting(true);
 
@@ -109,7 +141,7 @@ export default function PublicSpaceManagement() {
       // Sin coordenadas el espacio no puede recibir eventos: Movilidad las
       // necesita para recomendar estaciones cercanas (CU-INT-01).
       if (!coordinatesOf(form)) {
-        throw new Error('Marcá la ubicación del espacio: elegí la dirección de la lista o hacé clic en el mapa.');
+        throw new Error('Ubicá la dirección y, si hay varias coincidencias, seleccioná la correcta de la lista.');
       }
 
       const payload = {
@@ -129,6 +161,22 @@ export default function PublicSpaceManagement() {
       setError(err instanceof Error ? err.message : 'No se pudo guardar el espacio público.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleImageDrop = async (files: File[]) => {
+    const file = files[0];
+    if (!file || uploadingImage || submitting) return;
+
+    setError(null);
+    setUploadingImage(true);
+    try {
+      const { imageUrl } = await uploadPublicSpaceImage(file);
+      setForm(previous => ({ ...previous, imageUrl }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo subir la imagen.');
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -165,7 +213,7 @@ export default function PublicSpaceManagement() {
 
   return (
     <Container size="xl" py={40}>
-      <Modal opened={opened} onClose={close} title={editingSpaceId ? 'Editar Espacio Público' : 'Nuevo Espacio Público'} centered size="lg">
+      <Modal opened={opened} onClose={() => { if (!uploadingImage && !submitting) close(); }} closeButtonProps={{ disabled: uploadingImage || submitting }} title={editingSpaceId ? 'Editar Espacio Público' : 'Nuevo Espacio Público'} centered size="lg">
         <Flex direction="column" gap="md">
           {error && <Alert color="red">{error}</Alert>}
           <TextInput
@@ -175,41 +223,44 @@ export default function PublicSpaceManagement() {
             value={form.name}
             onChange={(event) => setForm({ ...form, name: event.currentTarget.value })}
           />
-          <Autocomplete
+          <TextInput
             label="Dirección exacta"
-            placeholder="Buscá una dirección..."
+            description="Ingresá calle, altura y localidad. Después presioná «Ubicar dirección»."
+            placeholder="Ej: Lima 123, Ciudad Autónoma de Buenos Aires"
             required
+            disabled={submitting}
             value={form.address}
-            onChange={(val) => {
-              setForm({ ...form, address: val });
-              setAddressSearch(val);
+            error={addressError}
+            onChange={(event) => {
+              const address = event.currentTarget.value;
+              resetAddressSearch();
+              setForm(previous => ({ ...previous, address, latitude: null, longitude: null, zone: '' }));
             }}
-            onOptionSubmit={(val) => {
-              const selected = addressOptions.find(opt => opt.display_name === val);
-              if (selected) {
-                const newZone = selected.address
-                  ? selected.address.suburb || selected.address.neighbourhood || selected.address.city_district || selected.address.city || selected.address.town || form.zone
-                  : form.zone;
-                const latitude = Number.parseFloat(selected.lat);
-                const longitude = Number.parseFloat(selected.lon);
-                setForm(prev => ({
-                  ...prev,
-                  address: val,
-                  zone: newZone,
-                  // Nominatim devuelve lat/lon como texto; si no vienen, se marca a mano en el mapa.
-                  latitude: Number.isFinite(latitude) ? latitude : prev.latitude,
-                  longitude: Number.isFinite(longitude) ? longitude : prev.longitude,
-                }));
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                void locateAddress();
               }
             }}
-            data={addressOptions.map(opt => opt.display_name)}
           />
-          <LocationPicker
-            value={coordinatesOf(form)}
-            onChange={(coordinates) => setForm(prev => ({ ...prev, ...coordinates }))}
-          />
+          <Button variant="light" onClick={() => void locateAddress()} loading={locatingAddress}
+            disabled={submitting || form.address.trim().length < 3} leftSection={<IconMapPin size={16} />}>
+            Ubicar dirección
+          </Button>
+          {addressOptions.length > 1 && (
+            <Select label="Direcciones encontradas" placeholder="Elegí la dirección correcta"
+              description="Hay varias coincidencias. El mapa se ubicará al seleccionar una."
+              data={addressOptions.map(match => ({ value: match.id, label: match.label }))}
+              value={selectedAddress} disabled={submitting}
+              onChange={value => {
+                const match = addressOptions.find(option => option.id === value);
+                if (match) applyAddress(match);
+              }} />
+          )}
+          <LocationPicker value={coordinatesOf(form)} />
           <TextInput
             label="Zona / barrio"
+            description="Se completa desde la dirección encontrada. Podés corregir el nombre si fuera necesario."
             placeholder="Ej: Caballito"
             required
             value={form.zone}
@@ -250,15 +301,38 @@ export default function PublicSpaceManagement() {
             value={form.exposure}
             onChange={(value) => setForm({ ...form, exposure: value as PublicSpacePayload['exposure'] })}
           />
-          <TextInput
-            label="Imagen URL"
-            placeholder="https://..."
-            value={form.imageUrl || ''}
-            onChange={(event) => setForm({ ...form, imageUrl: event.currentTarget.value })}
-          />
+          <Box>
+            <Text fw={600} mb={6}>Imagen del espacio público</Text>
+            <Dropzone
+              onDrop={handleImageDrop}
+              onReject={() => setError('Seleccioná una sola imagen JPG, PNG o WEBP de hasta 5 MB.')}
+              accept={['image/jpeg', 'image/png', 'image/webp']}
+              maxSize={5 * 1024 ** 2}
+              maxFiles={1}
+              multiple={false}
+              loading={uploadingImage}
+              disabled={submitting}
+            >
+              <Flex align="center" justify="center" gap="md" mih={110} style={{ pointerEvents: 'none' }}>
+                <IconPhoto size={32} />
+                <Box>
+                  <Text fw={600}>Arrastrá una imagen o hacé clic para seleccionarla</Text>
+                  <Text size="sm" c="dimmed">JPG, PNG o WEBP hasta 5 MB</Text>
+                </Box>
+              </Flex>
+            </Dropzone>
+            {form.imageUrl && (
+              <Box mt="sm">
+                <img src={form.imageUrl} alt="Vista previa del espacio público" style={{ display: 'block', width: '100%', height: 180, objectFit: 'cover', borderRadius: 8 }} />
+                <Button mt="xs" variant="subtle" color="red" size="xs" disabled={uploadingImage || submitting} onClick={() => setForm(previous => ({ ...previous, imageUrl: '' }))}>
+                  Quitar imagen
+                </Button>
+              </Box>
+            )}
+          </Box>
           <Flex justify="flex-end" gap="sm" mt="md">
-            <Button variant="default" onClick={close}>Cancelar</Button>
-            <Button onClick={handleSubmit} loading={submitting}>Guardar</Button>
+            <Button variant="default" onClick={close} disabled={uploadingImage || submitting}>Cancelar</Button>
+            <Button onClick={handleSubmit} loading={submitting} disabled={uploadingImage || locatingAddress}>Guardar</Button>
           </Flex>
         </Flex>
       </Modal>
