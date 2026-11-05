@@ -1,4 +1,6 @@
 import { CancelCommunityEventRegistrationUseCase } from "./application/use-cases/CancelCommunityEventRegistrationUseCase";
+import { ChangeCommunityEventSuspensionUseCase } from "./application/use-cases/ChangeCommunityEventSuspensionUseCase";
+import { PrismaWeatherRestrictionRepository } from "./infrastructure/database/PrismaWeatherRestrictionRepository";
 import { CreateCommunityEventUseCase } from "./application/use-cases/CreateCommunityEventUseCase";
 import { CreatePublicSpaceUseCase } from "./application/use-cases/CreatePublicSpaceUseCase";
 import { DeletePublicSpaceUseCase } from "./application/use-cases/DeletePublicSpaceUseCase";
@@ -78,6 +80,7 @@ export function createContainer() {
   const communityEventRegistrationRepository = new PrismaCommunityEventRegistrationRepository();
   const eventOutboxRepository = new PrismaEventOutboxRepository();
   const weatherAlertRepository = new PrismaWeatherAlertRepository();
+  const weatherRestrictions = new PrismaWeatherRestrictionRepository();
   // EVENT_BUS_DRIVER=console deja los eventos en el log (desarrollo local); citypass los publica
   // en el gateway. Los casos de uso guardan el evento en el outbox y lo publican por este bus,
   // que ademas deja el estado del registro al dia y reintenta desde el outbox si el gateway falla.
@@ -112,7 +115,7 @@ export function createContainer() {
     eventBus,
     qrGenerator,
     emailSender,
-    weatherAlertRepository
+    weatherRestrictions
   );
   const listReservationsUseCase = new ListReservationsUseCase(reservationRepository);
   const getReservationUseCase = new GetReservationUseCase(reservationRepository);
@@ -122,7 +125,8 @@ export function createContainer() {
     reservationRepository,
     communityEventRepository,
     eventOutboxRepository,
-    eventBus
+    eventBus,
+    weatherRestrictions
   );
   const listCommunityEventsUseCase = new ListCommunityEventsUseCase(communityEventRepository);
   const getCommunityEventUseCase = new GetCommunityEventUseCase(communityEventRepository);
@@ -219,7 +223,8 @@ export function createContainer() {
     confirmWeatherAlertUseCase,
     dismissWeatherAlertUseCase,
     finalizeWeatherAlertUseCase,
-    new CreateManualWeatherAlertUseCase(weatherAlertRepository)
+    new CreateManualWeatherAlertUseCase(weatherAlertRepository),
+    weatherRestrictions
   );
 
   return {
@@ -247,7 +252,8 @@ export function createContainer() {
       listCitizenCommunityEventRegistrationsUseCase,
       cancelCommunityEventRegistrationUseCase,
       getCommunityEventRegistrationUseCase,
-      cancelCommunityEventUseCase
+      cancelCommunityEventUseCase,
+      new ChangeCommunityEventSuspensionUseCase(communityEventRepository, communityEventRegistrationRepository, publicSpaceRepository)
     ),
     routePlanController: new RoutePlanController(getEventRoutePlanUseCase),
     gatewayWebhookController: new GatewayWebhookController(receiveGatewayEventUseCase),

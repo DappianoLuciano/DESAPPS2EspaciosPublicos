@@ -200,6 +200,14 @@ function createUseCase(capacity = 2, requiresRegistration = true) {
 }
 
 describe("RegisterCitizenToCommunityEventUseCase", () => {
+  it.each(["SUSPENDED", "CANCELLED"] as const)("bloquea inscripción directa cuando el evento está %s", async status => {
+    const { useCase, communityEventRepository, communityEventRegistrationRepository, eventBus } = createUseCase();
+    communityEventRepository.events[0].status = status;
+    await expect(useCase.execute({ communityEventId: "event-1", citizenName: "Ana", citizenEmail: "ana@test.com" }))
+      .rejects.toThrow("no esta abierto");
+    expect(communityEventRegistrationRepository.registrations).toHaveLength(0);
+    expect(eventBus.events).toHaveLength(0);
+  });
   it("inscribe un ciudadano y publica evento de dominio", async () => {
     const { useCase, eventBus, eventOutboxRepository, emailSender } = createUseCase();
 

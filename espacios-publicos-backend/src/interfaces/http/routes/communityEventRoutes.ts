@@ -51,6 +51,20 @@ export function createCommunityEventRoutes(controller: CommunityEventController)
     asyncHandler(controller.cancel)
   );
   router.get("/", asyncHandler(controller.list));
+  router.patch(
+    "/:id/suspend",
+    requirePermission(permissions.CANCEL_COMMUNITY_EVENT),
+    auditAction("community-event.suspend", "community-event"),
+    allowBodyFields(["reason"]),
+    asyncHandler(controller.suspend)
+  );
+  router.patch(
+    "/:id/resume",
+    requirePermission(permissions.CANCEL_COMMUNITY_EVENT),
+    auditAction("community-event.resume", "community-event"),
+    allowBodyFields([]),
+    asyncHandler(controller.resume)
+  );
   router.get("/:id", asyncHandler(controller.getById));
   router.post(
     "/:id/registrations",

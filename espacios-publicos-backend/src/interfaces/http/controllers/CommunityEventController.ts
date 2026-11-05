@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { ChangeCommunityEventSuspensionUseCase } from "../../../application/use-cases/ChangeCommunityEventSuspensionUseCase";
 import { CancelCommunityEventRegistrationUseCase } from "../../../application/use-cases/CancelCommunityEventRegistrationUseCase";
 import { CancelCommunityEventUseCase } from "../../../application/use-cases/CancelCommunityEventUseCase";
 import { CreateCommunityEventUseCase } from "../../../application/use-cases/CreateCommunityEventUseCase";
@@ -20,7 +21,8 @@ export class CommunityEventController {
     private readonly listCitizenCommunityEventRegistrationsUseCase: ListCitizenCommunityEventRegistrationsUseCase,
     private readonly cancelCommunityEventRegistrationUseCase: CancelCommunityEventRegistrationUseCase,
     private readonly getCommunityEventRegistrationUseCase: GetCommunityEventRegistrationUseCase,
-    private readonly cancelCommunityEventUseCase: CancelCommunityEventUseCase
+    private readonly cancelCommunityEventUseCase: CancelCommunityEventUseCase,
+    private readonly changeSuspensionUseCase: ChangeCommunityEventSuspensionUseCase
   ) {}
 
   create = async (request: Request, response: Response): Promise<void> => {
@@ -45,6 +47,14 @@ export class CommunityEventController {
     );
 
     response.json(communityEvent);
+  };
+
+  suspend = async (request: Request, response: Response): Promise<void> => {
+    response.json(await this.changeSuspensionUseCase.execute(request.params.id, "suspend", request.body?.reason));
+  };
+
+  resume = async (request: Request, response: Response): Promise<void> => {
+    response.json(await this.changeSuspensionUseCase.execute(request.params.id, "resume"));
   };
 
   list = async (request: Request, response: Response): Promise<void> => {

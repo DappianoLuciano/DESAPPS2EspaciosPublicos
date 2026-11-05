@@ -46,7 +46,7 @@ describe("CancelCommunityEventUseCase", () => {
 
     const cancelled = await useCase.execute("event-1", "  Pronostico de tormenta  ");
 
-    expect(updateStatus).toHaveBeenCalledWith("event-1", "CANCELLED");
+    expect(updateStatus).toHaveBeenCalledWith("event-1", "CANCELLED", "Pronostico de tormenta", "ACTIVE");
     expect(cancelled.status).toBe("CANCELLED");
     expect(saved).toHaveLength(2);
     expect(published).toEqual(saved);

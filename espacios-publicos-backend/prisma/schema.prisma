@@ -16,6 +16,7 @@ enum ReservationStatus {
 enum CommunityEventStatus {
   ACTIVE
   ACTIVE_FULL
+  SUSPENDED
   CANCELLED
 }
 
@@ -111,6 +112,7 @@ model PublicSpace {
   createdAt    DateTime            @default(now())
   reservations Reservation[]
   events       CommunityEvent[]
+  weatherRestrictions WeatherRestriction[]
 
   @@map("public_spaces")
 }
@@ -145,10 +147,12 @@ model CommunityEvent {
   startDate            DateTime
   endDate              DateTime
   status               CommunityEventStatus         @default(ACTIVE)
+  statusReason         String?
   imageUrl             String?
   createdAt            DateTime                     @default(now())
   publicSpace          PublicSpace                  @relation(fields: [publicSpaceId], references: [id])
   registrations        CommunityEventRegistration[]
+  weatherRestrictions  WeatherRestriction[]
 
   @@index([publicSpaceId, startDate, endDate])
   @@map("community_events")
@@ -208,10 +212,35 @@ model WeatherAlert {
   finalizedBy          String?
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
+  restrictions         WeatherRestriction[]
 
   @@index([status, validUntil])
   @@index([zone, status])
   @@map("weather_alerts")
+}
+
+// Medida humana vinculada a una alerta. Nunca reemplaza el estado administrativo del espacio.
+model WeatherRestriction {
+  id               String @id @default(uuid())
+  alertId          String
+  publicSpaceId    String?
+  communityEventId String?
+  validFrom        DateTime
+  validUntil       DateTime
+  reason           String
+  appliedAt        DateTime @default(now())
+  appliedBy        String
+  releasedAt       DateTime?
+  releasedBy       String?
+  alert            WeatherAlert @relation(fields: [alertId], references: [id], onDelete: Restrict)
+  publicSpace      PublicSpace? @relation(fields: [publicSpaceId], references: [id], onDelete: Restrict)
+  communityEvent   CommunityEvent? @relation(fields: [communityEventId], references: [id], onDelete: Restrict)
+
+  @@unique([alertId, publicSpaceId])
+  @@unique([alertId, communityEventId])
+  @@index([publicSpaceId, releasedAt, validFrom, validUntil])
+  @@index([communityEventId, releasedAt])
+  @@map("weather_restrictions")
 }
 
 // Eventos recibidos por webhook desde el gateway (CU-INT-01). La entrega es

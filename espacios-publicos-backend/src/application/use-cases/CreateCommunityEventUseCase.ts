@@ -19,6 +19,7 @@ import {
   requireText
 } from "../../shared/validation/inputValidation";
 import { CreateCommunityEventInput } from "../dtos/CreateCommunityEventInput";
+import { WeatherRestrictionRepository } from "../../domain/repositories/WeatherRestrictionRepository";
 import { buildCommunityEventPublishedEvent } from "../events/communityEventPublished";
 
 export class CreateCommunityEventUseCase {
@@ -27,7 +28,8 @@ export class CreateCommunityEventUseCase {
     private readonly reservationRepository: ReservationRepository,
     private readonly communityEventRepository: CommunityEventRepository,
     private readonly eventOutboxRepository: EventOutboxRepository,
-    private readonly eventBus: EventBus
+    private readonly eventBus: EventBus,
+    private readonly weatherRestrictions?: WeatherRestrictionRepository
   ) {}
 
   async execute(input: CreateCommunityEventInput): Promise<CommunityEvent> {
@@ -71,6 +73,10 @@ export class CreateCommunityEventUseCase {
 
     if (publicSpace.status !== "ENABLED") {
       throw new ValidationError("El espacio publico indicado no esta habilitado para nuevos eventos.");
+    }
+
+    if (await this.weatherRestrictions?.hasBlockingRestriction(publicSpaceId, startDate, endDate)) {
+      throw new ValidationError("El espacio tiene una restricción climática para ese período. Elegí otro horario o espacio.");
     }
 
     // CU-INT-01: el evento sale al bus con la ubicacion del espacio. Sin ella,

@@ -39,6 +39,7 @@ export class PrismaWeatherAlertRepository implements WeatherAlertRepository {
   async findMany(status?: WeatherAlertStatus): Promise<WeatherAlert[]> {
     const alerts = await prisma.weatherAlert.findMany({
       where: status ? { status } : undefined,
+      include: { _count: { select: { restrictions: { where: { releasedAt: null } } } } },
       orderBy: { detectedAt: "desc" }
     });
     return alerts.map((alert) => this.map(alert));
@@ -167,10 +168,11 @@ export class PrismaWeatherAlertRepository implements WeatherAlertRepository {
     throw new ValidationError("La alerta climatica ya fue procesada.");
   }
 
-  private map(alert: PrismaWeatherAlert): WeatherAlert {
+  private map(alert: PrismaWeatherAlert & { _count?: { restrictions: number } }): WeatherAlert {
     const evidence = alert.evidence as unknown as WeatherEvidence;
     return {
       ...alert,
+      activeRestrictionCount: alert._count?.restrictions,
       evidence: { ...evidence, neighborhoods: resolveWeatherNeighborhoods(
         evidence.locations || [{ latitude: alert.latitude, longitude: alert.longitude }]
       ) }

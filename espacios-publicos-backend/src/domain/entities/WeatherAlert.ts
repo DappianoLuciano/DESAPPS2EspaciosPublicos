@@ -44,6 +44,7 @@ export interface WeatherAlert {
   finalizedBy?: string | null;
   createdAt: Date;
   updatedAt: Date;
+  activeRestrictionCount?: number;
 }
 
 export interface CreateWeatherAlertData {

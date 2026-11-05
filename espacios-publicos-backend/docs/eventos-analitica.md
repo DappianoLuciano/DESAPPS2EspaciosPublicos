@@ -28,10 +28,11 @@ propio id de evento.
 | --- | --- |
 | `ACTIVE` | `PROGRAMADA` |
 | `ACTIVE_FULL` | `PROGRAMADA` |
+| `SUSPENDED` | `SUSPENDIDA` |
 | `CANCELLED` | `CANCELADA` |
 
-`SUSPENDIDA` esta en el contrato, pero todavia no existe el estado interno. El mapeo es un `Record`
-exhaustivo: cuando se agregue `SUSPENDED` a `CommunityEventStatus`, el codigo no compila hasta sumarlo.
+El mapeo es un `Record` exhaustivo: si se agrega un estado a `CommunityEventStatus`, el codigo no
+compila hasta sumarlo.
 
 ### Causa
 

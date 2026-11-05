@@ -1,5 +1,7 @@
 import { Alert, Badge, Box, Button, Card, Container, Flex, Group, Image, List, Loader, Modal, SimpleGrid, Skeleton, Text, ThemeIcon, Title } from '@mantine/core';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import EventAvailabilityNotice from '../components/EventAvailabilityNotice';
+import { eventAvailability } from '../lib/eventAvailability';
 import 'leaflet/dist/leaflet.css';
 import { IconCalendar, IconCheck, IconClock, IconMapPin, IconUsers } from '@tabler/icons-react';
 import { useDisclosure } from '@mantine/hooks';
@@ -129,10 +131,12 @@ export default function EventDetail() {
   }
 
   const eventHasStarted = new Date(event.startDate) <= new Date();
+  const availability = eventAvailability(event);
   const canRegister = event.requiresRegistration && !existingRegistrationId && !eventHasStarted && event.availableCapacity > 0 && event.status === 'ACTIVE';
 
   const getRegistrationLabel = () => {
     if (existingRegistrationId) return 'Ver mi reserva';
+    if (availability.unavailable) return availability.label;
     if (!event.requiresRegistration) return 'Acceso libre';
     if (eventHasStarted) return 'Inscripción cerrada';
     if (event.availableCapacity <= 0 || event.status === 'ACTIVE_FULL') return 'Sin cupos disponibles';
@@ -183,15 +187,16 @@ export default function EventDetail() {
                 alt={`Imagen de ${event.title}`}
                 h="100%"
                 fit="cover"
+                style={availability.imageStyle}
               />
               <Badge
                 color="green"
                 variant="filled"
                 size="lg"
                 radius="xl"
-                style={{ position: 'absolute', top: 16, left: 16, backgroundColor: '#DCFCE7', color: '#166534' }}
+                style={{ position: 'absolute', top: 16, left: 16, backgroundColor: availability.unavailable ? '#111' : '#DCFCE7', color: availability.unavailable ? '#fff' : '#166534' }}
               >
-                ENTRADA GRATUITA
+                {availability.label || 'ENTRADA GRATUITA'}
               </Badge>
             </Box>
 
@@ -221,6 +226,7 @@ export default function EventDetail() {
 
           <Box style={{ gridColumn: 'span 8' }}>
             <Title order={1} fz={36}>{event.title}</Title>
+            <Box mt="md"><EventAvailabilityNotice event={event} /></Box>
             <Flex gap="xs" mt="md" wrap="wrap">
               <Badge variant="light" color="blue">{event.category}</Badge>
               {event.tags.map((tag) => (

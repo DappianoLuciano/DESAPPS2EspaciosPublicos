@@ -96,6 +96,9 @@ jobs:
       - name: Test address lookup
         run: npm run test:address
 
+      - name: Test weather alert cards
+        run: npm run test:weather-cards
+
       - name: Build frontend
         run: npm run build
         env:

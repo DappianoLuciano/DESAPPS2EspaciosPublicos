@@ -22,7 +22,7 @@ export default function Home() {
   const [eventsError, setEventsError] = useState<string | null>(null);
 
   useEffect(() => {
-    listCommunityEvents({ availableOnly: true, upcomingOnly: true })
+    listCommunityEvents({ upcomingOnly: true })
       .then((response) => setEvents(response.items))
       .catch((err: Error) => setEventsError(err.message))
       .finally(() => setLoadingEvents(false));

@@ -9,6 +9,7 @@ import { WeatherAlertStatus, WeatherCriticality } from "../../../domain/entities
 import { ValidationError } from "../../../shared/errors/ValidationError";
 import { CreateManualWeatherAlertUseCase } from "../../../application/use-cases/CreateManualWeatherAlertUseCase";
 import { weatherLocations } from "../../../domain/catalogs/weatherLocations";
+import { PrismaWeatherRestrictionRepository } from "../../../infrastructure/database/PrismaWeatherRestrictionRepository";
 
 const statuses: WeatherAlertStatus[] = ["PENDING", "CONFIRMED", "DISMISSED", "FINALIZED"];
 
@@ -20,11 +21,24 @@ export class WeatherAlertController {
     private readonly confirmAlert: ConfirmWeatherAlertUseCase,
     private readonly dismissAlert: DismissWeatherAlertUseCase,
     private readonly finalizeAlert: FinalizeWeatherAlertUseCase,
-    private readonly createManualAlert: CreateManualWeatherAlertUseCase
+    private readonly createManualAlert: CreateManualWeatherAlertUseCase,
+    private readonly restrictions: PrismaWeatherRestrictionRepository
   ) {}
 
   list = async (request: Request, response: Response): Promise<void> => {
     response.json(await this.listAlerts.execute(this.parseStatus(request.query.status)));
+  };
+
+  impact = async (request: Request, response: Response): Promise<void> => {
+    response.json(await this.restrictions.preview(request.params.id));
+  };
+
+  applyRestrictions = async (request: Request, response: Response): Promise<void> => {
+    response.json(await this.restrictions.apply(request.params.id, request.body || {}, request.user?.id || ""));
+  };
+
+  releaseRestrictions = async (request: Request, response: Response): Promise<void> => {
+    response.json(await this.restrictions.release(request.params.id, request.user?.id || ""));
   };
 
   locations = async (_request: Request, response: Response): Promise<void> => {

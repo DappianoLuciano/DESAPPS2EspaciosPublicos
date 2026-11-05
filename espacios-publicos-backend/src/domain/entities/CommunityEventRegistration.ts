@@ -30,6 +30,7 @@ export interface CitizenCommunityEventRegistration {
     startDate: Date;
     endDate: Date;
     status: string;
+    statusReason?: string | null;
     imageUrl?: string | null;
     publicSpace: {
       id: string;

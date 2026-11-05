@@ -1,4 +1,4 @@
-export type CommunityEventStatus = "ACTIVE" | "ACTIVE_FULL" | "CANCELLED";
+export type CommunityEventStatus = "ACTIVE" | "ACTIVE_FULL" | "SUSPENDED" | "CANCELLED";
 
 export interface CommunityEvent {
   id: string;
@@ -14,6 +14,8 @@ export interface CommunityEvent {
   startDate: Date;
   endDate: Date;
   status: CommunityEventStatus;
+  statusReason?: string | null;
+  activeWeatherAlertIds?: string[];
   imageUrl?: string | null;
   createdAt: Date;
 }

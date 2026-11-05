@@ -25,7 +25,7 @@ function buildApp() {
   );
   const unused = {} as never;
   const controller = new CommunityEventController(
-    unused, unused, unused, unused, unused, unused, unused, unused, useCase
+    unused, unused, unused, unused, unused, unused, unused, unused, useCase, unused
   );
 
   const app = express();

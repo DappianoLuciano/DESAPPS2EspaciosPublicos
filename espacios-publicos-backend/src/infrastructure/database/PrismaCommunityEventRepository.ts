@@ -10,6 +10,7 @@ import {
 } from "../../domain/repositories/CommunityEventRepository";
 import { Prisma } from "@prisma/client";
 import { prisma } from "./prismaClient";
+import { ValidationError } from "../../shared/errors/ValidationError";
 
 export class PrismaCommunityEventRepository implements CommunityEventRepository {
   async create(data: CreateCommunityEventData): Promise<CommunityEvent> {
@@ -17,7 +18,11 @@ export class PrismaCommunityEventRepository implements CommunityEventRepository 
   }
 
   async findById(id: string): Promise<CommunityEvent | null> {
-    return prisma.communityEvent.findUnique({ where: { id } });
+    const event = await prisma.communityEvent.findUnique({ where: { id },
+      include: { weatherRestrictions: { where: { releasedAt: null }, select: { alertId: true } } } });
+    if (!event) return null;
+    const { weatherRestrictions, ...data } = event;
+    return { ...data, activeWeatherAlertIds: weatherRestrictions.map(row => row.alertId) };
   }
 
   async findAll(): Promise<CommunityEvent[]> {
@@ -25,15 +30,14 @@ export class PrismaCommunityEventRepository implements CommunityEventRepository 
   }
 
   async findActiveCatalogById(id: string): Promise<CommunityEventCatalogItem | null> {
+    // Mantener accesible el detalle de suspendidos/cancelados desde avisos e inscripciones.
     const communityEvent = await prisma.communityEvent.findFirst({
       where: {
-        id,
-        status: {
-          in: ["ACTIVE", "ACTIVE_FULL"]
-        }
+        id
       },
       include: {
         publicSpace: true,
+        weatherRestrictions: { where: { releasedAt: null }, select: { alertId: true } },
         _count: {
           select: {
             registrations: true
@@ -90,7 +94,7 @@ export class PrismaCommunityEventRepository implements CommunityEventRepository 
       : undefined;
 
     const where: Prisma.CommunityEventWhereInput = {
-      status: {
+      status: filters.includeUnavailable ? undefined : {
         in: ["ACTIVE", "ACTIVE_FULL"] as CommunityEventStatus[]
       },
       AND: [categoryFilter, searchFilter].filter(
@@ -112,6 +116,7 @@ export class PrismaCommunityEventRepository implements CommunityEventRepository 
       where,
       include: {
         publicSpace: true,
+        weatherRestrictions: { where: { releasedAt: null }, select: { alertId: true } },
         _count: {
           select: {
             registrations: true
@@ -128,7 +133,8 @@ export class PrismaCommunityEventRepository implements CommunityEventRepository 
           return true;
         }
 
-        return !communityEvent.requiresRegistration || communityEvent.availableCapacity > 0;
+        return communityEvent.status === "ACTIVE" &&
+          (!communityEvent.requiresRegistration || communityEvent.availableCapacity > 0);
       });
   }
 
@@ -137,7 +143,7 @@ export class PrismaCommunityEventRepository implements CommunityEventRepository 
       where: {
         publicSpaceId,
         status: {
-          in: ["ACTIVE", "ACTIVE_FULL"]
+          in: ["ACTIVE", "ACTIVE_FULL", "SUSPENDED"]
         },
         startDate: {
           lt: endDate
@@ -149,11 +155,19 @@ export class PrismaCommunityEventRepository implements CommunityEventRepository 
     });
   }
 
-  async updateStatus(id: string, status: CommunityEventStatus): Promise<CommunityEvent> {
-    return prisma.communityEvent.update({
-      where: { id },
-      data: { status }
-    });
+  async updateStatus(id: string, status: CommunityEventStatus, reason?: string | null, expectedStatus?: CommunityEventStatus): Promise<CommunityEvent> {
+    try {
+      return await prisma.communityEvent.update({
+        where: { id, status: expectedStatus,
+          ...(expectedStatus === "SUSPENDED" && status !== "CANCELLED" ? { weatherRestrictions: { none: { releasedAt: null } } } : {}) },
+        data: { status, ...(reason !== undefined ? { statusReason: reason } : {}) }
+      });
+    } catch (error) {
+      if (expectedStatus && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+        throw new ValidationError("El estado del evento cambió. Actualizá el listado antes de continuar.");
+      }
+      throw error;
+    }
   }
 
   private buildDateFilter(date: Date) {
@@ -171,6 +185,7 @@ export class PrismaCommunityEventRepository implements CommunityEventRepository 
 
   private toCatalogItem(
     communityEvent: CommunityEvent & {
+      weatherRestrictions?: { alertId: string }[];
       publicSpace: {
         id: string;
         name: string;
@@ -204,6 +219,8 @@ export class PrismaCommunityEventRepository implements CommunityEventRepository 
       startDate: communityEvent.startDate,
       endDate: communityEvent.endDate,
       status: communityEvent.status,
+      statusReason: communityEvent.statusReason ?? null,
+      activeWeatherAlertIds: communityEvent.weatherRestrictions?.map(row => row.alertId) || [],
       imageUrl: communityEvent.imageUrl,
       publicSpace: {
         id: communityEvent.publicSpace.id,
