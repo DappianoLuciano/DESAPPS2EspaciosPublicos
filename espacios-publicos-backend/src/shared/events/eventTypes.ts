@@ -17,6 +17,9 @@ export const eventNames = {
     fromEnv("COMMUNITY_EVENT_CANCELLED_EVENT_FQN", "com.citypass.espacios.EventoCancelado"),
   publicSpaceStatusChanged: () =>
     fromEnv("PUBLIC_SPACE_STATUS_CHANGED_EVENT_FQN", "com.citypass.espacios.EspacioEstadoCambiado"),
+  // Pedido por Analitica: un espacio cerrado, restringido o con uso parcial (clima, baja manual, reclamo cercano).
+  publicSpaceAffected: () =>
+    fromEnv("PUBLIC_SPACE_AFFECTED_EVENT_FQN", "com.citypass.espacios.EspacioPublicoAfectado"),
   reservationConfirmed: () =>
     fromEnv("RESERVATION_CONFIRMED_EVENT_FQN", "com.citypass.espacios.ReservaConfirmada"),
   weatherConfirmed: () =>
@@ -36,6 +39,7 @@ export function dispatchableEventNames(): string[] {
     eventNames.activityModified(),
     eventNames.communityEventCancelled(),
     eventNames.publicSpaceStatusChanged(),
+    eventNames.publicSpaceAffected(),
     eventNames.reservationConfirmed(),
     eventNames.weatherConfirmed(),
     eventNames.weatherFinalized()

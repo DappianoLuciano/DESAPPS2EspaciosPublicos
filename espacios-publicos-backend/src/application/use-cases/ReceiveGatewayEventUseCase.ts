@@ -4,8 +4,14 @@ import { CityIncidentRepository } from "../../domain/repositories/CityIncidentRe
 import { CommunityEventRepository } from "../../domain/repositories/CommunityEventRepository";
 import { DestinationRecommendationRepository } from "../../domain/repositories/DestinationRecommendationRepository";
 import { InboundEventRepository } from "../../domain/repositories/InboundEventRepository";
+import { PublicSpaceRepository } from "../../domain/repositories/PublicSpaceRepository";
+import { distanceInMeters, hasCoordinates } from "../../shared/geo/distance";
+import { PublicSpaceAffectedPublisher } from "../events/publicSpaceAffected";
 import { ValidationError } from "../../shared/errors/ValidationError";
 import { logger } from "../../shared/logging/logger";
+
+/** Un reclamo que corta la circulacion a esta distancia o menos deja el espacio con uso parcial. */
+export const AFFECTED_SPACE_RADIUS_METERS = 1000;
 
 export type ReceiveGatewayEventOutcome = "processed" | "duplicate" | "ignored";
 
@@ -78,7 +84,10 @@ export class ReceiveGatewayEventUseCase {
     private readonly inboundEventRepository: InboundEventRepository,
     private readonly cityIncidentRepository: CityIncidentRepository,
     private readonly destinationRecommendationRepository: DestinationRecommendationRepository,
-    private readonly communityEventRepository: Pick<CommunityEventRepository, "findById">
+    private readonly communityEventRepository: Pick<CommunityEventRepository, "findById">,
+    // Opcionales: sin ellos el incidente se registra igual, pero no se publica EspacioPublicoAfectado.
+    private readonly publicSpaceRepository?: Pick<PublicSpaceRepository, "findAll">,
+    private readonly affectedPublisher?: PublicSpaceAffectedPublisher
   ) {}
 
   /** Recibe el sobre { metadata, data } que entrega el dispatcher del gateway. */
@@ -210,7 +219,37 @@ export class ReceiveGatewayEventUseCase {
       zone: null
     });
 
+    if (config.source === "RECLAMOS") {
+      await this.publishNearbySpacesAffected(externalId, { latitude: latitud, longitude: longitud });
+    }
+
     return true;
+  }
+
+  // Analitica: cada espacio habilitado cerca del reclamo queda con uso parcial mientras dure.
+  private async publishNearbySpacesAffected(
+    reclamoId: string,
+    location: { latitude: number; longitude: number }
+  ): Promise<void> {
+    if (!this.publicSpaceRepository || !this.affectedPublisher) {
+      return;
+    }
+
+    const spaces = await this.publicSpaceRepository.findAll({ status: "ENABLED" });
+    const nearby = spaces.filter(
+      (space) => hasCoordinates(space) &&
+        distanceInMeters(location, { latitude: space.latitude!, longitude: space.longitude! }) <= AFFECTED_SPACE_RADIUS_METERS
+    );
+    const desde = new Date();
+
+    await this.affectedPublisher.publish(nearby.map((space) => ({
+      space,
+      tipoAfectacion: "USO_PARCIAL" as const,
+      desde,
+      hastaEstimada: null,
+      causaId: reclamoId,
+      causaTipo: "RECLAMO" as const
+    })));
   }
 
   private async processIncidentUpdated(
