@@ -136,7 +136,8 @@ export function createContainer() {
     eventOutboxRepository,
     eventBus,
     qrGenerator,
-    emailSender
+    emailSender,
+    publicSpaceRepository
   );
   const listCommunityEventRegistrationsUseCase = new ListCommunityEventRegistrationsUseCase(
     communityEventRepository,
@@ -146,7 +147,10 @@ export function createContainer() {
     new ListCitizenCommunityEventRegistrationsUseCase(communityEventRegistrationRepository);
   const cancelCommunityEventRegistrationUseCase = new CancelCommunityEventRegistrationUseCase(
     communityEventRepository,
-    communityEventRegistrationRepository
+    communityEventRegistrationRepository,
+    publicSpaceRepository,
+    eventOutboxRepository,
+    eventBus
   );
   const getCommunityEventRegistrationUseCase = new GetCommunityEventRegistrationUseCase(
     communityEventRegistrationRepository

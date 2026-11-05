@@ -29,7 +29,8 @@ export class CommunityEventController {
     const communityEvent = await this.createCommunityEventUseCase.execute({
       ...request.body,
       organizerName: request.user?.name,
-      organizerProfileEnabled: request.user?.role === "municipal_admin"
+      organizerProfileEnabled: request.user?.role === "municipal_admin",
+      organizerSub: request.user?.id ?? null
     });
     response.status(201).json(communityEvent);
   };
@@ -37,7 +38,12 @@ export class CommunityEventController {
   cancel = async (request: Request, response: Response): Promise<void> => {
     const communityEvent = await this.cancelCommunityEventUseCase.execute(
       request.params.id,
-      request.body?.reason
+      request.body?.reason,
+      {
+        causaTipo: request.body?.causaTipo,
+        causaId: request.body?.causaId,
+        actorSub: request.user?.id ?? null
+      }
     );
 
     response.json(communityEvent);

@@ -1,12 +1,13 @@
 import "dotenv/config";
-import { OAuthServiceTokenProvider } from "../src/infrastructure/auth/OAuthServiceTokenProvider";
+import { OAuthServiceTokenProvider, resolveEventAuthTokenUrl } from "../src/infrastructure/auth/OAuthServiceTokenProvider";
 
 // Registra en el Event Gateway los contratos que publica este modulo: los de clima y los
 // de eventos comunitarios, espacios y reservas (CU-INT-01). Son records Avro; los campos
 // opcionales son uniones ["null", tipo] con default null.
 //
 // Uso:  npm run eda:register-events
-// Requiere EVENT_GATEWAY_API_URL, EVENT_AUTH_TOKEN_URL, EVENT_CLIENT_ID y EVENT_CLIENT_SECRET.
+// Requiere EVENT_GATEWAY_API_URL, EVENT_CLIENT_ID y EVENT_CLIENT_SECRET. EVENT_AUTH_TOKEN_URL es opcional
+// (por defecto https://api.citypass-login.pp.ua/oauth/token).
 // Consulta y verifica los contratos existentes; solo los actualiza con --update-compatible.
 // --weather-only permite operar solo sobre los dos contratos climaticos.
 
@@ -76,6 +77,33 @@ const spacesDefinitions: EventTypeDefinition[] = [
     { name: "categoria", type: "string" },
     { name: "correlationId", type: "string", doc: "evento-<eventoId>" }
   ]),
+  record("ActividadCreada", "E1 squad 3: se creo una actividad (evento comunitario) en un espacio publico.", [
+    { name: "correlationId", type: "string", doc: "act-<actividadId>" },
+    { name: "actividadId", type: "string" },
+    { name: "titulo", type: "string" },
+    { name: "estado", type: "string", doc: "Siempre PROGRAMADA" },
+    { name: "capacidad", type: "int" },
+    { name: "fechaHoraInicio", type: { type: "long", logicalType: "timestamp-millis" } },
+    { name: "fechaHoraFinalizacion", type: { type: "long", logicalType: "timestamp-millis" } },
+    { name: "ubicacion", type: { type: "record", name: "Ubicacion", fields: [
+      { name: "lat", type: "double" }, { name: "lng", type: "double" }
+    ] } },
+    { name: "direccion", type: "string" },
+    { name: "espacioNombre", type: "string" },
+    { name: "actorSub", type: nullable("string"), default: null },
+    { name: "categoria", type: nullable("string"), default: null }
+  ]),
+  record("ActividadModificada", "Cambio el estado de una actividad (evento comunitario).", [
+    { name: "correlationId", type: "string", doc: "act-<actividadId>" },
+    { name: "actividadId", type: "string" },
+    { name: "estadoAnterior", type: "string" },
+    { name: "estadoNuevo", type: "string", doc: "PROGRAMADA | SUSPENDIDA | CANCELADA" },
+    { name: "motivo", type: nullable("string"), default: null },
+    { name: "causaId", type: nullable("string"), default: null },
+    { name: "causaTipo", type: nullable("string"), default: null, doc: "EVENTO_CLIMATICO | RECLAMO | INCIDENTE_VIAL" },
+    { name: "modificadaEn", type: { type: "long", logicalType: "timestamp-millis" } },
+    { name: "actorSub", type: nullable("string"), default: null }
+  ]),
   record("EventoCancelado", "Un administrador cancelo un evento comunitario.", [
     { name: "eventoId", type: "string" },
     { name: "espacioId", type: "string" },
@@ -107,7 +135,7 @@ export const definitions: EventTypeDefinition[] = [...weatherDefinitions, ...spa
 async function main() {
   const gatewayUrl = required("EVENT_GATEWAY_API_URL").replace(/\/+$/, "");
   const token = await new OAuthServiceTokenProvider(
-    required("EVENT_AUTH_TOKEN_URL"), required("EVENT_CLIENT_ID"), required("EVENT_CLIENT_SECRET")
+    resolveEventAuthTokenUrl(), required("EVENT_CLIENT_ID"), required("EVENT_CLIENT_SECRET")
   ).getToken();
   if (process.env.EVENT_TYPE_NAMESPACE?.trim() && process.env.EVENT_TYPE_NAMESPACE.trim() !== NAMESPACE) {
     throw new Error("EVENT_TYPE_NAMESPACE y EVENT_NAMESPACE deben coincidir con el namespace del JWT.");
@@ -122,6 +150,8 @@ async function main() {
     CriticidadClimaticaConfirmada: "WEATHER_CONFIRMED_EVENT_FQN",
     CriticidadClimaticaFinalizada: "WEATHER_FINALIZED_EVENT_FQN",
     EventoComunitarioPublicado: "COMMUNITY_EVENT_PUBLISHED_EVENT_FQN",
+    ActividadCreada: "ACTIVITY_CREATED_EVENT_FQN",
+    ActividadModificada: "ACTIVITY_MODIFIED_EVENT_FQN",
     EventoCancelado: "COMMUNITY_EVENT_CANCELLED_EVENT_FQN",
     EspacioEstadoCambiado: "PUBLIC_SPACE_STATUS_CHANGED_EVENT_FQN",
     ReservaConfirmada: "RESERVATION_CONFIRMED_EVENT_FQN"

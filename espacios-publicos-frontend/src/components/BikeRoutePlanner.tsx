@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 import { getEventRoutePlan } from '../lib/api';
-import type { EventRoutePlan, RoutePath } from '../lib/api';
+import type { EventRoutePlan, RoutePath, RoutePlanRadiusIncident } from '../lib/api';
 import { markerIconConfig } from './LocationPicker';
 
 type LatLng = [number, number];
@@ -119,6 +119,16 @@ export default function BikeRoutePlanner({ eventId }: { eventId: string }) {
   const origin: LatLng | null = plan?.origin ? [plan.origin.latitude, plan.origin.longitude] : null;
   const dropoff: LatLng | null = plan?.dropoff ? [plan.dropoff.latitude, plan.dropoff.longitude] : null;
 
+  // Los de zona no tienen coordenadas: van solo como aviso de texto, nunca al mapa.
+  const nearbyIncidents = useMemo(
+    () => (plan?.incidents ?? []).filter((incident): incident is RoutePlanRadiusIncident => incident.matchedBy !== 'ZONE' && incident.latitude !== null && incident.longitude !== null),
+    [plan]
+  );
+  const zoneIncidents = useMemo(
+    () => (plan?.incidents ?? []).filter((incident) => incident.matchedBy === 'ZONE'),
+    [plan]
+  );
+
   const points = useMemo<LatLng[]>(() => {
     if (!plan) {
       return [];
@@ -127,12 +137,12 @@ export default function BikeRoutePlanner({ eventId }: { eventId: string }) {
     const all: LatLng[] = [[plan.destination.latitude, plan.destination.longitude]];
     if (plan.origin) all.push([plan.origin.latitude, plan.origin.longitude]);
     if (plan.dropoff) all.push([plan.dropoff.latitude, plan.dropoff.longitude]);
-    plan.incidents.forEach((incident) => all.push([incident.latitude, incident.longitude]));
+    nearbyIncidents.forEach((incident) => all.push([incident.latitude, incident.longitude]));
     plan.bikeRoute?.coordinates.forEach((point) => all.push(point));
     plan.walkRoute?.coordinates.forEach((point) => all.push(point));
 
     return all;
-  }, [plan]);
+  }, [plan, nearbyIncidents]);
 
 
   return (
@@ -171,16 +181,29 @@ export default function BikeRoutePlanner({ eventId }: { eventId: string }) {
             </Alert>
           )}
 
-          {plan.incidents.length > 0 && (
+          {zoneIncidents.length > 0 && (
+            <Alert color="red" variant="light" mb="sm" icon={<IconAlertTriangle size="1.2rem" />}>
+              <List size="sm" spacing={2}>
+                {zoneIncidents.map((incident, index) => (
+                  <List.Item key={`zone-${incident.source}-${index}`}>
+                    {incident.source === 'EMERGENCIAS' ? 'Emergencia activa' : 'Incidente activo'} en el barrio {incident.zone}
+                    {incident.category ? ` (${incident.category})` : ''}
+                  </List.Item>
+                ))}
+              </List>
+            </Alert>
+          )}
+
+          {nearbyIncidents.length > 0 && (
             <Alert
               color="orange"
               variant="light"
               mb="sm"
               icon={<IconAlertTriangle size="1.2rem" />}
-              title={`Hay ${plan.incidents.length} ${plan.incidents.length === 1 ? 'incidente cerca' : 'incidentes cerca'} del evento: la estación sugerida ya los tiene en cuenta`}
+              title={`Hay ${nearbyIncidents.length} ${nearbyIncidents.length === 1 ? 'incidente cerca' : 'incidentes cerca'} del evento: la estación sugerida ya los tiene en cuenta`}
             >
               <List size="sm" spacing={2}>
-                {plan.incidents.map((incident, index) => (
+                {nearbyIncidents.map((incident, index) => (
                   <List.Item key={`${incident.source}-${index}`}>
                     {incident.category || 'Incidente'} a {Math.round(incident.distanceMeters)} m
                   </List.Item>
@@ -230,7 +253,7 @@ export default function BikeRoutePlanner({ eventId }: { eventId: string }) {
                 </Marker>
               )}
 
-              {plan.incidents.map((incident, index) => (
+              {nearbyIncidents.map((incident, index) => (
                 <Marker key={`${incident.source}-${index}`} position={[incident.latitude, incident.longitude]} icon={incidentIcon}>
                   <Popup>
                     <strong>{incident.category || 'Incidente'}</strong>

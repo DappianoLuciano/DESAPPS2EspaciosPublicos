@@ -1,10 +1,11 @@
 import { definitions } from "../../scripts/register-event-types";
 
 describe("registro unificado de contratos EDA", () => {
-  it("conserva los seis contratos, sin duplicar el catalogo climatico", () => {
+  it("conserva los ocho contratos, sin duplicar el catalogo climatico", () => {
     expect(definitions.map(item => item.name)).toEqual([
       "CriticidadClimaticaConfirmada", "CriticidadClimaticaFinalizada",
-      "EventoComunitarioPublicado", "EventoCancelado", "EspacioEstadoCambiado", "ReservaConfirmada"
+      "EventoComunitarioPublicado", "ActividadCreada", "ActividadModificada", "EventoCancelado",
+      "EspacioEstadoCambiado", "ReservaConfirmada"
     ]);
   });
 
@@ -18,6 +19,36 @@ describe("registro unificado de contratos EDA", () => {
     for (const [name, fields] of Object.entries(expected)) {
       expect(definitions.find(item => item.name === name)?.fields.map(field => field.name)).toEqual(fields);
     }
+  });
+
+  it("registra ActividadCreada (E1 del squad 3) con el contrato acordado", () => {
+    const actividad = definitions.find(item => item.name === "ActividadCreada")!;
+    expect(actividad.fields.map(field => field.name)).toEqual([
+      "correlationId", "actividadId", "titulo", "estado", "capacidad", "fechaHoraInicio",
+      "fechaHoraFinalizacion", "ubicacion", "direccion", "espacioNombre", "actorSub", "categoria"
+    ]);
+    expect(actividad.fields).toContainEqual({ name: "actorSub", type: ["null", "string"], default: null });
+  });
+
+  it("agrega categoria a ActividadCreada como opcional, para ser compatible hacia atras", () => {
+    const actividad = definitions.find(item => item.name === "ActividadCreada")!;
+    expect(actividad.fields.at(-1)).toEqual({ name: "categoria", type: ["null", "string"], default: null });
+  });
+
+  it("registra ActividadModificada con el contrato exacto pedido por Analitica", () => {
+    const actividad = definitions.find(item => item.name === "ActividadModificada")!;
+    expect(actividad.namespace).toBe("com.citypass.espacios");
+    expect(actividad.fields).toEqual([
+      { name: "correlationId", type: "string", doc: "act-<actividadId>" },
+      { name: "actividadId", type: "string" },
+      { name: "estadoAnterior", type: "string" },
+      { name: "estadoNuevo", type: "string", doc: "PROGRAMADA | SUSPENDIDA | CANCELADA" },
+      { name: "motivo", type: ["null", "string"], default: null },
+      { name: "causaId", type: ["null", "string"], default: null },
+      { name: "causaTipo", type: ["null", "string"], default: null, doc: "EVENTO_CLIMATICO | RECLAMO | INCIDENTE_VIAL" },
+      { name: "modificadaEn", type: { type: "long", logicalType: "timestamp-millis" } },
+      { name: "actorSub", type: ["null", "string"], default: null }
+    ]);
   });
 
   it("incluye barrios y temperaturas en el unico contrato de confirmacion", () => {

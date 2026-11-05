@@ -7,6 +7,12 @@ function fromEnv(name: string, fallback: string): string {
 export const eventNames = {
   communityEventPublished: () =>
     fromEnv("COMMUNITY_EVENT_PUBLISHED_EVENT_FQN", "com.citypass.espacios.EventoComunitarioPublicado"),
+  // E1 del squad 3 (recoleccion despues de un evento masivo). Convive con EventoComunitarioPublicado.
+  activityCreated: () =>
+    fromEnv("ACTIVITY_CREATED_EVENT_FQN", "com.citypass.espacios.ActividadCreada"),
+  // Pedido por Analitica. Convive con EventoCancelado, que se sigue publicando primero.
+  activityModified: () =>
+    fromEnv("ACTIVITY_MODIFIED_EVENT_FQN", "com.citypass.espacios.ActividadModificada"),
   communityEventCancelled: () =>
     fromEnv("COMMUNITY_EVENT_CANCELLED_EVENT_FQN", "com.citypass.espacios.EventoCancelado"),
   publicSpaceStatusChanged: () =>
@@ -26,6 +32,8 @@ export const eventNames = {
 export function dispatchableEventNames(): string[] {
   return [
     eventNames.communityEventPublished(),
+    eventNames.activityCreated(),
+    eventNames.activityModified(),
     eventNames.communityEventCancelled(),
     eventNames.publicSpaceStatusChanged(),
     eventNames.reservationConfirmed(),

@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { CommunityEvent } from "../../domain/entities/CommunityEvent";
 import { DomainEvent } from "../../domain/entities/DomainEvent";
+import { PublicSpace } from "../../domain/entities/PublicSpace";
 import { CommunityEventRepository } from "../../domain/repositories/CommunityEventRepository";
 import { EventOutboxRepository } from "../../domain/repositories/EventOutboxRepository";
 import { PublicSpaceRepository } from "../../domain/repositories/PublicSpaceRepository";
@@ -10,7 +11,7 @@ import { eventNames } from "../../shared/events/eventTypes";
 import { ForbiddenError } from "../../shared/errors/ForbiddenError";
 import { NotFoundError } from "../../shared/errors/NotFoundError";
 import { ValidationError } from "../../shared/errors/ValidationError";
-import { hasCoordinates } from "../../shared/geo/distance";
+import { Coordinates, hasCoordinates } from "../../shared/geo/distance";
 import {
   normalizeStringList,
   optionalHttpsUrl,
@@ -19,6 +20,7 @@ import {
 } from "../../shared/validation/inputValidation";
 import { CreateCommunityEventInput } from "../dtos/CreateCommunityEventInput";
 import { WeatherRestrictionRepository } from "../../domain/repositories/WeatherRestrictionRepository";
+import { buildCommunityEventPublishedEvent } from "../events/communityEventPublished";
 
 export class CreateCommunityEventUseCase {
   constructor(
@@ -124,33 +126,48 @@ export class CreateCommunityEventUseCase {
       imageUrl
     });
 
-    const event: DomainEvent = {
-      id: randomUUID(),
-      name: eventNames.communityEventPublished(),
-      // Contrato EventoComunitarioPublicado: siempre todos los campos, con null en los opcionales.
-      payload: {
-        eventoId: communityEvent.id,
-        espacioId: communityEvent.publicSpaceId,
-        titulo: communityEvent.title,
-        zona: publicSpace.zone ?? null,
-        direccion: publicSpace.address ?? null,
-        latitud: publicSpace.latitude ?? null,
-        longitud: publicSpace.longitude ?? null,
-        inicio: communityEvent.startDate.toISOString(),
-        fin: communityEvent.endDate.toISOString(),
-        capacidad: communityEvent.capacity,
-        cupoMaximo: communityEvent.capacity,
-        inscriptos: 0,
-        estado: communityEvent.status,
-        categoria: communityEvent.category,
-        correlationId: `evento-${communityEvent.id}`
-      },
-      occurredAt: new Date()
-    };
+    // Recien creado: todavia no hay inscriptos.
+    const event = buildCommunityEventPublishedEvent(communityEvent, publicSpace, 0);
 
     await this.eventOutboxRepository.save(event);
     await this.eventBus.publish(event);
 
+    // E1 del squad 3: se publica ademas de EventoComunitarioPublicado, con el mismo patron.
+    const activityCreated: DomainEvent = {
+      id: randomUUID(),
+      name: eventNames.activityCreated(),
+      payload: buildActivityCreatedPayload(communityEvent, publicSpace, input.organizerSub),
+      occurredAt: new Date()
+    };
+
+    await this.eventOutboxRepository.save(activityCreated);
+    await this.eventBus.publish(activityCreated);
+
     return communityEvent;
   }
+}
+
+/**
+ * Contrato E1 `ActividadCreada` (squad 3, recoleccion despues de un evento masivo).
+ * Las fechas viajan como timestamp-millis y la ubicacion sale del espacio publico.
+ */
+export function buildActivityCreatedPayload(
+  communityEvent: CommunityEvent,
+  publicSpace: PublicSpace & Coordinates,
+  organizerSub?: string | null
+): Record<string, unknown> {
+  return {
+    correlationId: `act-${communityEvent.id}`,
+    actividadId: communityEvent.id,
+    titulo: communityEvent.title,
+    estado: "PROGRAMADA",
+    capacidad: communityEvent.capacity,
+    fechaHoraInicio: communityEvent.startDate.getTime(),
+    fechaHoraFinalizacion: communityEvent.endDate.getTime(),
+    ubicacion: { lat: publicSpace.latitude, lng: publicSpace.longitude },
+    direccion: publicSpace.address,
+    espacioNombre: publicSpace.name,
+    actorSub: organizerSub ?? null,
+    categoria: communityEvent.category
+  };
 }

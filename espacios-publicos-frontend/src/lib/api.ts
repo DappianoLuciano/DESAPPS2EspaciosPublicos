@@ -651,15 +651,33 @@ export interface RoutePath {
   durationSeconds: number;
 }
 
+interface RoutePlanIncidentBase {
+  source: string;
+  category: string | null;
+  zone: string | null;
+}
+
+/** Incidente con coordenadas a 1000 m o menos del evento. */
+export interface RoutePlanRadiusIncident extends RoutePlanIncidentBase {
+  matchedBy: 'RADIUS';
+  latitude: number;
+  longitude: number;
+  distanceMeters: number;
+}
+
+/** Emergencia sin coordenadas en el mismo barrio que el espacio: no se dibuja en el mapa. */
+export interface RoutePlanZoneIncident extends RoutePlanIncidentBase {
+  matchedBy: 'ZONE';
+  latitude: null;
+  longitude: null;
+  distanceMeters: null;
+}
+
+export type RoutePlanIncident = RoutePlanRadiusIncident | RoutePlanZoneIncident;
+
 export interface EventRoutePlan {
   destination: { eventId: string; title: string; latitude: number; longitude: number; address: string };
-  incidents: Array<{
-    source: string;
-    category: string | null;
-    latitude: number;
-    longitude: number;
-    distanceMeters: number;
-  }>;
+  incidents: RoutePlanIncident[];
   dropoff: {
     stationName: string;
     latitude: number;
@@ -682,10 +700,17 @@ export function getEventRoutePlan(id: string, from?: { latitude: number; longitu
   return request<EventRoutePlan>(`/api/community-events/${encodeURIComponent(id)}/route-plan${query}`);
 }
 
-export function cancelCommunityEvent(id: string, reason?: string) {
+export type CancellationCauseType = 'EVENTO_CLIMATICO' | 'RECLAMO' | 'INCIDENTE_VIAL';
+
+export interface CancellationCause {
+  causaTipo: CancellationCauseType;
+  causaId: string;
+}
+
+export function cancelCommunityEvent(id: string, reason?: string, cause?: CancellationCause) {
   return request<CommunityEvent>(`/api/community-events/${encodeURIComponent(id)}/cancel`, {
     method: 'PATCH',
-    body: JSON.stringify(reason ? { reason } : {}),
+    body: JSON.stringify({ ...(reason ? { reason } : {}), ...cause }),
   });
 }
 

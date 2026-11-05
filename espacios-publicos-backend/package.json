@@ -20,7 +20,8 @@
     "eda:register-weather": "ts-node scripts/register-event-types.ts --weather-only",
     "test:eda": "node --test --require ts-node/register/transpile-only tests/infrastructure/eda-integration.test.cjs",
     "test:weather-flow": "node --test --require ts-node/register/transpile-only tests/infrastructure/weather-flow-regression.test.cjs",
-    "test:uploads": "node --test --require ts-node/register/transpile-only tests/infrastructure/public-space-image.test.cjs"
+    "test:uploads": "node --test --require ts-node/register/transpile-only tests/infrastructure/public-space-image.test.cjs",
+    "eda:register-subscriptions": "ts-node scripts/register-subscriptions.ts"
   },
   "keywords": [
     "citypass",

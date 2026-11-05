@@ -15,6 +15,8 @@ jest.mock("../../src/infrastructure/database/prismaClient", () => ({
 
 const ESPACIOS_FQNS = [
   "com.citypass.espacios.EventoComunitarioPublicado",
+  "com.citypass.espacios.ActividadCreada",
+  "com.citypass.espacios.ActividadModificada",
   "com.citypass.espacios.EventoCancelado",
   "com.citypass.espacios.EspacioEstadoCambiado",
   "com.citypass.espacios.ReservaConfirmada"
@@ -25,6 +27,8 @@ const WEATHER_FQNS = [
 ];
 const OVERRIDE_VARS = [
   "COMMUNITY_EVENT_PUBLISHED_EVENT_FQN",
+  "ACTIVITY_CREATED_EVENT_FQN",
+  "ACTIVITY_MODIFIED_EVENT_FQN",
   "COMMUNITY_EVENT_CANCELLED_EVENT_FQN",
   "PUBLIC_SPACE_STATUS_CHANGED_EVENT_FQN",
   "RESERVATION_CONFIRMED_EVENT_FQN"
@@ -35,7 +39,7 @@ describe("outbox: eventos que se despachan al gateway", () => {
     OVERRIDE_VARS.forEach((name) => delete process.env[name]);
   });
 
-  it("incluye los 4 contratos de espacios y cultura mas los 2 del clima", () => {
+  it("incluye los 6 contratos de espacios y cultura mas los 2 del clima", () => {
     expect(dispatchableEventNames().sort()).toEqual([...ESPACIOS_FQNS, ...WEATHER_FQNS].sort());
   });
 
@@ -82,9 +86,9 @@ describe("outbox: eventos que se despachan al gateway", () => {
       { publish: async (event) => void sent.push(event.name) }
     ).execute();
 
-    expect(result).toEqual({ processed: 4, published: 4, failed: 0 });
+    expect(result).toEqual({ processed: 6, published: 6, failed: 0 });
     expect(sent).toEqual(ESPACIOS_FQNS);
-    expect(published).toEqual(["event-0", "event-1", "event-2", "event-3"]);
+    expect(published).toEqual(["event-0", "event-1", "event-2", "event-3", "event-4", "event-5"]);
   });
 
   it("un cierre pendiente no bloquea los mensajes de los demas casos de uso", async () => {
@@ -113,7 +117,8 @@ describe("outbox: eventos que se despachan al gateway", () => {
         save: jest.fn(), findReady: async () => ready, markPublished: jest.fn(),
         markFailed: jest.fn(), markExhausted: jest.fn()
       }, { publish: async event => void sent.push(event.name) }).execute();
-      expect(result).toEqual({ processed: 6, published: 6, failed: 0 });
+      const total = ESPACIOS_FQNS.length + WEATHER_FQNS.length;
+      expect(result).toEqual({ processed: total, published: total, failed: 0 });
       expect(sent).toEqual([...ESPACIOS_FQNS, ...WEATHER_FQNS]);
     } finally {
       if (previousDriver === undefined) delete process.env.EVENT_BUS_DRIVER;

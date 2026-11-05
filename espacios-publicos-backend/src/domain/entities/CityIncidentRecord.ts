@@ -5,8 +5,11 @@ export interface CityIncidentRecord {
   source: CityIncidentSource;
   externalId: string;
   category: string | null;
-  latitude: number;
-  longitude: number;
+  /** null cuando el modulo de origen solo informa el barrio (Emergencias). */
+  latitude: number | null;
+  longitude: number | null;
+  /** Barrio informado por el modulo de origen, tal como llego. */
+  zone: string | null;
   active: boolean;
   reportedAt: Date;
   updatedAt: Date;
@@ -16,8 +19,9 @@ export interface UpsertCityIncidentData {
   source: CityIncidentSource;
   externalId: string;
   category: string | null;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
+  zone: string | null;
 }
 
 export interface GeoBounds {

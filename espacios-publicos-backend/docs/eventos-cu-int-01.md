@@ -13,6 +13,14 @@ las filas `PENDING` vencidas. Solo se
 despachan los nombres FQN de esta tabla; las filas historicas con nombres viejos (`cultura.*`,
 `espacios.*`) no se envian.
 
+### Autenticacion del bus
+
+El bus publica con un token de servicio: OAuth `client_credentials` con Basic auth (`EVENT_CLIENT_ID` /
+`EVENT_CLIENT_SECRET`) contra `EVENT_AUTH_TOKEN_URL`, que por defecto es
+`https://api.citypass-login.pp.ua/oauth/token`. El gateway autoriza por el claim `namespace` del JWT, que tiene
+que ser `com.citypass.espacios`: al obtener el token se lo decodifica (sin validarlo) y, si no coincide, se loguea
+un warning. El token y el secret nunca se loguean.
+
 ### Tope de reintentos
 
 `EVENT_OUTBOX_MAX_ATTEMPTS` (por defecto 10) limita los intentos por fila. Estados del outbox:
@@ -34,7 +42,7 @@ datos personales (ni mails ni nombres).
 
 | FQN (variable de entorno) | Se publica al | Campos |
 | --- | --- | --- |
-| `com.citypass.espacios.EventoComunitarioPublicado` (`COMMUNITY_EVENT_PUBLISHED_EVENT_FQN`) | crear un evento | `eventoId`, `espacioId`, `titulo`, `zona?`, `direccion?`, `latitud?`, `longitud?`, `inicio`, `fin`, `capacidad`, `cupoMaximo` (= `capacidad`), `inscriptos` (0), `estado` (`ACTIVE`/`ACTIVE_FULL`/`CANCELLED`), `categoria`, `correlationId` (`evento-<eventoId>`) |
+| `com.citypass.espacios.EventoComunitarioPublicado` (`COMMUNITY_EVENT_PUBLISHED_EVENT_FQN`) | crear el evento y cada vez que cambian inscriptos o estado (inscripcion, baja) | `eventoId`, `espacioId`, `titulo`, `zona?`, `direccion?`, `latitud?`, `longitud?`, `inicio`, `fin`, `capacidad`, `cupoMaximo` (= `capacidad`), `inscriptos` (total actual), `estado` (`ACTIVE`/`ACTIVE_FULL`/`CANCELLED`), `categoria`, `correlationId` (`evento-<eventoId>`) |
 | `com.citypass.espacios.EventoCancelado` (`COMMUNITY_EVENT_CANCELLED_EVENT_FQN`) | `PATCH /api/community-events/:id/cancel` | `eventoId`, `espacioId`, `motivo?`, `canceladoEn`, `correlationId` |
 | `com.citypass.espacios.EspacioEstadoCambiado` (`PUBLIC_SPACE_STATUS_CHANGED_EVENT_FQN`) | cambiar el `status` de un espacio | `espacioId`, `estadoNuevo` (`ENABLED`/`DISABLED`), `zona?`, `latitud?`, `longitud?`, `cambiadoEn` |
 | `com.citypass.espacios.ReservaConfirmada` (`RESERVATION_CONFIRMED_EVENT_FQN`) | reservar un espacio o inscribirse a un evento | `reservaId`, `tipoReserva` (`EVENTO`/`ESPACIO`), `recursoId`, `espacioId`, `cantidadPersonas`, `inicio`, `fin` |
@@ -43,6 +51,12 @@ datos personales (ni mails ni nombres).
 
 - Reserva de espacio: `tipoReserva=ESPACIO`, `recursoId=espacioId`, `cantidadPersonas=estimatedAttendees`.
 - Inscripcion a evento: `tipoReserva=EVENTO`, `recursoId=eventoId`, `cantidadPersonas=1`, `inicio`/`fin` del evento.
+- `EventoComunitarioPublicado` se publica al crear el evento y cada vez que cambian inscriptos o estado;
+  `inscriptos` es el total actual. Al inscribirse sale despues de `ReservaConfirmada` (con `ACTIVE_FULL`
+  si se ocupo el ultimo cupo); al darse de baja sale con el estado actual (`ACTIVE` si estaba completo).
+  Cada publicacion es un evento nuevo (id propio) con el mismo `eventoId`: el consumidor se queda con la
+  ultima. Una inscripcion rechazada por cupo lleno no publica nada, y la baja en un evento `CANCELLED`
+  tampoco (ya salio `EventoCancelado`).
 
 Los contratos se registran con `npm run eda:register-events` (clima + estos cuatro). No se ejecuta
 solo: hay que revisar los schemas y correrlo a mano.
@@ -50,17 +64,39 @@ solo: hay que revisar los schemas y correrlo a mano.
 ## Consumo
 
 El gateway entrega los eventos de otros modulos por `POST /webhooks/citypass?token=<GATEWAY_WEBHOOK_TOKEN>`
-con el sobre `{ metadata: { eventId, eventType, receivedAt }, data }`. El token se compara en tiempo
+con el sobre `{ metadata: { eventId, eventType, receivedAt }, data }`. Si falta `metadata.eventType` se usa
+`metadata.type`; un tipo sin namespace (ej. `EmergenciaCreada`) se resuelve al FQN conocido que termina en
+`.EmergenciaCreada`, y si no hay ninguno el evento se ignora. El token se compara en tiempo
 constante (si la variable esta vacia se rechaza todo) y la entrega es idempotente por `eventId`
 (tabla `inbound_events`).
 
 - `com.citypass.movilidad.RecomendacionDestinoActualizada`: se guarda en `destination_recommendations`
   (una fila por evento). Si llega una con `calculadaEn` mas vieja que la guardada se descarta; si el
   evento no existe se loguea y se ignora. `estacionId` llega como numero y se guarda como string.
-- `com.citypass.reclamos.ReclamoCreado` / `com.citypass.emergencias.EmergenciaCreada`: con
-  `afectaCirculacion === true` y coordenadas, alta en `city_incidents`.
-- `ReclamoActualizado` (`RESUELTO`, `RECHAZADO`, `CERRADO`) y `EmergenciaActualizada` (`RESUELTA`,
-  `CERRADA`, `DESCARTADA`, `CANCELADA`): el incidente pasa a inactivo.
+- `com.citypass.reclamos.ReclamoCreado`: con `afectaCirculacion === true` y coordenadas, alta en
+  `city_incidents`.
+- `com.citypass.emergencias.EmergenciaCreada`: Emergencias no publica coordenadas ni `afectaCirculacion`;
+  manda `emergenciaId`, `estado`, `ubicacion.barrio` (puede ser `null`), `tipo`, `severity`,
+  `createdAt` y `updatedAt`. Con `emergenciaId` y barrio no vacio se da de alta sin coordenadas, con
+  `category = tipo` y `zone = barrio` (no se filtra por tipo). Si ya llega en estado terminal no se da de alta.
+- `ReclamoActualizado` (`estadoNuevo` en `RESUELTO`, `RECHAZADO`, `CERRADO`) y `EmergenciaActualizada`
+  (`estado`, o `estadoNuevo` si falta, en `RESUELTA`, `CERRADA`, `DESCARTADA`, `CANCELADA`): el
+  incidente pasa a inactivo.
+
+### Suscripciones en el gateway
+
+Para que el gateway llame al webhook hay que dar de alta una suscripcion por topico:
+
+```bash
+npm run eda:register-subscriptions
+```
+
+Hace `POST {EVENT_GATEWAY_API_URL}/subscriptions` con `{topic, callbackUrl}` para cada uno de los cinco topicos
+(`GATEWAY_SUBSCRIPTION_TOPICS`, exportados desde `ReceiveGatewayEventUseCase`: la misma lista que el webhook
+sabe procesar). `callbackUrl = {PUBLIC_BACKEND_URL}/webhooks/citypass?token={GATEWAY_WEBHOOK_TOKEN}`. Requiere
+`EVENT_GATEWAY_API_URL`, `EVENT_CLIENT_ID`, `EVENT_CLIENT_SECRET`, `PUBLIC_BACKEND_URL` y `GATEWAY_WEBHOOK_TOKEN`.
+Un 409 se informa como "ya existia" y sigue con el siguiente; la salida muestra la URL con el token enmascarado.
+El script no se ejecuta solo.
 
 ## Plan de llegada
 
@@ -68,3 +104,8 @@ constante (si la variable esta vacia se rechaza todo) y la entrega es idempotent
 y el ruteo OSRM (`ROUTING_BIKE_URL`, `ROUTING_FOOT_URL`). Si el evento esta `CANCELLED` o el espacio
 `DISABLED` no muestra la recomendacion aunque exista; sin fila avisa que Movilidad todavia no calculo la
 estacion; una recomendacion de mas de 30 minutos se devuelve con un aviso de antiguedad.
+
+`incidents` junta los activos con coordenadas a 1000 m o menos (`matchedBy: "RADIUS"`, con
+`distanceMeters`) y los activos sin coordenadas cuyo `zone` coincide con la zona del espacio, sin tildes ni
+mayusculas (`matchedBy: "ZONE"`, con `latitude`, `longitude` y `distanceMeters` en `null`). El front
+muestra estos ultimos como "Emergencia activa en el barrio X" y no los marca en el mapa.

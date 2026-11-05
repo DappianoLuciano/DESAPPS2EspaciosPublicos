@@ -1,9 +1,23 @@
-import { Alert, Box, Button, Card, Flex, Group, Modal, SimpleGrid, Table, Text, Textarea, Title, Badge, ActionIcon } from '@mantine/core';
+import { Alert, Box, Button, Card, Flex, Group, Modal, Select, SimpleGrid, Table, Text, TextInput, Textarea, Title, Badge, ActionIcon } from '@mantine/core';
 import { IconCalendarEvent, IconEye, IconPlayerPlay, IconUsersGroup } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { cancelCommunityEvent, changeCommunityEventSuspension, listCommunityEvents } from '../lib/api';
-import type { CommunityEventCatalogItem } from '../lib/api';
+import { cancelCommunityEvent, changeCommunityEventSuspension, listCommunityEvents, listWeatherAlerts } from '../lib/api';
+import type { CancellationCauseType, CommunityEventCatalogItem, WeatherAlert } from '../lib/api';
+
+const CAUSE_TYPE_OPTIONS: Array<{ value: CancellationCauseType; label: string }> = [
+  { value: 'EVENTO_CLIMATICO', label: 'Evento climático' },
+  { value: 'RECLAMO', label: 'Reclamo' },
+  { value: 'INCIDENTE_VIAL', label: 'Incidente vial' },
+];
+
+const formatAlertOption = (alert: WeatherAlert) => {
+  const phenomenon = alert.phenomenon.replace(/_/g, ' ');
+  const area = alert.evidence.neighborhoods?.join(', ') || alert.zone;
+  const until = new Date(alert.validUntil).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+
+  return `${phenomenon} · ${area} · hasta ${until}`;
+};
 
 export default function EventManagement() {
   const [events, setEvents] = useState<CommunityEventCatalogItem[]>([]);
@@ -15,6 +29,10 @@ export default function EventManagement() {
   const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [causeType, setCauseType] = useState<CancellationCauseType | null>(null);
+  const [causeId, setCauseId] = useState('');
+  const [activeAlerts, setActiveAlerts] = useState<WeatherAlert[]>([]);
+  const [loadingAlerts, setLoadingAlerts] = useState(false);
 
   useEffect(() => {
     listCommunityEvents()
@@ -35,6 +53,9 @@ export default function EventManagement() {
     setEventToCancel(event);
     setCancelReason(nextAction === 'suspend' ? 'Suspendido por alerta climática. Pendiente de revisión por la administración.' : '');
     setCancelError(null);
+    setCauseType(null);
+    setCauseId('');
+    setActiveAlerts([]);
   };
 
   const closeCancelModal = () => {
@@ -43,8 +64,35 @@ export default function EventManagement() {
     }
   };
 
+  const handleCauseTypeChange = (value: string | null) => {
+    setCauseType(value as CancellationCauseType | null);
+    setCauseId('');
+
+    if (value !== 'EVENTO_CLIMATICO') {
+      return;
+    }
+
+    setActiveAlerts([]);
+    setLoadingAlerts(true);
+    // Si la lista falla o viene vacia, el modal ofrece el campo de texto.
+    listWeatherAlerts('CONFIRMED')
+      .then((alerts) => {
+        const currentTime = Date.now();
+        setActiveAlerts(alerts.filter((alert) => new Date(alert.validUntil).getTime() > currentTime));
+      })
+      .catch(() => setActiveAlerts([]))
+      .finally(() => setLoadingAlerts(false));
+  };
+
   const handleCancel = async () => {
     if (!eventToCancel) {
+      return;
+    }
+
+    const trimmedCauseId = causeId.trim();
+
+    if (causeType && !trimmedCauseId) {
+      setCancelError('Completá el identificador de la causa o quitá el tipo.');
       return;
     }
 
@@ -53,7 +101,11 @@ export default function EventManagement() {
 
     try {
       const updated = action === 'cancel'
-        ? await cancelCommunityEvent(eventToCancel.id, cancelReason.trim() || undefined)
+        ? await cancelCommunityEvent(
+          eventToCancel.id,
+          cancelReason.trim() || undefined,
+          causeType ? { causaTipo: causeType, causaId: trimmedCauseId } : undefined
+        )
         : await changeCommunityEventSuspension(eventToCancel.id, action, cancelReason.trim());
       const cancelledId = eventToCancel.id;
 
@@ -117,6 +169,39 @@ export default function EventManagement() {
             value={cancelReason}
             onChange={(event) => setCancelReason(event.currentTarget.value)}
           />}
+          {action === 'cancel' && (
+            <>
+              <Select
+                label="Causa (opcional)"
+                placeholder="Sin causa"
+                clearable
+                data={CAUSE_TYPE_OPTIONS}
+                value={causeType}
+                onChange={handleCauseTypeChange}
+              />
+              {causeType === 'EVENTO_CLIMATICO' && activeAlerts.length > 0 ? (
+                <Select
+                  label="Alerta climática"
+                  placeholder="Elegí una alerta confirmada vigente"
+                  data={activeAlerts.map((alert) => ({ value: alert.id, label: formatAlertOption(alert) }))}
+                  value={causeId || null}
+                  onChange={(value) => setCauseId(value ?? '')}
+                />
+              ) : causeType && (
+                <TextInput
+                  label="Identificador de la causa"
+                  placeholder={loadingAlerts ? 'Cargando alertas…' : undefined}
+                  description={causeType === 'EVENTO_CLIMATICO' && !loadingAlerts
+                    ? 'No encontramos alertas confirmadas vigentes. Podés ingresar el identificador a mano.'
+                    : undefined}
+                  disabled={causeType === 'EVENTO_CLIMATICO' && loadingAlerts}
+                  maxLength={128}
+                  value={causeId}
+                  onChange={(event) => setCauseId(event.currentTarget.value)}
+                />
+              )}
+            </>
+          )}
           <Group justify="flex-end">
             <Button variant="default" onClick={closeCancelModal} disabled={cancelling}>
               Volver

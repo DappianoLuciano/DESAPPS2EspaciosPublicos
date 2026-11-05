@@ -35,7 +35,8 @@ describe("POST /webhooks/citypass", () => {
   const cityIncidentRepository = {
     upsertActive: jest.fn().mockResolvedValue(undefined),
     deactivate: jest.fn().mockResolvedValue(undefined),
-    findActiveInBounds: jest.fn()
+    findActiveInBounds: jest.fn(),
+    findActiveWithoutCoordinatesWithZone: jest.fn()
   };
   // Fake en memoria con la misma regla "solo si es mas nueva" que la implementacion Prisma.
   const stored = new Map<string, { calculadaEn: Date; mensaje: string }>();
@@ -130,6 +131,44 @@ describe("POST /webhooks/citypass", () => {
     });
   });
 
+  describe("sobre y deduplicacion del gateway", () => {
+    const delivery = (receivedAt: string) => ({
+      metadata: {
+        eventId: "evt-gw-1",
+        eventType: "com.citypass.reclamos.ReclamoCreado",
+        receivedAt,
+        source: "reclamos",
+        schemaId: 7
+      },
+      data: { reclamoId: "rec-9", afectaCirculacion: true, latitud: -34.6, longitud: -58.4, categoria: "BACHE" }
+    });
+
+    it("acepta el sobre { metadata, data } aunque metadata traiga campos extra", async () => {
+      await post(delivery("2030-01-01T10:00:00.000Z")).expect(204);
+
+      expect(cityIncidentRepository.upsertActive).toHaveBeenCalledWith(
+        expect.objectContaining({ source: "RECLAMOS", externalId: "rec-9" })
+      );
+      expect(inboundRepository.record).toHaveBeenCalledWith("evt-gw-1", "com.citypass.reclamos.ReclamoCreado");
+    });
+
+    it("la reentrega at-least-once del mismo metadata.eventId se procesa una sola vez", async () => {
+      await post(delivery("2030-01-01T10:00:00.000Z")).expect(204);
+      await post(delivery("2030-01-01T10:05:00.000Z")).expect(204);
+      await post(delivery("2030-01-01T10:10:00.000Z")).expect(204);
+
+      expect(cityIncidentRepository.upsertActive).toHaveBeenCalledTimes(1);
+      expect(inboundRepository.record).toHaveBeenCalledTimes(1);
+    });
+
+    it("un eventId distinto del mismo incidente si se procesa (cada entrega tiene su id)", async () => {
+      await post(delivery("2030-01-01T10:00:00.000Z")).expect(204);
+      await post({ ...delivery("2030-01-01T10:00:00.000Z"), metadata: { ...delivery("x").metadata, eventId: "evt-gw-2" } }).expect(204);
+
+      expect(cityIncidentRepository.upsertActive).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe("incidentes", () => {
     it("da de alta el incidente activo con su ubicacion y categoria", async () => {
       await post(envelope()).expect(204);
@@ -139,7 +178,8 @@ describe("POST /webhooks/citypass", () => {
         externalId: "rec-1",
         category: "BACHE",
         latitude: -34.6,
-        longitude: -58.4
+        longitude: -58.4,
+        zone: null
       });
       expect(inboundRepository.record).toHaveBeenCalledWith(
         "evt-1",
@@ -147,17 +187,105 @@ describe("POST /webhooks/citypass", () => {
       );
     });
 
-    it("da de alta emergencias usando emergenciaId", async () => {
-      await post(
-        envelope({
-          eventType: "com.citypass.emergencias.EmergenciaCreada",
-          data: { emergenciaId: "emg-7", afectaCirculacion: true, latitud: -34.5, longitud: -58.3, categoria: "INCENDIO" }
-        })
-      ).expect(204);
+    describe("Emergencias (contrato real: barrio, sin coordenadas ni afectaCirculacion)", () => {
+      const CREADA = "com.citypass.emergencias.EmergenciaCreada";
+      const ACTUALIZADA = "com.citypass.emergencias.EmergenciaActualizada";
 
-      expect(cityIncidentRepository.upsertActive).toHaveBeenCalledWith(
-        expect.objectContaining({ source: "EMERGENCIAS", externalId: "emg-7", category: "INCENDIO" })
-      );
+      function emergencia(overrides: Record<string, unknown> = {}) {
+        return {
+          emergenciaId: "emg-7",
+          estado: "ACTIVA",
+          ubicacion: { barrio: "Villa Pueyrredón" },
+          tipo: "INCENDIO",
+          severity: "ALTA",
+          createdAt: "2030-01-01T10:00:00.000Z",
+          updatedAt: "2030-01-01T10:00:00.000Z",
+          ...overrides
+        };
+      }
+
+      it("da de alta por barrio, con tipo como categoria y sin coordenadas", async () => {
+        await post(envelope({ eventType: CREADA, data: emergencia() })).expect(204);
+
+        expect(cityIncidentRepository.upsertActive).toHaveBeenCalledWith({
+          source: "EMERGENCIAS",
+          externalId: "emg-7",
+          category: "INCENDIO",
+          latitude: null,
+          longitude: null,
+          zone: "Villa Pueyrredón"
+        });
+        expect(inboundRepository.record).toHaveBeenCalledWith("evt-1", CREADA);
+      });
+
+      it("no filtra por tipo", async () => {
+        await post(envelope({ eventType: CREADA, data: emergencia({ tipo: "MEDICA" }) })).expect(204);
+
+        expect(cityIncidentRepository.upsertActive).toHaveBeenCalledWith(
+          expect.objectContaining({ category: "MEDICA" })
+        );
+      });
+
+      it.each([
+        ["barrio null", { ubicacion: { barrio: null } }],
+        ["barrio vacio", { ubicacion: { barrio: "  " } }],
+        ["sin ubicacion", { ubicacion: null }],
+        ["sin emergenciaId", { emergenciaId: undefined }]
+      ])("ignora una emergencia con %s", async (_label, overrides) => {
+        await post(envelope({ eventType: CREADA, data: emergencia(overrides) })).expect(204);
+
+        expect(cityIncidentRepository.upsertActive).not.toHaveBeenCalled();
+        expect(inboundRepository.record).not.toHaveBeenCalled();
+      });
+
+      it("no da de alta una emergencia que ya llega en estado terminal", async () => {
+        await post(envelope({ eventType: CREADA, data: emergencia({ estado: "RESUELTA" }) })).expect(204);
+
+        expect(cityIncidentRepository.upsertActive).not.toHaveBeenCalled();
+      });
+
+      it("cierra con data.estado", async () => {
+        await post(
+          envelope({ eventType: ACTUALIZADA, data: emergencia({ estado: "CERRADA" }) })
+        ).expect(204);
+
+        expect(cityIncidentRepository.deactivate).toHaveBeenCalledWith("EMERGENCIAS", "emg-7");
+      });
+
+      it("cierra con data.estadoNuevo si no viene data.estado", async () => {
+        await post(
+          envelope({ eventType: ACTUALIZADA, data: { emergenciaId: "emg-7", estadoNuevo: "RESUELTA" } })
+        ).expect(204);
+
+        expect(cityIncidentRepository.deactivate).toHaveBeenCalledWith("EMERGENCIAS", "emg-7");
+      });
+
+      it("no cierra si data.estado no es terminal", async () => {
+        await post(
+          envelope({ eventType: ACTUALIZADA, data: emergencia({ estado: "EN_CURSO" }) })
+        ).expect(204);
+
+        expect(cityIncidentRepository.deactivate).not.toHaveBeenCalled();
+      });
+
+      it("acepta el sobre con metadata.type sin namespace y lo resuelve al FQN", async () => {
+        await post({
+          metadata: { eventId: "evt-t1", type: "EmergenciaCreada" },
+          data: emergencia()
+        }).expect(204);
+
+        expect(cityIncidentRepository.upsertActive).toHaveBeenCalledWith(
+          expect.objectContaining({ source: "EMERGENCIAS", zone: "Villa Pueyrredón" })
+        );
+        expect(inboundRepository.record).toHaveBeenCalledWith("evt-t1", CREADA);
+      });
+
+      it("ignora un tipo sin namespace que no corresponde a ningun FQN conocido", async () => {
+        await post({ metadata: { eventId: "evt-t2", type: "AlgoDesconocido" }, data: emergencia() }).expect(204);
+
+        expect(cityIncidentRepository.upsertActive).not.toHaveBeenCalled();
+        expect(inboundRepository.record).not.toHaveBeenCalled();
+      });
     });
 
     it("ignora los que no afectan la circulacion o no traen coordenadas", async () => {

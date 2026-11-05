@@ -12,38 +12,66 @@ export type ReceiveGatewayEventOutcome = "processed" | "duplicate" | "ignored";
 export const MOBILITY_RECOMMENDATION_EVENT_TYPE =
   "com.citypass.movilidad.RecomendacionDestinoActualizada";
 
+const EMERGENCY_CLOSING_STATES = ["RESUELTA", "CERRADA", "DESCARTADA", "CANCELADA"] as const;
+
 interface IncidentTypeConfig {
   kind: "created" | "updated";
   source: CityIncidentSource;
   idField: string;
-  /** Solo para "updated": estados (estadoNuevo) que dan el incidente por terminado. */
+  /**
+   * Solo para "created". Reclamos publica coordenadas y afectaCirculacion; Emergencias
+   * solo publica el barrio (data.ubicacion.barrio) y se ubica por zona.
+   */
+  location?: "coordinates" | "zone";
+  /** Estados que dan el incidente por terminado. */
   closingStates?: readonly string[];
+  /** Solo para "updated": campos de data con el estado, en orden de prioridad. */
+  stateFields?: readonly string[];
 }
 
 const INCIDENT_TYPES: Record<string, IncidentTypeConfig> = {
   "com.citypass.reclamos.ReclamoCreado": {
     kind: "created",
     source: "RECLAMOS",
-    idField: "reclamoId"
-  },
-  "com.citypass.emergencias.EmergenciaCreada": {
-    kind: "created",
-    source: "EMERGENCIAS",
-    idField: "emergenciaId"
+    idField: "reclamoId",
+    location: "coordinates"
   },
   "com.citypass.reclamos.ReclamoActualizado": {
     kind: "updated",
     source: "RECLAMOS",
     idField: "reclamoId",
-    closingStates: ["RESUELTO", "RECHAZADO", "CERRADO"]
+    closingStates: ["RESUELTO", "RECHAZADO", "CERRADO"],
+    stateFields: ["estadoNuevo"]
+  },
+  "com.citypass.emergencias.EmergenciaCreada": {
+    kind: "created",
+    source: "EMERGENCIAS",
+    idField: "emergenciaId",
+    location: "zone",
+    closingStates: EMERGENCY_CLOSING_STATES
   },
   "com.citypass.emergencias.EmergenciaActualizada": {
     kind: "updated",
     source: "EMERGENCIAS",
     idField: "emergenciaId",
-    closingStates: ["RESUELTA", "CERRADA", "DESCARTADA", "CANCELADA"]
+    closingStates: EMERGENCY_CLOSING_STATES,
+    // Emergencias manda data.estado; estadoNuevo queda como compatibilidad.
+    stateFields: ["estado", "estadoNuevo"]
   }
 };
+
+/** FQN conocidos, para resolver un tipo que llega sin namespace (ej. "EmergenciaCreada"). */
+const KNOWN_EVENT_TYPES: readonly string[] = [
+  ...Object.keys(INCIDENT_TYPES),
+  MOBILITY_RECOMMENDATION_EVENT_TYPE
+];
+
+// Tópicos a los que este modulo se suscribe en el gateway: son exactamente los tipos que el webhook
+// sabe procesar. scripts/register-subscriptions.ts los da de alta a partir de esta lista.
+export const GATEWAY_SUBSCRIPTION_TOPICS: readonly string[] = [
+  MOBILITY_RECOMMENDATION_EVENT_TYPE,
+  ...Object.keys(INCIDENT_TYPES)
+];
 
 export class ReceiveGatewayEventUseCase {
   constructor(
@@ -120,6 +148,45 @@ export class ReceiveGatewayEventUseCase {
     config: IncidentTypeConfig,
     data: Record<string, unknown>
   ): Promise<boolean> {
+    return config.location === "zone"
+      ? this.processZoneIncidentCreated(config, data)
+      : this.processCoordinateIncidentCreated(config, data);
+  }
+
+  // Emergencias: sin coordenadas ni afectaCirculacion; se ubica por barrio. No se filtra por tipo.
+  private async processZoneIncidentCreated(
+    config: IncidentTypeConfig,
+    data: Record<string, unknown>
+  ): Promise<boolean> {
+    const externalId = readId(data[config.idField]);
+    const ubicacion = asRecord(data.ubicacion);
+    const barrio = ubicacion && isNonEmptyString(ubicacion.barrio) ? ubicacion.barrio.trim() : null;
+
+    if (!externalId || !barrio) {
+      return false;
+    }
+
+    // Puede llegar ya cerrada (por ejemplo, un reintento tardio): no se da de alta.
+    if (config.closingStates?.includes(String(data.estado))) {
+      return false;
+    }
+
+    await this.cityIncidentRepository.upsertActive({
+      source: config.source,
+      externalId,
+      category: isNonEmptyString(data.tipo) ? data.tipo : null,
+      latitude: null,
+      longitude: null,
+      zone: barrio
+    });
+
+    return true;
+  }
+
+  private async processCoordinateIncidentCreated(
+    config: IncidentTypeConfig,
+    data: Record<string, unknown>
+  ): Promise<boolean> {
     const externalId = readId(data[config.idField]);
     const { latitud, longitud } = data;
 
@@ -139,7 +206,8 @@ export class ReceiveGatewayEventUseCase {
       externalId,
       category: isNonEmptyString(data.categoria) ? data.categoria : null,
       latitude: latitud,
-      longitude: longitud
+      longitude: longitud,
+      zone: null
     });
 
     return true;
@@ -150,8 +218,9 @@ export class ReceiveGatewayEventUseCase {
     data: Record<string, unknown>
   ): Promise<boolean> {
     const externalId = readId(data[config.idField]);
+    const state = readState(data, config.stateFields ?? []);
 
-    if (!externalId || !config.closingStates?.includes(String(data.estadoNuevo))) {
+    if (!externalId || !state || !config.closingStates?.includes(state)) {
       return false;
     }
 
@@ -170,11 +239,45 @@ function parseEnvelope(envelope: unknown): {
   const metadata = body ? asRecord(body.metadata) : null;
   const data = body ? asRecord(body.data) : null;
 
-  if (!metadata || !data || !isNonEmptyString(metadata.eventId) || !isNonEmptyString(metadata.eventType)) {
+  // El gateway informa el tipo en metadata.eventType; algunos emisores lo mandan en metadata.type.
+  const rawType = metadata
+    ? isNonEmptyString(metadata.eventType)
+      ? metadata.eventType
+      : isNonEmptyString(metadata.type)
+        ? metadata.type
+        : null
+    : null;
+
+  if (!metadata || !data || !isNonEmptyString(metadata.eventId) || !rawType) {
     throw new ValidationError("El evento recibido no tiene el formato esperado.");
   }
 
-  return { eventId: metadata.eventId, eventType: metadata.eventType, data };
+  return { eventId: metadata.eventId, eventType: resolveEventType(rawType.trim()), data };
+}
+
+/**
+ * Un tipo sin namespace ("EmergenciaCreada") se resuelve al FQN conocido que termina en
+ * ".EmergenciaCreada". Si no hay ninguno, queda tal cual y el evento se ignora.
+ */
+function resolveEventType(type: string): string {
+  if (type.includes(".")) {
+    return type;
+  }
+
+  return KNOWN_EVENT_TYPES.find((fqn) => fqn.endsWith(`.${type}`)) ?? type;
+}
+
+/** Primer campo de estado con texto, en el orden configurado (ej. estado y luego estadoNuevo). */
+function readState(data: Record<string, unknown>, fields: readonly string[]): string | null {
+  for (const field of fields) {
+    const value = data[field];
+
+    if (isNonEmptyString(value)) {
+      return value.trim();
+    }
+  }
+
+  return null;
 }
 
 function parseRecommendation(data: Record<string, unknown>): SaveDestinationRecommendationData | null {

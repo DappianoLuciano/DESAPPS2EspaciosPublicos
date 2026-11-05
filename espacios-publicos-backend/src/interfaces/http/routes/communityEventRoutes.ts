@@ -47,7 +47,7 @@ export function createCommunityEventRoutes(controller: CommunityEventController)
     "/:id/cancel",
     requirePermission(permissions.CANCEL_COMMUNITY_EVENT),
     auditAction(permissions.CANCEL_COMMUNITY_EVENT, "community-event"),
-    allowBodyFields(["reason"]),
+    allowBodyFields(["reason", "causaTipo", "causaId"]),
     asyncHandler(controller.cancel)
   );
   router.get("/", asyncHandler(controller.list));

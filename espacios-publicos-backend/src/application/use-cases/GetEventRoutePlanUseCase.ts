@@ -13,6 +13,23 @@ export const ROUTE_PLAN_INCIDENT_RADIUS_METERS = 1000;
 export const STALE_RECOMMENDATION_MINUTES = 30;
 
 const METERS_PER_DEGREE_LATITUDE = 111_320;
+const INCIDENTS_UNAVAILABLE_WARNING = "No se pudieron consultar los incidentes cercanos.";
+
+/** "Villa Pueyrredón " y "villa pueyrredon" son la misma zona. */
+export function normalizeZone(value: string | null | undefined): string {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+function pushOnce(warnings: string[], warning: string): void {
+  if (!warnings.includes(warning)) {
+    warnings.push(warning);
+  }
+}
 
 export interface RoutePlanInput {
   eventId: string;
@@ -27,12 +44,19 @@ export interface RoutePlan {
     longitude: number;
     address: string;
   };
+  /**
+   * RADIUS: incidente con coordenadas a ROUTE_PLAN_INCIDENT_RADIUS_METERS o menos.
+   * ZONE: incidente sin coordenadas (Emergencias) en el mismo barrio que el espacio;
+   * no tiene ubicacion ni distancia.
+   */
   incidents: Array<{
     source: string;
     category: string | null;
-    latitude: number;
-    longitude: number;
-    distanceMeters: number;
+    latitude: number | null;
+    longitude: number | null;
+    distanceMeters: number | null;
+    zone: string | null;
+    matchedBy: "RADIUS" | "ZONE";
   }>;
   dropoff: {
     stationName: string;
@@ -93,7 +117,7 @@ export class GetEventRoutePlanUseCase {
           : null;
 
     const [incidents, dropoff] = await Promise.all([
-      this.findIncidents(destination, warnings),
+      this.findIncidents(destination, space.zone ?? null, warnings),
       this.findDropoff(eventId, inactiveReason, warnings)
     ]);
 
@@ -122,7 +146,23 @@ export class GetEventRoutePlanUseCase {
     };
   }
 
-  private async findIncidents(destination: RoutePoint, warnings: string[]): Promise<RoutePlan["incidents"]> {
+  private async findIncidents(
+    destination: RoutePoint,
+    zone: string | null,
+    warnings: string[]
+  ): Promise<RoutePlan["incidents"]> {
+    const [byRadius, byZone] = await Promise.all([
+      this.findIncidentsByRadius(destination, warnings),
+      this.findIncidentsByZone(zone, warnings)
+    ]);
+
+    return [...byRadius, ...byZone];
+  }
+
+  private async findIncidentsByRadius(
+    destination: RoutePoint,
+    warnings: string[]
+  ): Promise<RoutePlan["incidents"]> {
     const latitudeDelta = ROUTE_PLAN_INCIDENT_RADIUS_METERS / METERS_PER_DEGREE_LATITUDE;
     const longitudeDelta =
       latitudeDelta / Math.max(Math.cos((destination.latitude * Math.PI) / 180), 0.01);
@@ -136,18 +176,63 @@ export class GetEventRoutePlanUseCase {
       });
 
       return candidates
-        .map((incident) => ({
-          source: incident.source,
-          category: incident.category,
-          latitude: incident.latitude,
-          longitude: incident.longitude,
-          distanceMeters: Math.round(distanceInMeters(destination, incident))
-        }))
-        .filter((incident) => incident.distanceMeters <= ROUTE_PLAN_INCIDENT_RADIUS_METERS)
+        .flatMap((incident) => {
+          if (incident.latitude === null || incident.longitude === null) {
+            return [];
+          }
+
+          const location = { latitude: incident.latitude, longitude: incident.longitude };
+          const distanceMeters = Math.round(distanceInMeters(destination, location));
+
+          return distanceMeters <= ROUTE_PLAN_INCIDENT_RADIUS_METERS
+            ? [
+                {
+                  source: incident.source,
+                  category: incident.category,
+                  ...location,
+                  distanceMeters,
+                  zone: incident.zone ?? null,
+                  matchedBy: "RADIUS" as const
+                }
+              ]
+            : [];
+        })
         .sort((a, b) => a.distanceMeters - b.distanceMeters);
     } catch (error) {
       logger.error({ err: error }, "No se pudieron leer los incidentes activos");
-      warnings.push("No se pudieron consultar los incidentes cercanos.");
+      pushOnce(warnings, INCIDENTS_UNAVAILABLE_WARNING);
+      return [];
+    }
+  }
+
+  // Emergencias solo informa el barrio: se cruzan por zona, sin tildes ni mayusculas.
+  private async findIncidentsByZone(
+    zone: string | null,
+    warnings: string[]
+  ): Promise<RoutePlan["incidents"]> {
+    const spaceZone = normalizeZone(zone);
+
+    if (!spaceZone) {
+      return [];
+    }
+
+    try {
+      const candidates = await this.cityIncidentRepository.findActiveWithoutCoordinatesWithZone();
+
+      return candidates
+        .filter((incident) => normalizeZone(incident.zone) === spaceZone)
+        .map((incident) => ({
+          source: incident.source,
+          category: incident.category,
+          latitude: null,
+          longitude: null,
+          distanceMeters: null,
+          zone: incident.zone,
+          matchedBy: "ZONE" as const
+        }));
+    } catch (error) {
+      logger.error({ err: error }, "No se pudieron leer los incidentes activos por zona");
+      pushOnce(warnings, INCIDENTS_UNAVAILABLE_WARNING);
       return [];
     }
   }
