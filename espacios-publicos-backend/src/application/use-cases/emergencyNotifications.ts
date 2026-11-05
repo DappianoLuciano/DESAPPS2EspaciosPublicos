@@ -6,32 +6,58 @@ import { logger } from "../../shared/logging/logger";
 const EMAIL_BATCH_SIZE = 20;
 
 export type AttendeeSource = Pick<CommunityEventRegistrationRepository, "findByEventId">;
+export type BookingNoun = "reserva" | "inscripción";
+
+export interface EmergencyEmail {
+  subject: string;
+  message: string;
+}
+
+/** El texto cambia segun quien lo recibe: quien reservo o quien se inscribio al evento. */
+export type EmergencyEmailBuilder = (noun: BookingNoun) => EmergencyEmail;
 
 type NotifiableImpact = Pick<
   EmergencyImpactRecord,
-  "organizerEmail" | "organizerName" | "emergenciaId" | "bookingId" | "bookingType"
+  "organizerEmail" | "organizerName" | "emergenciaId" | "bookingId" | "bookingType" | "bookingLabel"
 >;
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`);
 }
 
+function frontendUrl(path: string): string {
+  return `${(process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "")}${path}`;
+}
+
+function emailBody(name: string, label: string, message: string, url: string, linkText: string): string {
+  return [
+    `<p>Hola ${escapeHtml(name)}:</p>`,
+    `<p><strong>${escapeHtml(label)}</strong></p>`,
+    `<p>${escapeHtml(message)}</p>`,
+    `<p><a href="${escapeHtml(url)}">${escapeHtml(linkText)}</a></p>`
+  ].join("");
+}
+
 /** Un mail que falla no frena la emergencia: el aviso queda visible en el backoffice. */
-export async function notifyOrganizer(
+async function notifyOrganizer(
   emailSender: EmailSender,
-  impact: Pick<EmergencyImpactRecord, "organizerEmail" | "organizerName" | "emergenciaId" | "bookingId">,
-  subject: string,
-  message: string
+  impact: NotifiableImpact,
+  build: EmergencyEmailBuilder
 ): Promise<void> {
   if (!impact.organizerEmail) {
     return;
   }
 
+  const { subject, message } = build("reserva");
+  const path = impact.bookingType === "RESERVATION"
+    ? `/reservations/verify/${encodeURIComponent(impact.bookingId)}`
+    : `/event/${encodeURIComponent(impact.bookingId)}`;
+
   try {
     await emailSender.send(
       impact.organizerEmail,
       subject,
-      `<p>Hola ${escapeHtml(impact.organizerName)}:</p><p>${escapeHtml(message)}</p>`
+      emailBody(impact.organizerName, impact.bookingLabel, message, frontendUrl(path), "Ver el detalle")
     );
   } catch (error) {
     logger.warn(
@@ -45,9 +71,10 @@ async function notifyAttendees(
   emailSender: EmailSender,
   attendees: AttendeeSource,
   impact: NotifiableImpact,
-  subject: string,
-  message: string
+  build: EmergencyEmailBuilder
 ): Promise<void> {
+  const { subject, message } = build("inscripción");
+
   try {
     const registrations = await attendees.findByEventId(impact.bookingId);
 
@@ -58,7 +85,7 @@ async function notifyAttendees(
           emailSender.send(
             registration.citizenEmail,
             subject,
-            `<p>Hola ${escapeHtml(registration.citizenName)}:</p><p>${escapeHtml(message)}</p>`
+            emailBody(registration.citizenName, impact.bookingLabel, message, frontendUrl("/reservations"), "Ver Mis Reservas")
           )
         )
       );
@@ -78,12 +105,11 @@ export async function notifyImpact(
   emailSender: EmailSender,
   attendees: AttendeeSource,
   impact: NotifiableImpact,
-  subject: string,
-  message: string
+  build: EmergencyEmailBuilder
 ): Promise<void> {
-  await notifyOrganizer(emailSender, impact, subject, message);
+  await notifyOrganizer(emailSender, impact, build);
 
   if (impact.bookingType === "COMMUNITY_EVENT") {
-    await notifyAttendees(emailSender, attendees, impact, subject, message);
+    await notifyAttendees(emailSender, attendees, impact, build);
   }
 }

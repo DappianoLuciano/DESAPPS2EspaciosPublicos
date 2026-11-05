@@ -22,6 +22,7 @@ function toImpacts(emergenciaId: string, { space, reservations, events }: Nearby
       bookingType: "RESERVATION",
       bookingId: reservation.id,
       publicSpaceId: space.id,
+      bookingLabel: `Reserva en ${space.name}`,
       startDate: reservation.startDate,
       endDate: reservation.endDate,
       organizerName: reservation.requesterName,
@@ -32,6 +33,7 @@ function toImpacts(emergenciaId: string, { space, reservations, events }: Nearby
       bookingType: "COMMUNITY_EVENT",
       bookingId: event.id,
       publicSpaceId: space.id,
+      bookingLabel: `${event.title}, ${space.name}`,
       startDate: event.startDate,
       endDate: event.endDate,
       organizerName: event.organizerName,
@@ -78,8 +80,10 @@ export class HandleEmergencyCreatedUseCase {
           this.emailSender,
           this.attendees,
           impact,
-          "Tu reserva fue suspendida por una emergencia cercana",
-          "Hubo una emergencia cerca del espacio reservado y suspendimos la reserva. Te avisamos cuando se resuelva."
+          (noun) => ({
+            subject: `Tu ${noun} fue suspendida por una emergencia cercana`,
+            message: `Hubo una emergencia cerca del espacio y suspendimos tu ${noun}. Te avisamos cuando se resuelva.`
+          })
         );
       }
     }

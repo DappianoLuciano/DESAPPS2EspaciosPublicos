@@ -17,6 +17,7 @@ CREATE TABLE "emergency_booking_impacts" (
   "bookingType" TEXT NOT NULL,
   "bookingId" TEXT NOT NULL,
   "publicSpaceId" TEXT NOT NULL,
+  "bookingLabel" TEXT NOT NULL,
   "startDate" TIMESTAMP(3) NOT NULL,
   "endDate" TIMESTAMP(3) NOT NULL,
   "status" TEXT NOT NULL,

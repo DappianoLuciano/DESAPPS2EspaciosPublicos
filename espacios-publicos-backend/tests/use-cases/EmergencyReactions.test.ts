@@ -280,7 +280,7 @@ describe("CU-01: al resolverse la emergencia", () => {
 });
 
 describe("CU-01: avisos a inscriptos", () => {
-  const event = { id: "evento-1", organizerName: "Cultura", startDate: hours(1), endDate: hours(3) } as CommunityEvent;
+  const event = { id: "evento-1", title: "Festival", organizerName: "Cultura", startDate: hours(1), endDate: hours(3) } as CommunityEvent;
   const inscriptos = [
     { citizenName: "Ana <b>", citizenEmail: "ana@test.com" },
     { citizenName: "Beto", citizenEmail: "beto@test.com" }
@@ -296,6 +296,30 @@ describe("CU-01: avisos a inscriptos", () => {
     const recipients = emailSender.send.mock.calls.map(([to]) => to);
     expect(recipients).toEqual(["ana@test.com", "beto@test.com", "ana@test.com", "beto@test.com"]);
     expect(emailSender.send.mock.calls[0][2]).not.toContain("<b>");
+  });
+
+  it("nombra el evento y el lugar, habla de inscripcion y enlaza a Mis Reservas", async () => {
+    const { created: createdHandler, emailSender, attendees } = setup([space()], [], [event]);
+    attendees.findByEventId.mockResolvedValue(inscriptos);
+
+    await createdHandler.execute(created);
+
+    const [, subject, html] = emailSender.send.mock.calls[0];
+    expect(subject).toBe("Tu inscripción fue suspendida por una emergencia cercana");
+    expect(html).toContain("Festival, Plaza");
+    expect(html).toContain("/reservations");
+  });
+
+  it("a quien reservo un espacio le habla de reserva y nombra el lugar", async () => {
+    const { created: createdHandler, emailSender } = setup();
+
+    await createdHandler.execute(created);
+
+    const [to, subject, html] = emailSender.send.mock.calls[0];
+    expect(to).toBe("org@test.com");
+    expect(subject).toBe("Tu reserva fue suspendida por una emergencia cercana");
+    expect(html).toContain("Reserva en Plaza");
+    expect(html).toContain("/reservations/verify/res-1");
   });
 
   it("no busca inscriptos para una reserva de espacio", async () => {

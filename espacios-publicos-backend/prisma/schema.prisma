@@ -307,6 +307,7 @@ model EmergencyBookingImpact {
   bookingType    String // RESERVATION | COMMUNITY_EVENT
   bookingId      String
   publicSpaceId  String
+  bookingLabel   String
   startDate      DateTime
   endDate        DateTime
   status         String // SUSPENDIDA | CONFIRMADA | REPROGRAMADA | A_REPROGRAMAR

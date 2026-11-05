@@ -22,10 +22,10 @@ function releaseStatus(impact: EmergencyImpactRecord, now: Date): ImpactRelease[
   return impact.endDate > now ? "CONFIRMADA" : "A_REPROGRAMAR";
 }
 
-const RELEASE_MESSAGES: Record<ImpactRelease["status"], string> = {
-  CONFIRMADA: "La emergencia se resolvio y tu reserva quedo confirmada en el horario original.",
-  REPROGRAMADA: "La emergencia se resolvio y tu reserva sigue en el nuevo horario.",
-  A_REPROGRAMAR: "La emergencia se resolvio, pero el horario ya paso. Vamos a contactarte para reprogramarla."
+const RELEASE_MESSAGES: Record<ImpactRelease["status"], (noun: string) => string> = {
+  CONFIRMADA: (noun) => `La emergencia se resolvió y tu ${noun} quedó confirmada en el horario original.`,
+  REPROGRAMADA: (noun) => `La emergencia se resolvió y tu ${noun} sigue en el nuevo horario.`,
+  A_REPROGRAMAR: () => "La emergencia se resolvió, pero el horario ya pasó. Vamos a contactarte para reprogramarla."
 };
 
 /** CU-01: libera lo afectado (A10) y, si la causa es el espacio publico, registra la problematica (A6). */
@@ -96,8 +96,10 @@ export class HandleEmergencyResolvedUseCase {
           this.emailSender,
           this.attendees,
           impact,
-          "Novedades de tu reserva",
-          RELEASE_MESSAGES[releases[index].status]
+          (noun) => ({
+            subject: `Novedades de tu ${noun}`,
+            message: RELEASE_MESSAGES[releases[index].status](noun)
+          })
         );
       }
     }

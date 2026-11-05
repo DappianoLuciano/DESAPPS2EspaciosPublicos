@@ -12,6 +12,7 @@ function impact(overrides: Partial<EmergencyImpactRecord> = {}): EmergencyImpact
     bookingType: "RESERVATION",
     bookingId: "res-1",
     publicSpaceId: "plaza",
+    bookingLabel: "Reserva en Plaza",
     startDate: new Date(),
     endDate: new Date(),
     status: "A_REPROGRAMAR",

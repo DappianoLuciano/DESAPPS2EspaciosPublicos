@@ -91,8 +91,10 @@ export class RescheduleAffectedBookingUseCase {
       this.emailSender,
       this.registrations,
       updated,
-      "Tu reserva fue reprogramada",
-      `El nuevo horario es del ${formatLocalDate(startDate)} al ${formatLocalDate(endDate)}.`
+      (noun) => ({
+        subject: `Tu ${noun} fue reprogramada`,
+        message: `El nuevo horario es del ${formatLocalDate(startDate)} al ${formatLocalDate(endDate)}.`
+      })
     );
 
     return updated;

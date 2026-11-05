@@ -20,6 +20,7 @@ export interface EmergencyImpactRecord {
   bookingType: EmergencyBookingType;
   bookingId: string;
   publicSpaceId: string;
+  bookingLabel: string;
   startDate: Date;
   endDate: Date;
   status: EmergencyImpactStatus;
@@ -37,6 +38,7 @@ export type CreateEmergencyImpactData = Pick<
   | "bookingType"
   | "bookingId"
   | "publicSpaceId"
+  | "bookingLabel"
   | "startDate"
   | "endDate"
   | "organizerName"
