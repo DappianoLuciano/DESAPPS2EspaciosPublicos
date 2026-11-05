@@ -477,6 +477,8 @@ describe("CU-01 en el webhook", () => {
       cityIncidents,
       { findByEventId: jest.fn(), saveIfNewer: jest.fn() },
       { findById: jest.fn() },
+      undefined,
+      undefined,
       reactions
     );
 

@@ -1,4 +1,4 @@
-import { PublicSpace } from "../../domain/entities/PublicSpace";
+import { PUBLIC_SPACE_CATEGORIES, PublicSpace } from "../../domain/entities/PublicSpace";
 import { PublicSpaceRepository } from "../../domain/repositories/PublicSpaceRepository";
 import { ValidationError } from "../../shared/errors/ValidationError";
 import {
@@ -30,6 +30,10 @@ export class CreatePublicSpaceUseCase {
       throw new ValidationError("El tipo de exposicion del espacio publico no es valido.");
     }
 
+    if (input.category !== undefined && input.category !== null && !PUBLIC_SPACE_CATEGORIES.includes(input.category)) {
+      throw new ValidationError("La categoria del espacio publico no es valida.");
+    }
+
     return this.publicSpaceRepository.create({
       name,
       description,
@@ -39,6 +43,7 @@ export class CreatePublicSpaceUseCase {
       ...coordinates,
       status: input.status,
       exposure: input.exposure,
+      category: input.category,
       imageUrl
     });
   }

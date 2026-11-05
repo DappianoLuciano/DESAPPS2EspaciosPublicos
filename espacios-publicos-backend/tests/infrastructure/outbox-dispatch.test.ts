@@ -19,6 +19,7 @@ const ESPACIOS_FQNS = [
   "com.citypass.espacios.ActividadModificada",
   "com.citypass.espacios.EventoCancelado",
   "com.citypass.espacios.EspacioEstadoCambiado",
+  "com.citypass.espacios.EspacioPublicoAfectado",
   "com.citypass.espacios.ReservaConfirmada",
   "com.citypass.espacios.ReservaAfectada",
   "com.citypass.espacios.EspacioLiberado",
@@ -89,7 +90,7 @@ describe("outbox: eventos que se despachan al gateway", () => {
       { publish: async (event) => void sent.push(event.name) }
     ).execute();
 
-    expect(result).toEqual({ processed: events.length, published: events.length, failed: 0 });
+    expect(result).toEqual({ processed: ESPACIOS_FQNS.length, published: ESPACIOS_FQNS.length, failed: 0 });
     expect(sent).toEqual(ESPACIOS_FQNS);
     expect(published).toEqual(events.map((event) => event.id));
   });

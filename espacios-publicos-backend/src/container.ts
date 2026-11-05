@@ -1,3 +1,4 @@
+import { PublicSpaceAffectedPublisher } from "./application/events/publicSpaceAffected";
 import { CancelCommunityEventRegistrationUseCase } from "./application/use-cases/CancelCommunityEventRegistrationUseCase";
 import { ChangeCommunityEventSuspensionUseCase } from "./application/use-cases/ChangeCommunityEventSuspensionUseCase";
 import { PrismaWeatherRestrictionRepository } from "./infrastructure/database/PrismaWeatherRestrictionRepository";
@@ -87,13 +88,14 @@ export function createContainer() {
   const communityEventRegistrationRepository = new PrismaCommunityEventRegistrationRepository();
   const eventOutboxRepository = new PrismaEventOutboxRepository();
   const weatherAlertRepository = new PrismaWeatherAlertRepository();
-  const weatherRestrictions = new PrismaWeatherRestrictionRepository();
   // EVENT_BUS_DRIVER=console deja los eventos en el log (desarrollo local); citypass los publica
   // en el gateway. Los casos de uso guardan el evento en el outbox y lo publican por este bus,
   // que ademas deja el estado del registro al dia y reintenta desde el outbox si el gateway falla.
   const baseEventBus = createEventBus();
   const weatherEventBus = baseEventBus;
   const eventBus = new OutboxTrackingEventBus(baseEventBus, eventOutboxRepository);
+  const publicSpaceAffectedPublisher = new PublicSpaceAffectedPublisher(eventOutboxRepository, eventBus);
+  const weatherRestrictions = new PrismaWeatherRestrictionRepository(publicSpaceAffectedPublisher);
   const storageService = new SupabaseStorageService();
   const qrGenerator = new NodeQrGenerator();
   const emailSender = new NodemailerEmailSender();
@@ -110,7 +112,8 @@ export function createContainer() {
   const updatePublicSpaceUseCase = new UpdatePublicSpaceUseCase(
     publicSpaceRepository,
     eventOutboxRepository,
-    eventBus
+    eventBus,
+    publicSpaceAffectedPublisher
   );
   const deletePublicSpaceUseCase = new DeletePublicSpaceUseCase(publicSpaceRepository);
 
@@ -196,6 +199,8 @@ export function createContainer() {
     cityIncidentRepository,
     destinationRecommendationRepository,
     communityEventRepository,
+    publicSpaceRepository,
+    publicSpaceAffectedPublisher,
     {
       onCreated: (emergency) => handleEmergencyCreatedUseCase.execute(emergency),
       onResolved: (emergency) => handleEmergencyResolvedUseCase.execute(emergency)

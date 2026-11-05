@@ -121,6 +121,20 @@ const spacesDefinitions: EventTypeDefinition[] = [
     { name: "longitud", type: nullable("double"), default: null },
     { name: "cambiadoEn", type: "string", doc: "ISO 8601" }
   ]),
+  record("EspacioPublicoAfectado", "Pedido por Analitica: un espacio publico quedo cerrado, restringido o con uso parcial.", [
+    { name: "afectacionId", type: "string", doc: "UUID" },
+    { name: "espacioId", type: "string" },
+    { name: "categoria", type: nullable("string"), default: null, doc: "PLAZA | SALON | CANCHA | AUDITORIO; null si el espacio no la tiene cargada" },
+    { name: "latitud", type: nullable("double"), default: null },
+    { name: "longitud", type: nullable("double"), default: null },
+    { name: "tipoAfectacion", type: "string", doc: "CERRADO | USO_PARCIAL | ACCESO_RESTRINGIDO" },
+    { name: "afectacionDesde", type: { type: "long", logicalType: "timestamp-millis" } },
+    { name: "afectacionHastaEstimada", type: ["null", { type: "long", logicalType: "timestamp-millis" }], default: null },
+    { name: "causaId", type: nullable("string"), default: null },
+    { name: "causaTipo", type: nullable("string"), default: null, doc: "EVENTO_CLIMATICO | RECLAMO | INCIDENTE_VIAL" },
+    { name: "correlationId", type: "string", doc: "afectacion-<afectacionId>" },
+    { name: "occurredAt", type: { type: "long", logicalType: "timestamp-millis" } }
+  ]),
   record("ReservaConfirmada", "Se confirmo la reserva de un espacio o la inscripcion a un evento.", [
     { name: "reservaId", type: "string" },
     { name: "tipoReserva", type: "string", doc: "EVENTO | ESPACIO" },
@@ -187,6 +201,7 @@ async function main() {
     ActividadModificada: "ACTIVITY_MODIFIED_EVENT_FQN",
     EventoCancelado: "COMMUNITY_EVENT_CANCELLED_EVENT_FQN",
     EspacioEstadoCambiado: "PUBLIC_SPACE_STATUS_CHANGED_EVENT_FQN",
+    EspacioPublicoAfectado: "PUBLIC_SPACE_AFFECTED_EVENT_FQN",
     ReservaConfirmada: "RESERVATION_CONFIRMED_EVENT_FQN",
     ReservaAfectada: "RESERVATION_AFFECTED_EVENT_FQN",
     EspacioLiberado: "SPACE_RELEASED_EVENT_FQN",

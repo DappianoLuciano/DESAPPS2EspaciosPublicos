@@ -5,9 +5,22 @@ describe("registro unificado de contratos EDA", () => {
     expect(definitions.map(item => item.name)).toEqual([
       "CriticidadClimaticaConfirmada", "CriticidadClimaticaFinalizada",
       "EventoComunitarioPublicado", "ActividadCreada", "ActividadModificada", "EventoCancelado",
-      "EspacioEstadoCambiado", "ReservaConfirmada",
+      "EspacioEstadoCambiado", "EspacioPublicoAfectado", "ReservaConfirmada",
       "ReservaAfectada", "EspacioLiberado", "ProblematicaRegistrada"
     ]);
+  });
+
+  it("registra EspacioPublicoAfectado con el contrato pedido por Analitica", () => {
+    const afectado = definitions.find(item => item.name === "EspacioPublicoAfectado")!;
+    expect(afectado.namespace).toBe("com.citypass.espacios");
+    expect(afectado.fields.map(field => field.name)).toEqual([
+      "afectacionId", "espacioId", "categoria", "latitud", "longitud", "tipoAfectacion", "afectacionDesde",
+      "afectacionHastaEstimada", "causaId", "causaTipo", "correlationId", "occurredAt"
+    ]);
+    expect(afectado.fields).toContainEqual({
+      name: "afectacionHastaEstimada", type: ["null", { type: "long", logicalType: "timestamp-millis" }], default: null
+    });
+    expect(afectado.fields).toContainEqual({ name: "occurredAt", type: { type: "long", logicalType: "timestamp-millis" } });
   });
 
   it("conserva los campos de los cuatro contratos de main", () => {
