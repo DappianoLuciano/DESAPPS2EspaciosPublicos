@@ -110,6 +110,8 @@ export class GetEventRoutePlanUseCase {
     const inactiveReason =
       communityEvent.status === "CANCELLED"
         ? "El evento fue cancelado."
+        : communityEvent.status === "SUSPENDED"
+          ? "El evento está suspendido temporalmente."
         : space.status === "DISABLED"
           ? "El espacio no esta habilitado."
           : null;

@@ -29,7 +29,8 @@ export class ListCommunityEventsUseCase {
       zone,
       date,
       availableOnly: input.availableOnly,
-      upcomingOnly: input.upcomingOnly
+      upcomingOnly: input.upcomingOnly,
+      includeUnavailable: true
     });
 
     if (items.length === 0) {

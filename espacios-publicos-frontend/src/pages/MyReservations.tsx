@@ -1,4 +1,6 @@
 import { Alert, Badge, Box, Button, Card, Container, Flex, Image, Loader, SimpleGrid, Text, Title } from '@mantine/core';
+import EventAvailabilityNotice from '../components/EventAvailabilityNotice';
+import { eventAvailability } from '../lib/eventAvailability';
 import { IconAlertTriangle, IconCalendarEvent, IconCheck, IconHistory, IconMapPin, IconPlayerPlay } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -29,6 +31,8 @@ export default function MyReservations() {
   }, [user?.email]);
 
   const getStatus = (reservation: CitizenCommunityEventRegistration) => {
+    const availability = eventAvailability(reservation.communityEvent);
+    if (availability.unavailable) return { label: availability.label!, color: 'gray', icon: IconHistory, opacity: 1 };
     const now = new Date();
     const startDate = new Date(reservation.communityEvent.startDate);
     const endDate = new Date(reservation.communityEvent.endDate);
@@ -112,6 +116,7 @@ export default function MyReservations() {
                   alt={`Imagen de ${event.title}`}
                   h={180}
                   fit="cover"
+                  style={eventAvailability(event).imageStyle}
                 />
                 <Badge 
                   color={status.color} 
@@ -135,6 +140,7 @@ export default function MyReservations() {
               <Title order={3} fz={20} mb="sm" lineClamp={2} style={{ minHeight: 56 }}>
                 {event.title}
               </Title>
+              <Box mb="md"><EventAvailabilityNotice event={event} /></Box>
 
               <Flex align="flex-start" gap="xs" c="dimmed" mb="xl">
                 <IconMapPin size="1.2rem" style={{ flexShrink: 0 }} />

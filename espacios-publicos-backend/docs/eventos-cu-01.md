@@ -71,8 +71,8 @@ con un mail individual. Un envio que falla se loguea y no frena la emergencia ni
 - El documento dice que Espacios "registra y deriva" la problematica, pero no define a quien. Hoy se registra,
   se publica `ProblematicaRegistrada` y se ve en el backoffice; no hay una accion de derivar.
 - La suspension vive en `emergency_booking_impacts`: `Reservation.status` y `CommunityEvent.status` no
-  cambian. Un evento afectado muestra el aviso, pero sigue aceptando inscripciones; `SUSPENDED` llega con el
-  PR #36.
+  cambian. Un evento afectado muestra el aviso, pero sigue aceptando inscripciones; falta unirlo al estado
+  `SUSPENDED` que ya existe para el clima.
 - Una emergencia no bloquea reservas nuevas en el espacio.
 - Los eventos comunitarios no guardan el mail del organizador: el aviso va a
   `EMERGENCY_NOTIFICATIONS_EMAIL`, si esta definido, y siempre se ve en el backoffice.

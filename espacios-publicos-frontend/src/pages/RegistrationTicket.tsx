@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import EventAvailabilityNotice from '../components/EventAvailabilityNotice';
+import { eventAvailability } from '../lib/eventAvailability';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Container, Card, Title, Text, Badge, Loader, Center, Group, Button, Stack, ThemeIcon, Image } from '@mantine/core';
 import { IconAlertTriangle, IconArrowLeft, IconDownload, IconCheck, IconX, IconCalendar, IconUser, IconMapPin } from '@tabler/icons-react';
@@ -85,7 +87,7 @@ export default function RegistrationTicket() {
   }
 
   const event = registration.communityEvent;
-  const isValid = event.status !== 'CANCELLED' && new Date(event.endDate) >= new Date();
+  const isValid = !eventAvailability(event).unavailable && new Date(event.endDate) >= new Date();
   const notice = notices.get(event.id);
   const isOnHold = isValid && (notice?.status === 'SUSPENDIDA' || notice?.status === 'A_REPROGRAMAR');
   const badge = isOnHold
@@ -118,15 +120,14 @@ export default function RegistrationTicket() {
             </Badge>
           </Stack>
 
+          <EventAvailabilityNotice event={event} />
           <EmergencyNotice notice={notice} />
 
-          {qrCode && (
+          {qrCode && isValid && !isOnHold && (
             <Stack align="center" gap={4}>
               <Image src={qrCode} alt="Código QR de la inscripción" w={160} h={160} />
               <Text size="xs" c="dimmed" ta="center">
-                {isOnHold
-                  ? 'Este código QR no es válido mientras dure la suspensión.'
-                  : 'Presentá este código QR al momento de asistir.'}
+                Presentá este código QR al momento de asistir.
               </Text>
             </Stack>
           )}
@@ -159,7 +160,7 @@ export default function RegistrationTicket() {
               size="xs"
               leftSection={<IconDownload size={14} />}
               loading={downloading}
-              disabled={isOnHold}
+              disabled={!isValid || isOnHold}
               onClick={async () => {
                 setDownloading(true);
                 try {

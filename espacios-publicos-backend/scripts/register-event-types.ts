@@ -78,7 +78,9 @@ const spacesDefinitions: EventTypeDefinition[] = [
     { name: "correlationId", type: "string", doc: "evento-<eventoId>" }
   ]),
   record("ActividadCreada", "E1 squad 3: se creo una actividad (evento comunitario) en un espacio publico.", [
-    { name: "correlationId", type: "string", doc: "act-<actividadId>" },
+    // Opcional: el contrato ya estaba registrado sin este campo y un campo obligatorio sin default
+    // no es una evolucion compatible. El codigo lo manda siempre.
+    { name: "correlationId", type: nullable("string"), default: null, doc: "act-<actividadId>" },
     { name: "actividadId", type: "string" },
     { name: "titulo", type: "string" },
     { name: "estado", type: "string", doc: "Siempre PROGRAMADA" },

@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { listCommunityEvents } from '../lib/api';
 import type { CommunityEventCatalogItem } from '../lib/api';
+import DashboardWeatherAlerts from '../components/DashboardWeatherAlerts';
 
 export default function AdminDashboard() {
   const [events, setEvents] = useState<CommunityEventCatalogItem[]>([]);
@@ -63,6 +64,8 @@ export default function AdminDashboard() {
           {error}
         </Alert>
       )}
+
+      <DashboardWeatherAlerts />
 
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg" mb={40}>
         <Card shadow="sm" radius="md" withBorder p="xl">

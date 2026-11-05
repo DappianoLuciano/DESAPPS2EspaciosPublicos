@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { ChangeCommunityEventSuspensionUseCase } from "../../src/application/use-cases/ChangeCommunityEventSuspensionUseCase";
 import { GetCommunityEventUseCase } from "../../src/application/use-cases/GetCommunityEventUseCase";
 import { ListCitizenCommunityEventRegistrationsUseCase } from "../../src/application/use-cases/ListCitizenCommunityEventRegistrationsUseCase";
 import { ListCommunityEventRegistrationsUseCase } from "../../src/application/use-cases/ListCommunityEventRegistrationsUseCase";
@@ -72,7 +73,8 @@ describe("identidad mock en operaciones ciudadanas", () => {
       {} as ListCitizenCommunityEventRegistrationsUseCase,
       {} as CancelCommunityEventRegistrationUseCase,
       {} as GetCommunityEventRegistrationUseCase,
-      {} as CancelCommunityEventUseCase
+      {} as CancelCommunityEventUseCase,
+      {} as ChangeCommunityEventSuspensionUseCase
     );
     const request = {
       user: citizen,

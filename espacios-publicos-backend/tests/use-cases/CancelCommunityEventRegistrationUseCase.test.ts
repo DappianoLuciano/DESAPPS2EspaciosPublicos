@@ -124,8 +124,17 @@ describe("cancelacion de inscripciones propias", () => {
 
     await useCase.execute("registration-1", "propietario@example.com");
 
-    expect(updateStatus).toHaveBeenCalledWith("event-1", "ACTIVE");
+    expect(updateStatus).toHaveBeenCalledWith("event-1", "ACTIVE", undefined, "ACTIVE_FULL");
     expect(bus[0].payload).toEqual(expect.objectContaining({ estado: "ACTIVE", inscriptos: 1 }));
+  });
+
+  it("dar de baja una inscripción no reanuda un evento suspendido", async () => {
+    const { useCase, deleteById, updateStatus } = setup("SUSPENDED", 0);
+
+    await useCase.execute("registration-1", "propietario@example.com");
+
+    expect(deleteById).toHaveBeenCalled();
+    expect(updateStatus).not.toHaveBeenCalled();
   });
 
   it("no republica un evento cancelado", async () => {

@@ -15,6 +15,7 @@ const CAUSE_TYPES: readonly unknown[] = ["EVENTO_CLIMATICO", "RECLAMO", "INCIDEN
 const ACTIVITY_STATES: Record<CommunityEventStatus, string> = {
   ACTIVE: "PROGRAMADA",
   ACTIVE_FULL: "PROGRAMADA",
+  SUSPENDED: "SUSPENDIDA",
   CANCELLED: "CANCELADA"
 };
 
@@ -85,7 +86,9 @@ export class CancelCommunityEventUseCase {
       throw new ValidationError("El evento ya termino y no puede cancelarse.");
     }
 
-    const cancelled = await this.communityEventRepository.updateStatus(communityEventId, "CANCELLED");
+    const cancelled = await this.communityEventRepository.updateStatus(
+      communityEventId, "CANCELLED", cancellationReason, communityEvent.status
+    );
     const cancelledAt = new Date();
 
     const event: DomainEvent = {

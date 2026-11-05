@@ -32,6 +32,21 @@ describe("politica de autorizacion", () => {
       .expect(403);
   });
 
+  it.each(["suspend", "resume"])("protege %s con permisos administrativos", async action => {
+    await request(createApp()).patch(`/api/community-events/event-1/${action}`)
+      .set(citizenHeaders()).send({ reason: "Clima" }).expect(403);
+    await request(createApp()).patch(`/api/community-events/event-1/${action}`)
+      .send({}).expect(401);
+  });
+
+  it.each(["restrictions", "restrictions/release"])("protege medidas de alerta: %s", async path => {
+    await request(createApp()).post(`/api/admin/weather-alerts/a1/${path}`).set(citizenHeaders()).send({}).expect(403);
+    await request(createApp()).post(`/api/admin/weather-alerts/a1/${path}`).send({}).expect(401);
+  });
+  it("protege la consulta de actividades afectadas", async () => {
+    await request(createApp()).get('/api/admin/weather-alerts/a1/impact').set(citizenHeaders()).expect(403);
+  });
+
   it("rechaza con 401 la cancelacion de un evento sin identidad", async () => {
     await request(createApp()).patch("/api/community-events/event-1/cancel").send({}).expect(401);
   });

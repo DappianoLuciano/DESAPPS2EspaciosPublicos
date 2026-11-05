@@ -31,6 +31,11 @@ describe("registro unificado de contratos EDA", () => {
     expect(actividad.fields).toContainEqual({ name: "actorSub", type: ["null", "string"], default: null });
   });
 
+  it("agrega correlationId a ActividadCreada como opcional, para ser compatible con el contrato registrado", () => {
+    const actividad = definitions.find(item => item.name === "ActividadCreada")!;
+    expect(actividad.fields[0]).toEqual({ name: "correlationId", type: ["null", "string"], default: null, doc: "act-<actividadId>" });
+  });
+
   it("agrega categoria a ActividadCreada como opcional, para ser compatible hacia atras", () => {
     const actividad = definitions.find(item => item.name === "ActividadCreada")!;
     expect(actividad.fields.at(-1)).toEqual({ name: "categoria", type: ["null", "string"], default: null });
