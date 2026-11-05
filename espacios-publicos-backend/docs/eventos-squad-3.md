@@ -30,6 +30,10 @@ bus, asi que los reintentos los maneja el outbox (ver `eventos-cu-int-01.md`).
 - La ubicacion siempre esta: el use case ya rechaza espacios sin coordenadas.
 - El contrato se registra en el gateway con `npm run eda:register-events`. Para sumar `categoria` a un
   contrato ya registrado hace falta `--update-compatible` (ver `eventos-analitica.md`).
+- Registrado el 05/11/2026: el gateway tomo el cambio como breaking y creo la **version 2**
+  (schemaId 61, topico `com.citypass.espacios.ActividadCreada.v2`). La v1 (schemaId 60, topico
+  `com.citypass.espacios.ActividadCreada`) no tenia suscripciones. Quien consuma `ActividadCreada`
+  tiene que suscribirse a la v2.
 
 ## Demo
 
