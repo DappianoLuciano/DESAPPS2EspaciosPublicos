@@ -12,7 +12,7 @@ bus, asi que los reintentos los maneja el outbox (ver `eventos-cu-int-01.md`).
 
 | Campo | Tipo Avro | Origen |
 | --- | --- | --- |
-| `correlationId` | `string` | `"act-" + actividadId` |
+| `correlationId` | `["null","string"]`, default `null` | `"act-" + actividadId` (siempre se envia; es opcional en el esquema porque se agrego despues de registrar el contrato) |
 | `actividadId` | `string` | id del evento comunitario |
 | `titulo` | `string` | titulo del evento |
 | `estado` | `string` | siempre `"PROGRAMADA"` |
