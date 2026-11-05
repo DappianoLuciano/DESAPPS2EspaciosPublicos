@@ -1,3 +1,4 @@
+import { CommunityEventSnapshotPublisher } from "./application/events/communityEventPublished";
 import { PublicSpaceAffectedPublisher } from "./application/events/publicSpaceAffected";
 import { CancelCommunityEventRegistrationUseCase } from "./application/use-cases/CancelCommunityEventRegistrationUseCase";
 import { ChangeCommunityEventSuspensionUseCase } from "./application/use-cases/ChangeCommunityEventSuspensionUseCase";
@@ -88,7 +89,14 @@ export function createContainer() {
   const weatherEventBus = baseEventBus;
   const eventBus = new OutboxTrackingEventBus(baseEventBus, eventOutboxRepository);
   const publicSpaceAffectedPublisher = new PublicSpaceAffectedPublisher(eventOutboxRepository, eventBus);
-  const weatherRestrictions = new PrismaWeatherRestrictionRepository(publicSpaceAffectedPublisher);
+  const communityEventSnapshotPublisher = new CommunityEventSnapshotPublisher(
+    communityEventRepository,
+    publicSpaceRepository,
+    communityEventRegistrationRepository,
+    eventOutboxRepository,
+    eventBus
+  );
+  const weatherRestrictions = new PrismaWeatherRestrictionRepository(publicSpaceAffectedPublisher, communityEventSnapshotPublisher);
   const storageService = new SupabaseStorageService();
   const qrGenerator = new NodeQrGenerator();
   const emailSender = new NodemailerEmailSender();
@@ -258,7 +266,12 @@ export function createContainer() {
       cancelCommunityEventRegistrationUseCase,
       getCommunityEventRegistrationUseCase,
       cancelCommunityEventUseCase,
-      new ChangeCommunityEventSuspensionUseCase(communityEventRepository, communityEventRegistrationRepository, publicSpaceRepository)
+      new ChangeCommunityEventSuspensionUseCase(
+        communityEventRepository,
+        communityEventRegistrationRepository,
+        publicSpaceRepository,
+        communityEventSnapshotPublisher
+      )
     ),
     routePlanController: new RoutePlanController(getEventRoutePlanUseCase),
     gatewayWebhookController: new GatewayWebhookController(receiveGatewayEventUseCase),

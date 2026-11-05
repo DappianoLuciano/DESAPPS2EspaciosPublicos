@@ -42,7 +42,7 @@ datos personales (ni mails ni nombres).
 
 | FQN (variable de entorno) | Se publica al | Campos |
 | --- | --- | --- |
-| `com.citypass.espacios.EventoComunitarioPublicado` (`COMMUNITY_EVENT_PUBLISHED_EVENT_FQN`) | crear el evento y cada vez que cambian inscriptos o estado (inscripcion, baja) | `eventoId`, `espacioId`, `titulo`, `zona?`, `direccion?`, `latitud?`, `longitud?`, `inicio`, `fin`, `capacidad`, `cupoMaximo` (= `capacidad`), `inscriptos` (total actual), `estado` (`ACTIVE`/`ACTIVE_FULL`/`CANCELLED`), `categoria`, `correlationId` (`evento-<eventoId>`) |
+| `com.citypass.espacios.EventoComunitarioPublicado` (`COMMUNITY_EVENT_PUBLISHED_EVENT_FQN`) | crear el evento y cada vez que cambian inscriptos o estado (inscripcion, baja, suspension, reanudacion) | `eventoId`, `espacioId`, `titulo`, `zona?`, `direccion?`, `latitud?`, `longitud?`, `inicio`, `fin`, `capacidad`, `cupoMaximo` (= `capacidad`), `inscriptos` (total actual), `estado` (`ACTIVE`/`ACTIVE_FULL`/`SUSPENDED`; el schema registrado documenta `CANCELLED`, que en la practica no sale porque la cancelacion publica `EventoCancelado`), `categoria`, `correlationId` (`evento-<eventoId>`) |
 | `com.citypass.espacios.EventoCancelado` (`COMMUNITY_EVENT_CANCELLED_EVENT_FQN`) | `PATCH /api/community-events/:id/cancel` | `eventoId`, `espacioId`, `motivo?`, `canceladoEn`, `correlationId` |
 | `com.citypass.espacios.EspacioEstadoCambiado` (`PUBLIC_SPACE_STATUS_CHANGED_EVENT_FQN`) | cambiar el `status` de un espacio | `espacioId`, `estadoNuevo` (`ENABLED`/`DISABLED`), `zona?`, `latitud?`, `longitud?`, `cambiadoEn` |
 | `com.citypass.espacios.ReservaConfirmada` (`RESERVATION_CONFIRMED_EVENT_FQN`) | reservar un espacio o inscribirse a un evento | `reservaId`, `tipoReserva` (`EVENTO`/`ESPACIO`), `recursoId`, `espacioId`, `cantidadPersonas`, `inicio`, `fin` |
@@ -57,6 +57,10 @@ datos personales (ni mails ni nombres).
   Cada publicacion es un evento nuevo (id propio) con el mismo `eventoId`: el consumidor se queda con la
   ultima. Una inscripcion rechazada por cupo lleno no publica nada, y la baja en un evento `CANCELLED`
   tampoco (ya salio `EventoCancelado`).
+- Al suspender o reanudar un evento, manualmente o por una medida climatica (aplicar o levantar), sale
+  un snapshot con el estado nuevo (`SUSPENDED`, o `ACTIVE`/`ACTIVE_FULL` al reanudar). Lo pidio
+  Movilidad para detectar esos cambios. Un evento que ya estaba suspendido no se republica al
+  sumarle otra alerta.
 
 Los contratos se registran con `npm run eda:register-events` (clima + estos cuatro). No se ejecuta
 solo: hay que revisar los schemas y correrlo a mano.
