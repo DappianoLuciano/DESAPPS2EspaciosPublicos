@@ -32,13 +32,6 @@ export function createEmergencyImpactRoutes(controller: EmergencyImpactControlle
     allowBodyFields(["startDate", "endDate"]),
     asyncHandler(controller.reschedule)
   );
-  router.patch(
-    "/problems/:id/derive",
-    requirePermission(permissions.MANAGE_EMERGENCY_IMPACTS),
-    auditAction(permissions.MANAGE_EMERGENCY_IMPACTS, "space-problem"),
-    allowBodyFields(["derivedTo"]),
-    asyncHandler(controller.derive)
-  );
 
   return router;
 }

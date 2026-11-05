@@ -1,7 +1,7 @@
 import { Alert, Badge, Box, Button, Group, Modal, Stack, Table, Text, TextInput, Title } from '@mantine/core';
 import { useCallback, useEffect, useState } from 'react';
-import { deriveSpaceProblem, getEmergencyImpacts, rescheduleEmergencyImpact } from '../lib/api';
-import type { EmergencyImpact, EmergencyImpactStatus, EmergencyImpactsResponse, SpaceProblem } from '../lib/api';
+import { getEmergencyImpacts, rescheduleEmergencyImpact } from '../lib/api';
+import type { EmergencyImpact, EmergencyImpactStatus, EmergencyImpactsResponse } from '../lib/api';
 
 const STATUS: Record<EmergencyImpactStatus, { label: string; color: string }> = {
   SUSPENDIDA: { label: 'Suspendida', color: 'orange' },
@@ -21,8 +21,6 @@ export default function EmergencyImpacts() {
   const [rescheduling, setRescheduling] = useState<EmergencyImpact | null>(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [deriving, setDeriving] = useState<SpaceProblem | null>(null);
-  const [area, setArea] = useState('');
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => {
@@ -55,11 +53,6 @@ export default function EmergencyImpacts() {
     setRescheduling(null);
     setStartDate('');
     setEndDate('');
-  };
-
-  const closeDerive = () => {
-    setDeriving(null);
-    setArea('');
   };
 
   return (
@@ -110,8 +103,6 @@ export default function EmergencyImpacts() {
               <Table.Th>Emergencia</Table.Th>
               <Table.Th>Tipo</Table.Th>
               <Table.Th>Registrada</Table.Th>
-              <Table.Th>Derivada a</Table.Th>
-              <Table.Th />
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
@@ -120,12 +111,6 @@ export default function EmergencyImpacts() {
                 <Table.Td>{problem.emergenciaId}</Table.Td>
                 <Table.Td>{problem.type}</Table.Td>
                 <Table.Td>{formatDate(problem.createdAt)}</Table.Td>
-                <Table.Td>{problem.derivedTo ?? 'Sin derivar'}</Table.Td>
-                <Table.Td>
-                  {problem.status === 'REGISTRADA' && (
-                    <Button size="xs" variant="light" onClick={() => setDeriving(problem)}>Derivar</Button>
-                  )}
-                </Table.Td>
               </Table.Tr>
             ))}
           </Table.Tbody>
@@ -147,21 +132,6 @@ export default function EmergencyImpacts() {
               )}
             >
               Guardar
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-
-      <Modal opened={deriving !== null} onClose={closeDerive} title="Derivar problemática">
-        <Stack>
-          <TextInput label="Área responsable" value={area} onChange={(event) => setArea(event.currentTarget.value)} />
-          <Group justify="flex-end">
-            <Button
-              loading={saving}
-              disabled={!area.trim()}
-              onClick={() => deriving && save(() => deriveSpaceProblem(deriving.id, area), closeDerive)}
-            >
-              Derivar
             </Button>
           </Group>
         </Stack>

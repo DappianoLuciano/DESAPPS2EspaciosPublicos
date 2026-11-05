@@ -333,12 +333,7 @@ model PublicSpaceProblem {
   type          String
   latitude      Float?
   longitude     Float?
-  status        String    @default("REGISTRADA") // REGISTRADA | DERIVADA
-  derivedTo     String?
-  derivedBy     String?
-  derivedAt     DateTime?
   createdAt     DateTime  @default(now())
 
-  @@index([status])
   @@map("public_space_problems")
 }

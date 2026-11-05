@@ -57,7 +57,6 @@ Requieren rol administrador y las acciones quedan auditadas.
 - `GET /api/emergency-impacts`: resumen, reservas afectadas y problematicas.
 - `POST /api/emergency-impacts/:id/reschedule` con `{ startDate, endDate }`: valida cupo y solapamientos
   y publica `ReservaAfectada` con `accion = REPROGRAMADA`.
-- `PATCH /api/emergency-impacts/problems/:id/derive` con `{ derivedTo }`.
 
 `GET /api/emergency-impacts/notices` es publica, como el catalogo: devuelve los eventos afectados, sin datos
 personales, para mostrar el aviso en Mis Reservas y en el detalle del evento.
@@ -69,6 +68,8 @@ con un mail individual. Un envio que falla se loguea y no frena la emergencia ni
 
 ## Limitaciones conocidas
 
+- El documento dice que Espacios "registra y deriva" la problematica, pero no define a quien. Hoy se registra,
+  se publica `ProblematicaRegistrada` y se ve en el backoffice; no hay una accion de derivar.
 - La suspension vive en `emergency_booking_impacts`: `Reservation.status` y `CommunityEvent.status` no
   cambian. Un evento afectado muestra el aviso, pero sigue aceptando inscripciones; `SUSPENDED` llega con el
   PR #36.

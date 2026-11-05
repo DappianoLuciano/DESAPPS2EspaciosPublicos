@@ -34,8 +34,6 @@ export interface EmergencyImpactRepository {
   rescheduleBooking(change: BookingReschedule, event: DomainEvent): Promise<EmergencyImpactRecord>;
   /** false si la emergencia ya tenia su problematica (RNI-04). */
   createProblem(data: CreateSpaceProblemData, event: DomainEvent): Promise<boolean>;
-  findProblemById(id: string): Promise<SpaceProblemRecord | null>;
-  deriveProblem(id: string, derivedTo: string, derivedBy: string, derivedAt: Date): Promise<SpaceProblemRecord>;
   listImpacts(): Promise<EmergencyImpactRecord[]>;
   listProblems(): Promise<SpaceProblemRecord[]>;
   getSummary(): Promise<EmergencyImpactSummary>;

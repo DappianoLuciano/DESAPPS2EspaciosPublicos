@@ -41,15 +41,10 @@ CREATE TABLE "public_space_problems" (
   "type" TEXT NOT NULL,
   "latitude" DOUBLE PRECISION,
   "longitude" DOUBLE PRECISION,
-  "status" TEXT NOT NULL DEFAULT 'REGISTRADA',
-  "derivedTo" TEXT,
-  "derivedBy" TEXT,
-  "derivedAt" TIMESTAMP(3),
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "public_space_problems_pkey" PRIMARY KEY ("id")
 );
 CREATE UNIQUE INDEX "public_space_problems_emergenciaId_key" ON "public_space_problems"("emergenciaId");
-CREATE INDEX "public_space_problems_status_idx" ON "public_space_problems"("status");
 
 -- Solo el backend las usa: no se exponen por PostgREST.
 ALTER TABLE "emergency_cases" ENABLE ROW LEVEL SECURITY;

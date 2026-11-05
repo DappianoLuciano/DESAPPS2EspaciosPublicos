@@ -729,8 +729,6 @@ export interface SpaceProblem {
   emergenciaId: string;
   publicSpaceId: string | null;
   type: string;
-  status: 'REGISTRADA' | 'DERIVADA';
-  derivedTo: string | null;
   createdAt: string;
 }
 
@@ -755,13 +753,6 @@ export function rescheduleEmergencyImpact(id: string, startDate: string, endDate
   return request<EmergencyImpact>(`/api/emergency-impacts/${encodeURIComponent(id)}/reschedule`, {
     method: 'POST',
     body: JSON.stringify({ startDate, endDate }),
-  });
-}
-
-export function deriveSpaceProblem(id: string, derivedTo: string) {
-  return request<SpaceProblem>(`/api/emergency-impacts/problems/${encodeURIComponent(id)}/derive`, {
-    method: 'PATCH',
-    body: JSON.stringify({ derivedTo }),
   });
 }
 

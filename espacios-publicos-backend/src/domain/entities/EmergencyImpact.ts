@@ -1,6 +1,5 @@
 export type EmergencyBookingType = "RESERVATION" | "COMMUNITY_EVENT";
 export type EmergencyImpactStatus = "SUSPENDIDA" | "CONFIRMADA" | "REPROGRAMADA" | "A_REPROGRAMAR";
-export type SpaceProblemStatus = "REGISTRADA" | "DERIVADA";
 
 export interface EmergencyLocation {
   latitude: number | null;
@@ -52,10 +51,6 @@ export interface SpaceProblemRecord {
   type: string;
   latitude: number | null;
   longitude: number | null;
-  status: SpaceProblemStatus;
-  derivedTo: string | null;
-  derivedBy: string | null;
-  derivedAt: Date | null;
   createdAt: Date;
 }
 

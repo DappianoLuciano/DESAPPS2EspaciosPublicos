@@ -30,7 +30,6 @@ import { OutboxTrackingEventBus } from "./infrastructure/events/OutboxTrackingEv
 import { CancelCommunityEventUseCase } from "./application/use-cases/CancelCommunityEventUseCase";
 import { GetEventRoutePlanUseCase } from "./application/use-cases/GetEventRoutePlanUseCase";
 import { ReceiveGatewayEventUseCase } from "./application/use-cases/ReceiveGatewayEventUseCase";
-import { DeriveSpaceProblemUseCase } from "./application/use-cases/DeriveSpaceProblemUseCase";
 import { FindNearbyBookingsUseCase } from "./application/use-cases/FindNearbyBookingsUseCase";
 import { GetEmergencyImpactsUseCase } from "./application/use-cases/GetEmergencyImpactsUseCase";
 import { HandleEmergencyCreatedUseCase } from "./application/use-cases/HandleEmergencyCreatedUseCase";
@@ -210,8 +209,7 @@ export function createContainer() {
       eventBus,
       eventOutboxRepository,
       emailSender
-    ),
-    new DeriveSpaceProblemUseCase(emergencyImpactRepository)
+    )
   );
   const getEventRoutePlanUseCase = new GetEventRoutePlanUseCase(
     communityEventRepository,

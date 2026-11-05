@@ -1,4 +1,4 @@
-import { EmergencyBookingImpact, Prisma, PublicSpaceProblem } from "@prisma/client";
+import { EmergencyBookingImpact, Prisma } from "@prisma/client";
 import { DomainEvent } from "../../domain/entities/DomainEvent";
 import {
   CreateEmergencyImpactData,
@@ -9,8 +9,7 @@ import {
   EmergencyImpactRecord,
   EmergencyImpactStatus,
   EmergencyImpactSummary,
-  SpaceProblemRecord,
-  SpaceProblemStatus
+  SpaceProblemRecord
 } from "../../domain/entities/EmergencyImpact";
 import {
   BookingReschedule,
@@ -40,10 +39,6 @@ function toImpact(row: EmergencyBookingImpact): EmergencyImpactRecord {
     bookingType: row.bookingType as EmergencyBookingType,
     status: row.status as EmergencyImpactStatus
   };
-}
-
-function toProblem(row: PublicSpaceProblem): SpaceProblemRecord {
-  return { ...row, status: row.status as SpaceProblemStatus };
 }
 
 export class PrismaEmergencyImpactRepository implements EmergencyImpactRepository {
@@ -137,28 +132,13 @@ export class PrismaEmergencyImpactRepository implements EmergencyImpactRepositor
     }
   }
 
-  async findProblemById(id: string): Promise<SpaceProblemRecord | null> {
-    const row = await prisma.publicSpaceProblem.findUnique({ where: { id } });
-    return row ? toProblem(row) : null;
-  }
-
-  async deriveProblem(id: string, derivedTo: string, derivedBy: string, derivedAt: Date): Promise<SpaceProblemRecord> {
-    const row = await prisma.publicSpaceProblem.update({
-      where: { id },
-      data: { status: "DERIVADA", derivedTo, derivedBy, derivedAt }
-    });
-
-    return toProblem(row);
-  }
-
   async listImpacts(): Promise<EmergencyImpactRecord[]> {
     const rows = await prisma.emergencyBookingImpact.findMany({ orderBy: { createdAt: "desc" }, take: 200 });
     return rows.map(toImpact);
   }
 
   async listProblems(): Promise<SpaceProblemRecord[]> {
-    const rows = await prisma.publicSpaceProblem.findMany({ orderBy: { createdAt: "desc" }, take: 200 });
-    return rows.map(toProblem);
+    return prisma.publicSpaceProblem.findMany({ orderBy: { createdAt: "desc" }, take: 200 });
   }
 
   async listEventNotices(now: Date): Promise<EmergencyEventNotice[]> {

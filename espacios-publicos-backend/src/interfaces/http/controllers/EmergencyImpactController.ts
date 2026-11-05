@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { DeriveSpaceProblemUseCase } from "../../../application/use-cases/DeriveSpaceProblemUseCase";
 import { FindNearbyBookingsUseCase } from "../../../application/use-cases/FindNearbyBookingsUseCase";
 import { GetEmergencyImpactsUseCase } from "../../../application/use-cases/GetEmergencyImpactsUseCase";
 import { RescheduleAffectedBookingUseCase } from "../../../application/use-cases/RescheduleAffectedBookingUseCase";
@@ -29,8 +28,7 @@ export class EmergencyImpactController {
   constructor(
     private readonly findNearbyBookings: FindNearbyBookingsUseCase,
     private readonly getImpacts: GetEmergencyImpactsUseCase,
-    private readonly rescheduleBooking: RescheduleAffectedBookingUseCase,
-    private readonly deriveProblem: DeriveSpaceProblemUseCase
+    private readonly rescheduleBooking: RescheduleAffectedBookingUseCase
   ) {}
 
   nearby = async (request: Request, response: Response): Promise<void> => {
@@ -75,13 +73,5 @@ export class EmergencyImpactController {
       endDate: request.body.endDate,
       actor: request.user?.name ?? "desconocido"
     }));
-  };
-
-  derive = async (request: Request, response: Response): Promise<void> => {
-    response.json(await this.deriveProblem.execute(
-      request.params.id,
-      request.body.derivedTo,
-      request.user?.name ?? "desconocido"
-    ));
   };
 }
