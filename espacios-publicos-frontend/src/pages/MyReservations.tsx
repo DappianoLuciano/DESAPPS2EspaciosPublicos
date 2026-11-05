@@ -1,5 +1,5 @@
 import { Alert, Badge, Box, Button, Card, Container, Flex, Image, Loader, SimpleGrid, Text, Title } from '@mantine/core';
-import { IconCalendarEvent, IconCheck, IconHistory, IconMapPin, IconPlayerPlay } from '@tabler/icons-react';
+import { IconAlertTriangle, IconCalendarEvent, IconCheck, IconHistory, IconMapPin, IconPlayerPlay } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import EmergencyNotice from '../components/EmergencyNotice';
@@ -93,10 +93,15 @@ export default function MyReservations() {
 
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
         {reservations.map((reservation) => {
-          const status = getStatus(reservation);
-          const StatusIcon = status.icon;
+          const baseStatus = getStatus(reservation);
           const event = reservation.communityEvent;
-          const canCancel = status.label === 'Confirmada';
+          const noticeStatus = notices.get(event.id)?.status;
+          const isOnHold = noticeStatus === 'SUSPENDIDA' || noticeStatus === 'A_REPROGRAMAR';
+          const status = isOnHold
+            ? { label: 'Suspendida', color: 'orange', icon: IconAlertTriangle, opacity: 1 }
+            : baseStatus;
+          const StatusIcon = status.icon;
+          const canCancel = baseStatus.label === 'Confirmada';
 
           return (
             <Card key={reservation.id} shadow="sm" padding="lg" radius="md" withBorder style={{ opacity: status.opacity }}>
