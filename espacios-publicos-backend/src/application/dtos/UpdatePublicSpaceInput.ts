@@ -8,5 +8,6 @@ export interface UpdatePublicSpaceInput {
   longitude?: number | null;
   status?: "ENABLED" | "DISABLED";
   exposure?: "INDOOR" | "OUTDOOR" | "MIXED";
+  category?: "PLAZA" | "SALON" | "CANCHA" | "AUDITORIO" | null;
   imageUrl?: string | null;
 }

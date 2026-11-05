@@ -37,6 +37,15 @@ function resolveApiUrl(): string {
 const API_URL = resolveApiUrl();
 const API_TIMEOUT_MS = 15_000;
 
+export type PublicSpaceCategory = 'PLAZA' | 'SALON' | 'CANCHA' | 'AUDITORIO';
+
+export const PUBLIC_SPACE_CATEGORY_LABELS: Record<PublicSpaceCategory, string> = {
+  PLAZA: 'Plaza',
+  SALON: 'Salón',
+  CANCHA: 'Cancha',
+  AUDITORIO: 'Auditorio',
+};
+
 export class ApiError extends Error {
   public readonly status?: number;
   public readonly requestId?: string;
@@ -94,6 +103,7 @@ export interface PublicSpace {
   longitude?: number | null;
   status: 'ENABLED' | 'DISABLED';
   exposure?: 'INDOOR' | 'OUTDOOR' | 'MIXED';
+  category?: PublicSpaceCategory | null;
   imageUrl?: string | null;
   createdAt: string;
 }
@@ -397,6 +407,7 @@ export interface PublicSpacePayload {
   longitude?: number | null;
   status: 'ENABLED' | 'DISABLED';
   exposure: 'INDOOR' | 'OUTDOOR' | 'MIXED';
+  category?: PublicSpaceCategory | null;
   imageUrl?: string | null;
 }
 

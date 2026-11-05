@@ -8,8 +8,12 @@ import { NotFoundError } from "../../shared/errors/NotFoundError";
 import { ValidationError } from "../../shared/errors/ValidationError";
 import { requireText } from "../../shared/validation/inputValidation";
 import { prisma } from "./prismaClient";
+import { PublicSpaceAffectation, PublicSpaceAffectedPublisher } from "../../application/events/publicSpaceAffected";
 
 export class PrismaWeatherRestrictionRepository implements WeatherRestrictionRepository {
+  // Opcional: sin publicador las medidas se aplican igual, pero no se avisa a Analitica.
+  constructor(private readonly affectedPublisher?: PublicSpaceAffectedPublisher) {}
+
   async hasBlockingRestriction(publicSpaceId: string, start: Date, end: Date) {
     return (await prisma.weatherRestriction.count({ where: {
       publicSpaceId, releasedAt: null, validFrom: { lt: end }, validUntil: { gt: start }
@@ -74,8 +78,8 @@ export class PrismaWeatherRestrictionRepository implements WeatherRestrictionRep
     const spaceIds = parseIds(input.spaceIds);
     const eventIds = parseIds(input.eventIds);
     if (!spaceIds.length && !eventIds.length) throw new ValidationError("Seleccioná al menos un espacio o evento.");
-    await this.transaction(async tx => {
-      const { alert, candidates } = await this.load(tx, alertId);
+    const affectations = await this.transaction(async tx => {
+      const { alert, candidates, restrictions } = await this.load(tx, alertId);
       if (alert.status !== "CONFIRMED" || alert.validUntil <= new Date()) throw new ValidationError("Solo se aplican medidas a una alerta confirmada con vigencia pendiente.");
       if (spaceIds.some(id => !candidates.spaces.some(space => space.id === id)) ||
         eventIds.some(id => !candidates.events.some(event => event.id === id &&
@@ -83,13 +87,27 @@ export class PrismaWeatherRestrictionRepository implements WeatherRestrictionRep
         throw new ValidationError("La selección cambió o contiene actividades fuera del alcance de esta alerta. Actualizá la revisión.");
       }
       const common = { alertId, validFrom: alert.validFrom, validUntil: alert.validUntil, reason, appliedBy };
+      // Solo los espacios que no tenian ya una medida activa de esta alerta generan una afectacion nueva.
+      const newSpaceRestrictions = spaceIds
+        .filter(publicSpaceId => !restrictions.some(row => row.publicSpaceId === publicSpaceId))
+        .map(publicSpaceId => ({ id: randomUUID(), ...common, publicSpaceId }));
       await tx.weatherRestriction.createMany({ data: [
-        ...spaceIds.map(publicSpaceId => ({ id: randomUUID(), ...common, publicSpaceId })),
+        ...newSpaceRestrictions,
         ...eventIds.map(communityEventId => ({ id: randomUUID(), ...common, communityEventId }))
       ], skipDuplicates: true });
       await tx.communityEvent.updateMany({ where: { id: { in: eventIds }, status: { in: ["ACTIVE", "ACTIVE_FULL"] } },
         data: { status: "SUSPENDED", statusReason: reason } });
+      return newSpaceRestrictions.map((row): PublicSpaceAffectation => ({
+        afectacionId: row.id,
+        space: candidates.spaces.find(space => space.id === row.publicSpaceId)!,
+        tipoAfectacion: "ACCESO_RESTRINGIDO",
+        desde: row.validFrom,
+        hastaEstimada: row.validUntil,
+        causaId: alertId,
+        causaTipo: "EVENTO_CLIMATICO"
+      }));
     });
+    await this.affectedPublisher?.publish(affectations);
     return this.preview(alertId);
   }
 

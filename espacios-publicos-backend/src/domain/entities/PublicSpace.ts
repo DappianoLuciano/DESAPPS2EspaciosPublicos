@@ -1,5 +1,7 @@
 export type PublicSpaceStatus = "ENABLED" | "DISABLED";
 export type PublicSpaceExposure = "INDOOR" | "OUTDOOR" | "MIXED";
+export type PublicSpaceCategory = "PLAZA" | "SALON" | "CANCHA" | "AUDITORIO";
+export const PUBLIC_SPACE_CATEGORIES: readonly PublicSpaceCategory[] = ["PLAZA", "SALON", "CANCHA", "AUDITORIO"];
 
 export interface PublicSpace {
   id: string;
@@ -12,6 +14,7 @@ export interface PublicSpace {
   longitude?: number | null;
   status: PublicSpaceStatus;
   exposure?: PublicSpaceExposure;
+  category?: PublicSpaceCategory | null;
   imageUrl?: string | null;
   createdAt: Date;
 }
@@ -26,6 +29,7 @@ export interface CreatePublicSpaceData {
   longitude?: number | null;
   status?: PublicSpaceStatus;
   exposure?: PublicSpaceExposure;
+  category?: PublicSpaceCategory | null;
   imageUrl?: string | null;
 }
 
@@ -39,5 +43,6 @@ export interface UpdatePublicSpaceData {
   longitude?: number | null;
   status?: PublicSpaceStatus;
   exposure?: PublicSpaceExposure;
+  category?: PublicSpaceCategory | null;
   imageUrl?: string | null;
 }

@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { DomainEvent } from "../../domain/entities/DomainEvent";
-import { PublicSpace } from "../../domain/entities/PublicSpace";
+import { PUBLIC_SPACE_CATEGORIES, PublicSpace } from "../../domain/entities/PublicSpace";
 import { EventOutboxRepository } from "../../domain/repositories/EventOutboxRepository";
 import { PublicSpaceRepository } from "../../domain/repositories/PublicSpaceRepository";
 import { EventBus } from "../../domain/services/EventBus";
@@ -15,6 +15,7 @@ import {
   requireText
 } from "../../shared/validation/inputValidation";
 import { UpdatePublicSpaceInput } from "../dtos/UpdatePublicSpaceInput";
+import { PublicSpaceAffectedPublisher } from "../events/publicSpaceAffected";
 
 export class UpdatePublicSpaceUseCase {
   // outbox y eventBus son opcionales para no romper a quien construye el caso
@@ -22,7 +23,8 @@ export class UpdatePublicSpaceUseCase {
   constructor(
     private readonly publicSpaceRepository: PublicSpaceRepository,
     private readonly eventOutboxRepository?: EventOutboxRepository,
-    private readonly eventBus?: EventBus
+    private readonly eventBus?: EventBus,
+    private readonly affectedPublisher?: PublicSpaceAffectedPublisher
   ) {}
 
   async execute(id: string, input: UpdatePublicSpaceInput): Promise<PublicSpace> {
@@ -41,6 +43,10 @@ export class UpdatePublicSpaceUseCase {
       throw new ValidationError("El tipo de exposicion del espacio publico no es valido.");
     }
 
+    if (input.category !== undefined && input.category !== null && !PUBLIC_SPACE_CATEGORIES.includes(input.category)) {
+      throw new ValidationError("La categoria del espacio publico no es valida.");
+    }
+
     const updated = await this.publicSpaceRepository.update(publicSpaceId, {
       name: optionalText(input.name, "El nombre", 160),
       description: optionalText(input.description, "La descripcion", 5000),
@@ -53,6 +59,7 @@ export class UpdatePublicSpaceUseCase {
       ...optionalCoordinates(input.latitude, input.longitude),
       status: input.status,
       exposure: input.exposure,
+      category: input.category,
       imageUrl: optionalHttpsUrl(input.imageUrl)
     });
 
@@ -60,6 +67,18 @@ export class UpdatePublicSpaceUseCase {
     // gente o vuelve a recibirla: Movilidad lo saca o lo vuelve a poner como destino.
     if (input.status && input.status !== publicSpace.status) {
       await this.publishStatusChanged(updated);
+
+      // Para Analitica, deshabilitar el espacio es cerrarlo sin fecha de fin ni causa registrada.
+      if (updated.status === "DISABLED") {
+        await this.affectedPublisher?.publish([{
+          space: updated,
+          tipoAfectacion: "CERRADO",
+          desde: new Date(),
+          hastaEstimada: null,
+          causaId: null,
+          causaTipo: null
+        }]);
+      }
     }
 
     return updated;

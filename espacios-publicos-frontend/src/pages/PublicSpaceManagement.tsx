@@ -3,8 +3,8 @@ import { useDisclosure } from '@mantine/hooks';
 import { IconEdit, IconMapPin, IconPhoto, IconPlus, IconTrash } from '@tabler/icons-react';
 import { Dropzone } from '@mantine/dropzone';
 import { useEffect, useRef, useState } from 'react';
-import { createPublicSpace, deletePublicSpace, listPublicSpaces, updatePublicSpace, uploadPublicSpaceImage } from '../lib/api';
-import type { PublicSpace, PublicSpacePayload } from '../lib/api';
+import { createPublicSpace, deletePublicSpace, listPublicSpaces, PUBLIC_SPACE_CATEGORY_LABELS, updatePublicSpace, uploadPublicSpaceImage } from '../lib/api';
+import type { PublicSpace, PublicSpaceCategory, PublicSpacePayload } from '../lib/api';
 import LocationPicker from '../components/LocationPicker';
 import type { Coordinates } from '../components/LocationPicker';
 import { createAddressSearch } from '../lib/addressSearch';
@@ -22,6 +22,7 @@ const emptyForm: PublicSpacePayload = {
   longitude: null,
   status: 'ENABLED',
   exposure: 'MIXED',
+  category: null,
   imageUrl: '',
 };
 
@@ -121,6 +122,7 @@ export default function PublicSpaceManagement() {
       longitude: space.longitude ?? null,
       status: space.status,
       exposure: space.exposure || 'MIXED',
+      category: space.category ?? null,
       imageUrl: space.imageUrl || '',
     });
     resetAddressSearch();
@@ -291,6 +293,15 @@ export default function PublicSpaceManagement() {
             onChange={(value) => setForm({ ...form, status: value as PublicSpacePayload['status'] })}
           />
           <Select
+            label="Categoría"
+            description="Tipo de espacio. Se informa a Analítica cuando el espacio queda afectado."
+            placeholder="Sin categoría"
+            clearable
+            data={Object.entries(PUBLIC_SPACE_CATEGORY_LABELS).map(([value, label]) => ({ value, label }))}
+            value={form.category ?? null}
+            onChange={(value) => setForm({ ...form, category: (value as PublicSpaceCategory | null) ?? null })}
+          />
+          <Select
             label="Exposición climática"
             description="Se usa para bloquear reservas durante contingencias climáticas."
             data={[
@@ -363,6 +374,7 @@ export default function PublicSpaceManagement() {
               <Table.Th>Zona</Table.Th>
               <Table.Th>Capacidad</Table.Th>
               <Table.Th>Estado</Table.Th>
+              <Table.Th>Categoría</Table.Th>
               <Table.Th>Exposición</Table.Th>
               <Table.Th>Acciones</Table.Th>
             </Table.Tr>
@@ -399,6 +411,7 @@ export default function PublicSpaceManagement() {
                     {space.status === 'ENABLED' ? 'Habilitado' : 'Deshabilitado'}
                   </Badge>
                 </Table.Td>
+                <Table.Td>{space.category ? PUBLIC_SPACE_CATEGORY_LABELS[space.category] : '-'}</Table.Td>
                 <Table.Td>
                   {space.exposure === 'INDOOR' ? 'Interior' : space.exposure === 'OUTDOOR' ? 'Exterior' : 'Mixto'}
                 </Table.Td>
