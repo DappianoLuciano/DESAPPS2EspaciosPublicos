@@ -37,6 +37,21 @@ export class PrismaCityIncidentRepository implements CityIncidentRepository {
     return rows as CityIncidentRecord[];
   }
 
+  async findActiveBySource(source: CityIncidentSource): Promise<CityIncidentRecord[]> {
+    const rows = await prisma.cityIncident.findMany({
+      where: { source, active: true },
+      orderBy: { reportedAt: "desc" }
+    });
+
+    return rows as CityIncidentRecord[];
+  }
+
+  async findActive(source: CityIncidentSource, externalId: string): Promise<CityIncidentRecord | null> {
+    const row = await prisma.cityIncident.findFirst({ where: { source, externalId, active: true } });
+
+    return row as CityIncidentRecord | null;
+  }
+
   async findActiveWithoutCoordinatesWithZone(): Promise<CityIncidentRecord[]> {
     const rows = await prisma.cityIncident.findMany({
       where: {

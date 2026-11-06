@@ -23,7 +23,8 @@ const ESPACIOS_FQNS = [
   "com.citypass.espacios.ReservaConfirmada",
   "com.citypass.espacios.ReservaAfectada",
   "com.citypass.espacios.EspacioLiberado",
-  "com.citypass.espacios.ProblematicaRegistrada"
+  "com.citypass.espacios.ProblematicaRegistrada",
+  "com.citypass.espacios.IntervencionFinalizada"
 ];
 const WEATHER_FQNS = [
   "com.citypass.espacios.CriticidadClimaticaConfirmada",

@@ -114,7 +114,9 @@ describe("EspacioPublicoAfectado", () => {
           upsertActive: jest.fn(),
           deactivate: jest.fn(),
           findActiveInBounds: jest.fn(),
-          findActiveWithoutCoordinatesWithZone: jest.fn()
+          findActiveWithoutCoordinatesWithZone: jest.fn(),
+    findActiveBySource: jest.fn(),
+    findActive: jest.fn()
         },
         { findByEventId: jest.fn(), saveIfNewer: jest.fn() } as never,
         { findById: jest.fn() },

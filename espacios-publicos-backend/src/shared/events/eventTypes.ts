@@ -29,6 +29,9 @@ export const eventNames = {
     fromEnv("SPACE_RELEASED_EVENT_FQN", "com.citypass.espacios.EspacioLiberado"),
   problemRegistered: () =>
     fromEnv("PROBLEM_REGISTERED_EVENT_FQN", "com.citypass.espacios.ProblematicaRegistrada"),
+  // CU-INT-01: cierra el circuito con Reclamos cuando termina la intervencion en la calle.
+  interventionFinished: () =>
+    fromEnv("INTERVENTION_FINISHED_EVENT_FQN", "com.citypass.espacios.IntervencionFinalizada"),
   weatherConfirmed: () =>
     fromEnv("WEATHER_CONFIRMED_EVENT_FQN", "com.citypass.espacios.CriticidadClimaticaConfirmada"),
   weatherFinalized: () =>
@@ -51,6 +54,7 @@ export function dispatchableEventNames(): string[] {
     eventNames.reservationAffected(),
     eventNames.spaceReleased(),
     eventNames.problemRegistered(),
+    eventNames.interventionFinished(),
     eventNames.weatherConfirmed(),
     eventNames.weatherFinalized()
   ];
