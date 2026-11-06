@@ -78,7 +78,14 @@ constante (si la variable esta vacia se rechaza todo) y la entrega es idempotent
   (una fila por evento). Si llega una con `calculadaEn` mas vieja que la guardada se descarta; si el
   evento no existe se loguea y se ignora. `estacionId` llega como numero y se guarda como string.
 - `com.citypass.reclamos.ReclamoCreado`: con `afectaCirculacion === true` y coordenadas, alta en
-  `city_incidents`.
+  `city_incidents`. El schema registrado (schemaId 9) no trae esos campos, asi que en la practica no da
+  de alta nada: las coordenadas llegan por las dos fuentes siguientes.
+- `com.citypass.movilidad.MovilidadObstruccionEvaluada`: obstruccion evaluada por Movilidad. Alta del
+  reclamo en `city_incidents` (categoria `OBSTRUCCION_VIAL`) y `EspacioPublicoAfectado` con causa
+  `INCIDENTE_VIAL` para los espacios cercanos. Se ignora si `impactoCirculacion` indica que no hay impacto.
+- `com.citypass.reclamos.ReclamoReclasificado`: si pasa a `afectaCirculacionNueva = true` con coordenadas,
+  alta en `city_incidents` y `EspacioPublicoAfectado` con causa `RECLAMO`; si deja de afectarla, el
+  incidente pasa a inactivo.
 - `com.citypass.emergencias.EmergenciaCreada`: Emergencias no publica coordenadas ni `afectaCirculacion`;
   manda `emergenciaId`, `estado`, `ubicacion.barrio` (puede ser `null`), `tipo`, `severity`,
   `createdAt` y `updatedAt`. Con `emergenciaId` y barrio no vacio se da de alta sin coordenadas, con

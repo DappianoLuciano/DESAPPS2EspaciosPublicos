@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { DomainEvent } from "../../domain/entities/DomainEvent";
 import { PublicSpace } from "../../domain/entities/PublicSpace";
 import { EventOutboxRepository } from "../../domain/repositories/EventOutboxRepository";
@@ -55,6 +55,19 @@ export function buildPublicSpaceAffectedEvent(affectation: PublicSpaceAffectatio
     payload: buildPublicSpaceAffectedPayload(affectation, afectacionId, occurredAt),
     occurredAt
   };
+}
+
+/**
+ * Id estable para una afectacion derivada de otra entidad (ej. reclamo + espacio): si el mismo
+ * reclamo se evalua o reclasifica de nuevo, Analitica recibe el mismo afectacionId y puede deduplicar.
+ * Formato UUID (v5 sobre SHA-1, sin namespace registrado).
+ */
+export function stableAffectationId(...parts: string[]): string {
+  const hex = createHash("sha1").update(parts.join(":")).digest("hex").slice(0, 32).split("");
+  hex[12] = "5";
+  hex[16] = ((parseInt(hex[16], 16) & 0x3) | 0x8).toString(16);
+  const h = hex.join("");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
 }
 
 /** Guarda en el outbox y publica, igual que el resto de los eventos de integracion. */

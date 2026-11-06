@@ -81,12 +81,20 @@ restringido o con uso parcial. Lo arma `buildPublicSpaceAffectedPayload`
 | --- | --- | --- | --- |
 | Se aplica una medida climatica a un espacio (`POST /api/admin/weather-alerts/:id/restrictions`) | `ACCESO_RESTRINGIDO` | `EVENTO_CLIMATICO` / id de la alerta | fin de la medida (`validUntil`) |
 | Un administrador deshabilita el espacio (`DISABLED`) | `CERRADO` | `null` / `null` | `null` |
-| Llega un `ReclamoCreado` con `afectaCirculacion` y coordenadas | `USO_PARCIAL`, para cada espacio habilitado a 1000 m o menos | `RECLAMO` / `reclamoId` | `null` |
+| Movilidad publica `MovilidadObstruccionEvaluada` a 1000 m o menos de un espacio habilitado | `ACCESO_RESTRINGIDO` (`USO_PARCIAL` si `impactoCirculacion` es bajo y no requiere intervencion inmediata) | `INCIDENTE_VIAL` / `reclamoId` | `null` |
+| Llega un `ReclamoReclasificado` que pasa a `afectaCirculacionNueva = true`, a 1000 m o menos | `USO_PARCIAL` | `RECLAMO` / `reclamoId` | `null` |
+| Llega un `ReclamoCreado` con `afectaCirculacion` y coordenadas (el schema registrado hoy no las trae) | `USO_PARCIAL` | `RECLAMO` / `reclamoId` | `null` |
 
 - `EVENTO_CLIMATICO` no estaba en la lista original de Analitica: es la unica causa que hoy restringe
   espacios, asi que se sumo al mismo enum que usa `ActividadModificada`.
-- `INCIDENTE_VIAL` esta en el enum pero hoy ninguna fuente lo usa. Las emergencias llegan solo con
-  barrio, sin coordenadas, y no generan afectaciones.
+- `INCIDENTE_VIAL` sale de las obstrucciones que evalua Movilidad. Analitica mide
+  `ACCESO_RESTRINGIDO` + `INCIDENTE_VIAL`.
+- `impactoCirculacion` no tiene valores documentados: `NINGUNO`/`SIN_IMPACTO` se ignora,
+  `BAJO`/`LEVE` va como `USO_PARCIAL` y cualquier otro valor como `ACCESO_RESTRINGIDO`. Ajustar cuando
+  Movilidad confirme la lista.
+- Para las afectaciones que vienen de un reclamo, `afectacionId` es estable (UUID v5 de causa + reclamo +
+  espacio): una reevaluacion del mismo reclamo repite el id.
+- Las emergencias no generan afectaciones.
 - Volver a aplicar la misma alerta a un espacio que ya la tenia no publica de nuevo.
 - No hay evento de fin de afectacion: el grafico usa `afectacionHastaEstimada` cuando existe.
 - La categoria se carga en el alta y la edicion del espacio (migracion `20261105230000_public_space_category`).
