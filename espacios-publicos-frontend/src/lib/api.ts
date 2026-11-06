@@ -820,3 +820,25 @@ export interface EmergencyEventNotice {
 export function listEmergencyEventNotices() {
   return request<EmergencyEventNotice[]>('/api/emergency-impacts/notices');
 }
+
+export type InterventionResult = 'RESUELTO' | 'RECHAZADO';
+
+export interface PendingIntervention {
+  reclamoId: string;
+  category: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  zone: string | null;
+  reportedAt: string;
+}
+
+export function listPendingInterventions() {
+  return request<PendingIntervention[]>('/api/admin/interventions');
+}
+
+export function finishIntervention(reclamoId: string, resultado: InterventionResult, idAuto?: string) {
+  return request<Record<string, unknown>>(`/api/admin/interventions/${encodeURIComponent(reclamoId)}/finish`, {
+    method: 'POST',
+    body: JSON.stringify(idAuto ? { resultado, idAuto } : { resultado }),
+  });
+}

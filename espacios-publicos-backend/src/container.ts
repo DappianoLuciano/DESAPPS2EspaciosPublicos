@@ -1,3 +1,5 @@
+import { FinishInterventionUseCase, ListPendingInterventionsUseCase } from "./application/use-cases/FinishInterventionUseCase";
+import { InterventionController } from "./interfaces/http/controllers/InterventionController";
 import { CommunityEventSnapshotPublisher } from "./application/events/communityEventPublished";
 import { PublicSpaceAffectedPublisher } from "./application/events/publicSpaceAffected";
 import { CancelCommunityEventRegistrationUseCase } from "./application/use-cases/CancelCommunityEventRegistrationUseCase";
@@ -214,6 +216,10 @@ export function createContainer() {
       onResolved: (emergency) => handleEmergencyResolvedUseCase.execute(emergency)
     }
   );
+  const interventionController = new InterventionController(
+    new ListPendingInterventionsUseCase(cityIncidentRepository),
+    new FinishInterventionUseCase(cityIncidentRepository, eventOutboxRepository, eventBus)
+  );
   const emergencyImpactController = new EmergencyImpactController(
     findNearbyBookingsUseCase,
     new GetEmergencyImpactsUseCase(emergencyImpactRepository),
@@ -287,6 +293,7 @@ export function createContainer() {
 
   return {
     adminRepository,
+    interventionController,
     storageService,
     authController,
     adminController: new AdminController(getAdminProfileUseCase, updateAdminProfileUseCase),

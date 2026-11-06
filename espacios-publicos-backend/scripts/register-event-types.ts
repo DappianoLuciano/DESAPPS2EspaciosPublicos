@@ -174,6 +174,14 @@ const spacesDefinitions: EventTypeDefinition[] = [
     { name: "latitud", type: nullable("double"), default: null },
     { name: "longitud", type: nullable("double"), default: null },
     { name: "registradaEn", type: "string", doc: "ISO 8601" }
+  ]),
+  // Ya registrado (schemaId 59) con este esquema exacto: lo consume Reclamos para cerrar el reclamo.
+  record("IntervencionFinalizada", "CU-INT-01: Espacios termino la intervencion en la calle pedida por un reclamo.", [
+    { name: "reclamoId", type: "string" },
+    { name: "resultado", type: "string", doc: "RESUELTO | RECHAZADO (no hizo falta intervenir)" },
+    { name: "idAuto", type: nullable("string"), default: null, doc: "Patente, si hubo grua" },
+    { name: "solicitadoAt", type: nullable("long"), default: null, doc: "Milisegundos epoch" },
+    { name: "resueltoAt", type: nullable("long"), default: null, doc: "Milisegundos epoch" }
   ])
 ];
 
@@ -205,7 +213,8 @@ async function main() {
     ReservaConfirmada: "RESERVATION_CONFIRMED_EVENT_FQN",
     ReservaAfectada: "RESERVATION_AFFECTED_EVENT_FQN",
     EspacioLiberado: "SPACE_RELEASED_EVENT_FQN",
-    ProblematicaRegistrada: "PROBLEM_REGISTERED_EVENT_FQN"
+    ProblematicaRegistrada: "PROBLEM_REGISTERED_EVENT_FQN",
+    IntervencionFinalizada: "INTERVENTION_FINISHED_EVENT_FQN"
   };
 
   for (const definition of selected) {

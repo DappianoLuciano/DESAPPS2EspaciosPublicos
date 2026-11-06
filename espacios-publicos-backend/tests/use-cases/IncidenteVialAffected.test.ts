@@ -12,7 +12,9 @@ const far: PublicSpace = { ...near, id: "space-lejos", latitude: -34.70, longitu
 function build() {
   const saved: DomainEvent[] = [];
   const recorded = new Set<string>();
-  const cityIncidents = { upsertActive: jest.fn(), deactivate: jest.fn(), findActiveInBounds: jest.fn(), findActiveWithoutCoordinatesWithZone: jest.fn() };
+  const cityIncidents = { upsertActive: jest.fn(), deactivate: jest.fn(), findActiveInBounds: jest.fn(), findActiveWithoutCoordinatesWithZone: jest.fn(),
+    findActiveBySource: jest.fn(),
+    findActive: jest.fn() };
   const useCase = new ReceiveGatewayEventUseCase(
     { exists: async (id: string) => recorded.has(id), record: async (id: string) => void recorded.add(id) },
     cityIncidents,
