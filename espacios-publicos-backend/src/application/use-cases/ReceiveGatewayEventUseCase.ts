@@ -6,7 +6,12 @@ import { DestinationRecommendationRepository } from "../../domain/repositories/D
 import { InboundEventRepository } from "../../domain/repositories/InboundEventRepository";
 import { PublicSpaceRepository } from "../../domain/repositories/PublicSpaceRepository";
 import { distanceInMeters, hasCoordinates } from "../../shared/geo/distance";
-import { PublicSpaceAffectedPublisher } from "../events/publicSpaceAffected";
+import {
+  PublicSpaceAffectationCause,
+  PublicSpaceAffectationType,
+  PublicSpaceAffectedPublisher,
+  stableAffectationId
+} from "../events/publicSpaceAffected";
 import { ValidationError } from "../../shared/errors/ValidationError";
 import { EmergencyReactions, parseEmergencyCreated, parseEmergencyResolved } from "../events/emergencyEvents";
 import { logger } from "../../shared/logging/logger";
@@ -20,6 +25,15 @@ export const MOBILITY_RECOMMENDATION_EVENT_TYPE =
   "com.citypass.movilidad.RecomendacionDestinoActualizada";
 
 export const EMERGENCY_RESOLVED_EVENT_TYPE = "com.citypass.emergencias.EmergenciaResuelta";
+/** Movilidad evalua una obstruccion en la via (reclamo con coordenadas): es el incidente vial. */
+export const OBSTRUCTION_EVALUATED_EVENT_TYPE = "com.citypass.movilidad.MovilidadObstruccionEvaluada";
+/** Reclamos publica coordenadas y afectaCirculacion recien al reclasificar (ReclamoCreado no las trae). */
+export const CLAIM_RECLASSIFIED_EVENT_TYPE = "com.citypass.reclamos.ReclamoReclasificado";
+
+// Movilidad no documenta los valores de impactoCirculacion. Mientras tanto: sin impacto se ignora,
+// impacto bajo deja el espacio con uso parcial y cualquier otro valor lo restringe.
+const NO_TRAFFIC_IMPACT = /^(NINGUNO|SIN_IMPACTO|NULO|NONE)$/i;
+const LOW_TRAFFIC_IMPACT = /^(BAJO|LEVE|LOW|MENOR)$/i;
 
 // El gateway usa el FQN como topico; el documento del CU-01 los nombra con puntos. Se aceptan los
 // dos. Emergencias publica hoy EmergenciaEstadoActualizado y EmergenciaCerrada, sin causas ni
@@ -100,6 +114,8 @@ const INCIDENT_TYPES: Record<string, IncidentTypeConfig> = {
 const KNOWN_EVENT_TYPES: readonly string[] = [
   ...Object.keys(INCIDENT_TYPES),
   MOBILITY_RECOMMENDATION_EVENT_TYPE,
+  OBSTRUCTION_EVALUATED_EVENT_TYPE,
+  CLAIM_RECLASSIFIED_EVENT_TYPE,
   EMERGENCY_STATE_UPDATED_EVENT_TYPE,
   EMERGENCY_CLOSED_EVENT_TYPE,
   EMERGENCY_CANCELLED_EVENT_TYPE,
@@ -111,6 +127,8 @@ const KNOWN_EVENT_TYPES: readonly string[] = [
 export const GATEWAY_SUBSCRIPTION_TOPICS: readonly string[] = [
   MOBILITY_RECOMMENDATION_EVENT_TYPE,
   ...Object.keys(INCIDENT_TYPES),
+  OBSTRUCTION_EVALUATED_EVENT_TYPE,
+  CLAIM_RECLASSIFIED_EVENT_TYPE,
   EMERGENCY_STATE_UPDATED_EVENT_TYPE,
   EMERGENCY_CLOSED_EVENT_TYPE,
   // Van ultimos: si G6 todavia no los registro, el script falla despues de suscribir los demas.
@@ -135,10 +153,12 @@ export class ReceiveGatewayEventUseCase {
     const { eventId, eventType, data } = parseEnvelope(envelope);
     const isRecommendation = eventType === MOBILITY_RECOMMENDATION_EVENT_TYPE;
     const incidentType = INCIDENT_TYPES[eventType];
+    const isObstruction = eventType === OBSTRUCTION_EVALUATED_EVENT_TYPE;
+    const isReclassification = eventType === CLAIM_RECLASSIFIED_EVENT_TYPE;
 
     const reactsToEmergency = this.reactsToEmergency(eventType, data);
 
-    if (!incidentType && !isRecommendation && !reactsToEmergency) {
+    if (!incidentType && !isRecommendation && !isObstruction && !isReclassification && !reactsToEmergency) {
       return "ignored";
     }
 
@@ -151,6 +171,10 @@ export class ReceiveGatewayEventUseCase {
 
     if (isRecommendation) {
       processed = await this.processRecommendation(data);
+    } else if (isObstruction) {
+      processed = await this.processObstructionEvaluated(data);
+    } else if (isReclassification) {
+      processed = await this.processClaimReclassified(data);
     } else if (incidentType?.kind === "created") {
       processed = await this.processIncidentCreated(incidentType, data);
     } else if (incidentType) {
@@ -300,16 +324,82 @@ export class ReceiveGatewayEventUseCase {
     });
 
     if (config.source === "RECLAMOS") {
-      await this.publishNearbySpacesAffected(externalId, { latitude: latitud, longitude: longitud });
+      await this.publishNearbySpacesAffected(
+        { latitude: latitud, longitude: longitud }, "USO_PARCIAL", "RECLAMO", externalId
+      );
     }
 
     return true;
   }
 
-  // Analitica: cada espacio habilitado cerca del reclamo queda con uso parcial mientras dure.
+  // Incidente vial: obstruccion evaluada por Movilidad. Queda como incidente activo del reclamo (plan de
+  // llegada; se cierra con ReclamoActualizado) y restringe el acceso a los espacios cercanos (Analitica).
+  private async processObstructionEvaluated(data: Record<string, unknown>): Promise<boolean> {
+    const reclamoId = readId(data.reclamoId);
+    const { latitud, longitud } = data;
+    const impacto = isNonEmptyString(data.impactoCirculacion) ? data.impactoCirculacion.trim() : "";
+
+    if (!reclamoId || !isCoordinate(latitud, 90) || !isCoordinate(longitud, 180) || NO_TRAFFIC_IMPACT.test(impacto)) {
+      return false;
+    }
+
+    await this.cityIncidentRepository.upsertActive({
+      source: "RECLAMOS",
+      externalId: reclamoId,
+      category: "OBSTRUCCION_VIAL",
+      latitude: latitud,
+      longitude: longitud,
+      zone: isNonEmptyString(data.barrio) ? data.barrio.trim() : null
+    });
+
+    const tipo: PublicSpaceAffectationType =
+      data.requiereIntervencionInmediata !== true && LOW_TRAFFIC_IMPACT.test(impacto) ? "USO_PARCIAL" : "ACCESO_RESTRINGIDO";
+    await this.publishNearbySpacesAffected({ latitude: latitud, longitude: longitud }, tipo, "INCIDENTE_VIAL", reclamoId);
+
+    return true;
+  }
+
+  // Un reclamo reclasificado que pasa a cortar la circulacion se da de alta como incidente; si deja de
+  // cortarla, se cierra.
+  private async processClaimReclassified(data: Record<string, unknown>): Promise<boolean> {
+    const reclamoId = readId(data.reclamoId);
+    const { latitud, longitud } = data;
+
+    if (!reclamoId) {
+      return false;
+    }
+
+    if (data.afectaCirculacionNueva !== true) {
+      if (data.afectaCirculacionAnterior !== true) {
+        return false;
+      }
+      await this.cityIncidentRepository.deactivate("RECLAMOS", reclamoId);
+      return true;
+    }
+
+    if (!isCoordinate(latitud, 90) || !isCoordinate(longitud, 180)) {
+      return false;
+    }
+
+    await this.cityIncidentRepository.upsertActive({
+      source: "RECLAMOS",
+      externalId: reclamoId,
+      category: isNonEmptyString(data.categoriaNueva) ? data.categoriaNueva : null,
+      latitude: latitud,
+      longitude: longitud,
+      zone: isNonEmptyString(data.barrio) ? data.barrio.trim() : null
+    });
+    await this.publishNearbySpacesAffected({ latitude: latitud, longitude: longitud }, "USO_PARCIAL", "RECLAMO", reclamoId);
+
+    return true;
+  }
+
+  // Analitica: cada espacio habilitado a AFFECTED_SPACE_RADIUS_METERS o menos queda afectado.
   private async publishNearbySpacesAffected(
-    reclamoId: string,
-    location: { latitude: number; longitude: number }
+    location: { latitude: number; longitude: number },
+    tipoAfectacion: PublicSpaceAffectationType,
+    causaTipo: PublicSpaceAffectationCause,
+    causaId: string
   ): Promise<void> {
     if (!this.publicSpaceRepository || !this.affectedPublisher) {
       return;
@@ -323,12 +413,13 @@ export class ReceiveGatewayEventUseCase {
     const desde = new Date();
 
     await this.affectedPublisher.publish(nearby.map((space) => ({
+      afectacionId: stableAffectationId(causaTipo, causaId, space.id),
       space,
-      tipoAfectacion: "USO_PARCIAL" as const,
+      tipoAfectacion,
       desde,
       hastaEstimada: null,
-      causaId: reclamoId,
-      causaTipo: "RECLAMO" as const
+      causaId,
+      causaTipo
     })));
   }
 
