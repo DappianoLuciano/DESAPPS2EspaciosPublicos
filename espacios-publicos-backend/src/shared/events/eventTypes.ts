@@ -17,8 +17,18 @@ export const eventNames = {
     fromEnv("COMMUNITY_EVENT_CANCELLED_EVENT_FQN", "com.citypass.espacios.EventoCancelado"),
   publicSpaceStatusChanged: () =>
     fromEnv("PUBLIC_SPACE_STATUS_CHANGED_EVENT_FQN", "com.citypass.espacios.EspacioEstadoCambiado"),
+  // Pedido por Analitica: un espacio cerrado, restringido o con uso parcial (clima, baja manual, reclamo cercano).
+  publicSpaceAffected: () =>
+    fromEnv("PUBLIC_SPACE_AFFECTED_EVENT_FQN", "com.citypass.espacios.EspacioPublicoAfectado"),
   reservationConfirmed: () =>
     fromEnv("RESERVATION_CONFIRMED_EVENT_FQN", "com.citypass.espacios.ReservaConfirmada"),
+  // CU-01: emergencia durante un viaje en bicicleta.
+  reservationAffected: () =>
+    fromEnv("RESERVATION_AFFECTED_EVENT_FQN", "com.citypass.espacios.ReservaAfectada"),
+  spaceReleased: () =>
+    fromEnv("SPACE_RELEASED_EVENT_FQN", "com.citypass.espacios.EspacioLiberado"),
+  problemRegistered: () =>
+    fromEnv("PROBLEM_REGISTERED_EVENT_FQN", "com.citypass.espacios.ProblematicaRegistrada"),
   weatherConfirmed: () =>
     fromEnv("WEATHER_CONFIRMED_EVENT_FQN", "com.citypass.espacios.CriticidadClimaticaConfirmada"),
   weatherFinalized: () =>
@@ -36,7 +46,11 @@ export function dispatchableEventNames(): string[] {
     eventNames.activityModified(),
     eventNames.communityEventCancelled(),
     eventNames.publicSpaceStatusChanged(),
+    eventNames.publicSpaceAffected(),
     eventNames.reservationConfirmed(),
+    eventNames.reservationAffected(),
+    eventNames.spaceReleased(),
+    eventNames.problemRegistered(),
     eventNames.weatherConfirmed(),
     eventNames.weatherFinalized()
   ];

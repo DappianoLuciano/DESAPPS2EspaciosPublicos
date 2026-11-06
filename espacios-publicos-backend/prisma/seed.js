@@ -6,6 +6,7 @@ const spaces = [
   {
     id: 'seed-space-recoleta',
     name: 'Centro Cultural Recoleta',
+    category: 'SALON',
     description: 'Centro cultural con salas de exposición, auditorio, cine y espacios para música, danza y actividades contemporáneas.',
     address: 'Junín 1930',
     zone: 'Recoleta',
@@ -15,6 +16,7 @@ const spaces = [
   {
     id: 'seed-space-usina',
     name: 'Usina del Arte',
+    category: 'AUDITORIO',
     description: 'Espacio cultural de La Boca dedicado a la música, las artes visuales, la danza y propuestas para toda la familia.',
     address: 'Agustín R. Caffarena 1',
     zone: 'La Boca',
@@ -24,6 +26,7 @@ const spaces = [
   {
     id: 'seed-space-san-martin',
     name: 'El Cultural San Martín',
+    category: 'AUDITORIO',
     description: 'Complejo cultural con salas para teatro, cine, música, artes visuales, literatura y formación.',
     address: 'Sarmiento 1551',
     zone: 'San Nicolás',
@@ -33,6 +36,7 @@ const spaces = [
   {
     id: 'seed-space-25-mayo',
     name: 'Complejo Cultural 25 de Mayo',
+    category: 'AUDITORIO',
     description: 'Teatro y centro cultural de Villa Urquiza con programación escénica, musical y comunitaria.',
     address: 'Av. Triunvirato 4444',
     zone: 'Villa Urquiza',
@@ -42,6 +46,7 @@ const spaces = [
   {
     id: 'seed-space-planetario',
     name: 'Planetario Galileo Galilei',
+    category: 'AUDITORIO',
     description: 'Espacio de divulgación científica y astronómica con sala de espectáculos y actividades educativas.',
     address: 'Av. Sarmiento s/n',
     zone: 'Palermo',
@@ -51,6 +56,7 @@ const spaces = [
   {
     id: 'seed-space-parque-centenario',
     name: 'Anfiteatro del Parque Centenario',
+    category: 'PLAZA',
     description: 'Anfiteatro al aire libre utilizado para conciertos, danza, cine y festivales culturales.',
     address: 'Leopoldo Marechal y Lillo',
     zone: 'Caballito',
@@ -60,6 +66,7 @@ const spaces = [
   {
     id: 'seed-space-olmedo',
     name: 'Centro Cultural Alberto Olmedo',
+    category: 'SALON',
     description: 'Centro cultural barrial con talleres, encuentros vecinales y actividades artísticas.',
     address: 'Luis Viale 1052',
     zone: 'Caballito',
@@ -69,6 +76,7 @@ const spaces = [
   {
     id: 'seed-space-storni',
     name: 'Centro Cultural Alfonsina Storni',
+    category: 'SALON',
     description: 'Espacio de formación y producción cultural con talleres y propuestas abiertas a la comunidad.',
     address: 'Tucumán 3233',
     zone: 'Balvanera',
@@ -78,6 +86,7 @@ const spaces = [
   {
     id: 'seed-space-troilo',
     name: 'Centro Cultural Aníbal Troilo',
+    category: 'SALON',
     description: 'Centro cultural barrial orientado a la música, la danza y los talleres comunitarios.',
     address: 'Gorriti 5740',
     zone: 'Palermo',
@@ -87,6 +96,7 @@ const spaces = [
   {
     id: 'seed-space-parque-chacabuco',
     name: 'Centro Cultural Artes del Parque Chacabuco',
+    category: 'SALON',
     description: 'Espacio cultural de cercanía con talleres de arte, teatro, música y propuestas para infancias.',
     address: 'Cachimayo 1657',
     zone: 'Parque Chacabuco',
@@ -97,6 +107,7 @@ const spaces = [
     // Squad 3: espacio al aire libre para la demo del festival de 5.000 personas (ActividadCreada).
     id: 'seed-space-plaza-houssay',
     name: 'Plaza Houssay',
+    category: 'PLAZA',
     description: 'Plaza al aire libre apta para festivales y eventos masivos.',
     address: 'Av. Córdoba 2100',
     zone: 'Recoleta',

@@ -37,6 +37,15 @@ function resolveApiUrl(): string {
 const API_URL = resolveApiUrl();
 const API_TIMEOUT_MS = 15_000;
 
+export type PublicSpaceCategory = 'PLAZA' | 'SALON' | 'CANCHA' | 'AUDITORIO';
+
+export const PUBLIC_SPACE_CATEGORY_LABELS: Record<PublicSpaceCategory, string> = {
+  PLAZA: 'Plaza',
+  SALON: 'Salón',
+  CANCHA: 'Cancha',
+  AUDITORIO: 'Auditorio',
+};
+
 export class ApiError extends Error {
   public readonly status?: number;
   public readonly requestId?: string;
@@ -94,6 +103,7 @@ export interface PublicSpace {
   longitude?: number | null;
   status: 'ENABLED' | 'DISABLED';
   exposure?: 'INDOOR' | 'OUTDOOR' | 'MIXED';
+  category?: PublicSpaceCategory | null;
   imageUrl?: string | null;
   createdAt: string;
 }
@@ -397,6 +407,7 @@ export interface PublicSpacePayload {
   longitude?: number | null;
   status: 'ENABLED' | 'DISABLED';
   exposure: 'INDOOR' | 'OUTDOOR' | 'MIXED';
+  category?: PublicSpaceCategory | null;
   imageUrl?: string | null;
 }
 
@@ -748,4 +759,64 @@ export function askChatbot(message: string, history?: ChatMessage[]) {
     body: JSON.stringify({ message, history }),
     signal: AbortSignal.timeout(30_000),
   });
+}
+
+export type EmergencyImpactStatus = 'SUSPENDIDA' | 'CONFIRMADA' | 'REPROGRAMADA' | 'A_REPROGRAMAR';
+
+export interface EmergencyImpact {
+  id: string;
+  emergenciaId: string;
+  bookingType: 'RESERVATION' | 'COMMUNITY_EVENT';
+  bookingId: string;
+  publicSpaceId: string;
+  startDate: string;
+  endDate: string;
+  status: EmergencyImpactStatus;
+  organizerName: string;
+  rescheduledBy: string | null;
+  releasedAt: string | null;
+  createdAt: string;
+}
+
+export interface SpaceProblem {
+  id: string;
+  emergenciaId: string;
+  publicSpaceId: string | null;
+  type: string;
+  createdAt: string;
+}
+
+export interface EmergencyImpactSummary {
+  reservations: number;
+  affectedBookings: number;
+  releasedSpaces: number;
+  problems: number;
+}
+
+export interface EmergencyImpactsResponse {
+  summary: EmergencyImpactSummary;
+  impacts: EmergencyImpact[];
+  problems: SpaceProblem[];
+}
+
+export function getEmergencyImpacts() {
+  return request<EmergencyImpactsResponse>('/api/emergency-impacts');
+}
+
+export function rescheduleEmergencyImpact(id: string, startDate: string, endDate: string) {
+  return request<EmergencyImpact>(`/api/emergency-impacts/${encodeURIComponent(id)}/reschedule`, {
+    method: 'POST',
+    body: JSON.stringify({ startDate, endDate }),
+  });
+}
+
+export interface EmergencyEventNotice {
+  eventId: string;
+  status: EmergencyImpactStatus;
+  startDate: string;
+  endDate: string;
+}
+
+export function listEmergencyEventNotices() {
+  return request<EmergencyEventNotice[]>('/api/emergency-impacts/notices');
 }

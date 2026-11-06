@@ -1,3 +1,5 @@
+import { CommunityEventSnapshotPublisher } from "./application/events/communityEventPublished";
+import { PublicSpaceAffectedPublisher } from "./application/events/publicSpaceAffected";
 import { CancelCommunityEventRegistrationUseCase } from "./application/use-cases/CancelCommunityEventRegistrationUseCase";
 import { ChangeCommunityEventSuspensionUseCase } from "./application/use-cases/ChangeCommunityEventSuspensionUseCase";
 import { PrismaWeatherRestrictionRepository } from "./infrastructure/database/PrismaWeatherRestrictionRepository";
@@ -32,6 +34,13 @@ import { OutboxTrackingEventBus } from "./infrastructure/events/OutboxTrackingEv
 import { CancelCommunityEventUseCase } from "./application/use-cases/CancelCommunityEventUseCase";
 import { GetEventRoutePlanUseCase } from "./application/use-cases/GetEventRoutePlanUseCase";
 import { ReceiveGatewayEventUseCase } from "./application/use-cases/ReceiveGatewayEventUseCase";
+import { FindNearbyBookingsUseCase } from "./application/use-cases/FindNearbyBookingsUseCase";
+import { GetEmergencyImpactsUseCase } from "./application/use-cases/GetEmergencyImpactsUseCase";
+import { HandleEmergencyCreatedUseCase } from "./application/use-cases/HandleEmergencyCreatedUseCase";
+import { HandleEmergencyResolvedUseCase } from "./application/use-cases/HandleEmergencyResolvedUseCase";
+import { RescheduleAffectedBookingUseCase } from "./application/use-cases/RescheduleAffectedBookingUseCase";
+import { PrismaEmergencyImpactRepository } from "./infrastructure/database/PrismaEmergencyImpactRepository";
+import { EmergencyImpactController } from "./interfaces/http/controllers/EmergencyImpactController";
 import { PrismaCityIncidentRepository } from "./infrastructure/database/PrismaCityIncidentRepository";
 import { PrismaDestinationRecommendationRepository } from "./infrastructure/database/PrismaDestinationRecommendationRepository";
 import { PrismaInboundEventRepository } from "./infrastructure/database/PrismaInboundEventRepository";
@@ -80,13 +89,21 @@ export function createContainer() {
   const communityEventRegistrationRepository = new PrismaCommunityEventRegistrationRepository();
   const eventOutboxRepository = new PrismaEventOutboxRepository();
   const weatherAlertRepository = new PrismaWeatherAlertRepository();
-  const weatherRestrictions = new PrismaWeatherRestrictionRepository();
   // EVENT_BUS_DRIVER=console deja los eventos en el log (desarrollo local); citypass los publica
   // en el gateway. Los casos de uso guardan el evento en el outbox y lo publican por este bus,
   // que ademas deja el estado del registro al dia y reintenta desde el outbox si el gateway falla.
   const baseEventBus = createEventBus();
   const weatherEventBus = baseEventBus;
   const eventBus = new OutboxTrackingEventBus(baseEventBus, eventOutboxRepository);
+  const publicSpaceAffectedPublisher = new PublicSpaceAffectedPublisher(eventOutboxRepository, eventBus);
+  const communityEventSnapshotPublisher = new CommunityEventSnapshotPublisher(
+    communityEventRepository,
+    publicSpaceRepository,
+    communityEventRegistrationRepository,
+    eventOutboxRepository,
+    eventBus
+  );
+  const weatherRestrictions = new PrismaWeatherRestrictionRepository(publicSpaceAffectedPublisher, communityEventSnapshotPublisher);
   const storageService = new SupabaseStorageService();
   const qrGenerator = new NodeQrGenerator();
   const emailSender = new NodemailerEmailSender();
@@ -103,7 +120,8 @@ export function createContainer() {
   const updatePublicSpaceUseCase = new UpdatePublicSpaceUseCase(
     publicSpaceRepository,
     eventOutboxRepository,
-    eventBus
+    eventBus,
+    publicSpaceAffectedPublisher
   );
   const deletePublicSpaceUseCase = new DeletePublicSpaceUseCase(publicSpaceRepository);
 
@@ -164,11 +182,51 @@ export function createContainer() {
 
   const cityIncidentRepository = new PrismaCityIncidentRepository();
   const destinationRecommendationRepository = new PrismaDestinationRecommendationRepository();
+  const emergencyImpactRepository = new PrismaEmergencyImpactRepository();
+  const findNearbyBookingsUseCase = new FindNearbyBookingsUseCase(
+    publicSpaceRepository,
+    reservationRepository,
+    communityEventRepository
+  );
+  const handleEmergencyCreatedUseCase = new HandleEmergencyCreatedUseCase(
+    emergencyImpactRepository,
+    findNearbyBookingsUseCase,
+    eventBus,
+    emailSender,
+    communityEventRegistrationRepository
+  );
+  const handleEmergencyResolvedUseCase = new HandleEmergencyResolvedUseCase(
+    emergencyImpactRepository,
+    publicSpaceRepository,
+    eventBus,
+    emailSender,
+    communityEventRegistrationRepository
+  );
   const receiveGatewayEventUseCase = new ReceiveGatewayEventUseCase(
     new PrismaInboundEventRepository(),
     cityIncidentRepository,
     destinationRecommendationRepository,
-    communityEventRepository
+    communityEventRepository,
+    publicSpaceRepository,
+    publicSpaceAffectedPublisher,
+    {
+      onCreated: (emergency) => handleEmergencyCreatedUseCase.execute(emergency),
+      onResolved: (emergency) => handleEmergencyResolvedUseCase.execute(emergency)
+    }
+  );
+  const emergencyImpactController = new EmergencyImpactController(
+    findNearbyBookingsUseCase,
+    new GetEmergencyImpactsUseCase(emergencyImpactRepository),
+    new RescheduleAffectedBookingUseCase(
+      emergencyImpactRepository,
+      publicSpaceRepository,
+      reservationRepository,
+      communityEventRepository,
+      communityEventRegistrationRepository,
+      eventBus,
+      eventOutboxRepository,
+      emailSender
+    )
   );
   const getEventRoutePlanUseCase = new GetEventRoutePlanUseCase(
     communityEventRepository,
@@ -253,10 +311,16 @@ export function createContainer() {
       cancelCommunityEventRegistrationUseCase,
       getCommunityEventRegistrationUseCase,
       cancelCommunityEventUseCase,
-      new ChangeCommunityEventSuspensionUseCase(communityEventRepository, communityEventRegistrationRepository, publicSpaceRepository)
+      new ChangeCommunityEventSuspensionUseCase(
+        communityEventRepository,
+        communityEventRegistrationRepository,
+        publicSpaceRepository,
+        communityEventSnapshotPublisher
+      )
     ),
     routePlanController: new RoutePlanController(getEventRoutePlanUseCase),
     gatewayWebhookController: new GatewayWebhookController(receiveGatewayEventUseCase),
+    emergencyImpactController,
     chatbotController,
     weatherAlertController,
     internalWeatherController: new InternalWeatherController(runWeatherCycleUseCase)

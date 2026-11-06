@@ -56,6 +56,50 @@ cancelacion suele ser preventiva. Si no hay alertas o la lista falla, se muestra
 `ActividadCreada` suma `categoria` (`["null","string"]`, default `null`) al final del record. Lleva
 `communityEvent.category` tal cual se cargo. Ver `eventos-squad-3.md`.
 
+## `com.citypass.espacios.EspacioPublicoAfectado`
+
+Pedido por Analitica para graficar los espacios afectados. Sale cada vez que un espacio queda cerrado,
+restringido o con uso parcial. Lo arma `buildPublicSpaceAffectedPayload`
+(`src/application/events/publicSpaceAffected.ts`) y pasa por el outbox como el resto.
+
+| Campo | Tipo Avro | Origen |
+| --- | --- | --- |
+| `afectacionId` | `string` (UUID) | id de la restriccion climatica, o uno nuevo |
+| `espacioId` | `string` | id del espacio |
+| `categoria` | `["null","string"]` | `PLAZA`, `SALON`, `CANCHA` o `AUDITORIO`; `null` si el espacio no la tiene cargada |
+| `latitud` / `longitud` | `["null","double"]` | coordenadas del espacio |
+| `tipoAfectacion` | `string` | `CERRADO`, `USO_PARCIAL` o `ACCESO_RESTRINGIDO` |
+| `afectacionDesde` | `long` (`timestamp-millis`) | inicio de la afectacion |
+| `afectacionHastaEstimada` | `["null", long timestamp-millis]` | fin previsto; `null` si no se conoce |
+| `causaId` / `causaTipo` | `["null","string"]` | ver tabla de fuentes |
+| `correlationId` | `string` | `afectacion-<afectacionId>` |
+| `occurredAt` | `long` (`timestamp-millis`) | momento en que se publico |
+
+### Fuentes
+
+| Hecho | `tipoAfectacion` | `causaTipo` / `causaId` | `afectacionHastaEstimada` |
+| --- | --- | --- | --- |
+| Se aplica una medida climatica a un espacio (`POST /api/admin/weather-alerts/:id/restrictions`) | `ACCESO_RESTRINGIDO` | `EVENTO_CLIMATICO` / id de la alerta | fin de la medida (`validUntil`) |
+| Un administrador deshabilita el espacio (`DISABLED`) | `CERRADO` | `null` / `null` | `null` |
+| Movilidad publica `MovilidadObstruccionEvaluada` a 1000 m o menos de un espacio habilitado | `ACCESO_RESTRINGIDO` (`USO_PARCIAL` si `impactoCirculacion` es bajo y no requiere intervencion inmediata) | `INCIDENTE_VIAL` / `reclamoId` | `null` |
+| Llega un `ReclamoReclasificado` que pasa a `afectaCirculacionNueva = true`, a 1000 m o menos | `USO_PARCIAL` | `RECLAMO` / `reclamoId` | `null` |
+| Llega un `ReclamoCreado` con `afectaCirculacion` y coordenadas (el schema registrado hoy no las trae) | `USO_PARCIAL` | `RECLAMO` / `reclamoId` | `null` |
+
+- `EVENTO_CLIMATICO` no estaba en la lista original de Analitica: es la unica causa que hoy restringe
+  espacios, asi que se sumo al mismo enum que usa `ActividadModificada`.
+- `INCIDENTE_VIAL` sale de las obstrucciones que evalua Movilidad. Analitica mide
+  `ACCESO_RESTRINGIDO` + `INCIDENTE_VIAL`.
+- `impactoCirculacion` no tiene valores documentados: `NINGUNO`/`SIN_IMPACTO` se ignora,
+  `BAJO`/`LEVE` va como `USO_PARCIAL` y cualquier otro valor como `ACCESO_RESTRINGIDO`. Ajustar cuando
+  Movilidad confirme la lista.
+- Para las afectaciones que vienen de un reclamo, `afectacionId` es estable (UUID v5 de causa + reclamo +
+  espacio): una reevaluacion del mismo reclamo repite el id.
+- Las emergencias no generan afectaciones.
+- Volver a aplicar la misma alerta a un espacio que ya la tenia no publica de nuevo.
+- No hay evento de fin de afectacion: el grafico usa `afectacionHastaEstimada` cuando existe.
+- La categoria se carga en el alta y la edicion del espacio (migracion `20261105230000_public_space_category`).
+  Los espacios ya cargados quedan en `null` hasta que se complete.
+
 ## Puesta en marcha
 
 Registrar los contratos **antes** de desplegar el backend; si no, el gateway no conoce

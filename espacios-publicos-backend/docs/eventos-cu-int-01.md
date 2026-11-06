@@ -42,7 +42,7 @@ datos personales (ni mails ni nombres).
 
 | FQN (variable de entorno) | Se publica al | Campos |
 | --- | --- | --- |
-| `com.citypass.espacios.EventoComunitarioPublicado` (`COMMUNITY_EVENT_PUBLISHED_EVENT_FQN`) | crear el evento y cada vez que cambian inscriptos o estado (inscripcion, baja) | `eventoId`, `espacioId`, `titulo`, `zona?`, `direccion?`, `latitud?`, `longitud?`, `inicio`, `fin`, `capacidad`, `cupoMaximo` (= `capacidad`), `inscriptos` (total actual), `estado` (`ACTIVE`/`ACTIVE_FULL`/`CANCELLED`), `categoria`, `correlationId` (`evento-<eventoId>`) |
+| `com.citypass.espacios.EventoComunitarioPublicado` (`COMMUNITY_EVENT_PUBLISHED_EVENT_FQN`) | crear el evento y cada vez que cambian inscriptos o estado (inscripcion, baja, suspension, reanudacion) | `eventoId`, `espacioId`, `titulo`, `zona?`, `direccion?`, `latitud?`, `longitud?`, `inicio`, `fin`, `capacidad`, `cupoMaximo` (= `capacidad`), `inscriptos` (total actual), `estado` (`ACTIVE`/`ACTIVE_FULL`/`SUSPENDED`; el schema registrado documenta `CANCELLED`, que en la practica no sale porque la cancelacion publica `EventoCancelado`), `categoria`, `correlationId` (`evento-<eventoId>`) |
 | `com.citypass.espacios.EventoCancelado` (`COMMUNITY_EVENT_CANCELLED_EVENT_FQN`) | `PATCH /api/community-events/:id/cancel` | `eventoId`, `espacioId`, `motivo?`, `canceladoEn`, `correlationId` |
 | `com.citypass.espacios.EspacioEstadoCambiado` (`PUBLIC_SPACE_STATUS_CHANGED_EVENT_FQN`) | cambiar el `status` de un espacio | `espacioId`, `estadoNuevo` (`ENABLED`/`DISABLED`), `zona?`, `latitud?`, `longitud?`, `cambiadoEn` |
 | `com.citypass.espacios.ReservaConfirmada` (`RESERVATION_CONFIRMED_EVENT_FQN`) | reservar un espacio o inscribirse a un evento | `reservaId`, `tipoReserva` (`EVENTO`/`ESPACIO`), `recursoId`, `espacioId`, `cantidadPersonas`, `inicio`, `fin` |
@@ -57,6 +57,10 @@ datos personales (ni mails ni nombres).
   Cada publicacion es un evento nuevo (id propio) con el mismo `eventoId`: el consumidor se queda con la
   ultima. Una inscripcion rechazada por cupo lleno no publica nada, y la baja en un evento `CANCELLED`
   tampoco (ya salio `EventoCancelado`).
+- Al suspender o reanudar un evento, manualmente o por una medida climatica (aplicar o levantar), sale
+  un snapshot con el estado nuevo (`SUSPENDED`, o `ACTIVE`/`ACTIVE_FULL` al reanudar). Lo pidio
+  Movilidad para detectar esos cambios. Un evento que ya estaba suspendido no se republica al
+  sumarle otra alerta.
 
 Los contratos se registran con `npm run eda:register-events` (clima + estos cuatro). No se ejecuta
 solo: hay que revisar los schemas y correrlo a mano.
@@ -74,7 +78,14 @@ constante (si la variable esta vacia se rechaza todo) y la entrega es idempotent
   (una fila por evento). Si llega una con `calculadaEn` mas vieja que la guardada se descarta; si el
   evento no existe se loguea y se ignora. `estacionId` llega como numero y se guarda como string.
 - `com.citypass.reclamos.ReclamoCreado`: con `afectaCirculacion === true` y coordenadas, alta en
-  `city_incidents`.
+  `city_incidents`. El schema registrado (schemaId 9) no trae esos campos, asi que en la practica no da
+  de alta nada: las coordenadas llegan por las dos fuentes siguientes.
+- `com.citypass.movilidad.MovilidadObstruccionEvaluada`: obstruccion evaluada por Movilidad. Alta del
+  reclamo en `city_incidents` (categoria `OBSTRUCCION_VIAL`) y `EspacioPublicoAfectado` con causa
+  `INCIDENTE_VIAL` para los espacios cercanos. Se ignora si `impactoCirculacion` indica que no hay impacto.
+- `com.citypass.reclamos.ReclamoReclasificado`: si pasa a `afectaCirculacionNueva = true` con coordenadas,
+  alta en `city_incidents` y `EspacioPublicoAfectado` con causa `RECLAMO`; si deja de afectarla, el
+  incidente pasa a inactivo.
 - `com.citypass.emergencias.EmergenciaCreada`: Emergencias no publica coordenadas ni `afectaCirculacion`;
   manda `emergenciaId`, `estado`, `ubicacion.barrio` (puede ser `null`), `tipo`, `severity`,
   `createdAt` y `updatedAt`. Con `emergenciaId` y barrio no vacio se da de alta sin coordenadas, con
@@ -91,7 +102,7 @@ Para que el gateway llame al webhook hay que dar de alta una suscripcion por top
 npm run eda:register-subscriptions
 ```
 
-Hace `POST {EVENT_GATEWAY_API_URL}/subscriptions` con `{topic, callbackUrl}` para cada uno de los cinco topicos
+Hace `POST {EVENT_GATEWAY_API_URL}/subscriptions` con `{topic, callbackUrl}` para cada uno de los topicos
 (`GATEWAY_SUBSCRIPTION_TOPICS`, exportados desde `ReceiveGatewayEventUseCase`: la misma lista que el webhook
 sabe procesar). `callbackUrl = {PUBLIC_BACKEND_URL}/webhooks/citypass?token={GATEWAY_WEBHOOK_TOKEN}`. Requiere
 `EVENT_GATEWAY_API_URL`, `EVENT_CLIENT_ID`, `EVENT_CLIENT_SECRET`, `PUBLIC_BACKEND_URL` y `GATEWAY_WEBHOOK_TOKEN`.

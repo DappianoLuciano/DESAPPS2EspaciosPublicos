@@ -1,6 +1,7 @@
 import { Avatar, Burger, Flex, Text } from '@mantine/core';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { describeSession } from '../lib/citypassAuth';
 
 interface HeaderProps {
   mobileOpened: boolean;
@@ -10,6 +11,7 @@ interface HeaderProps {
 export default function Header({ mobileOpened, toggleMobile }: HeaderProps) {
   const location = useLocation();
   const { user } = useAuth();
+  const session = user ? describeSession(user) : null;
   const isAdmin = user?.role === 'municipal_admin' && location.pathname.startsWith('/admin');
 
   return (
@@ -35,6 +37,11 @@ export default function Header({ mobileOpened, toggleMobile }: HeaderProps) {
       </Flex>
 
       <Flex align="center" gap="md">
+        {session && (
+          <Text size="xs" c="dimmed" visibleFrom="md">
+            uid: {session.uid} · ou: {session.ou} · rol: {session.role}
+          </Text>
+        )}
         <Text size="sm" fw={600} visibleFrom="xs">{user?.name}</Text>
         <Flex align="center">
           <Avatar src={null} alt={user?.name || 'User'} radius="xl" color="blue">

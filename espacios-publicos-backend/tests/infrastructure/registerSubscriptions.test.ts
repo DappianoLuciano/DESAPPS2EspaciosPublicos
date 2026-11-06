@@ -10,13 +10,19 @@ const BACKEND = "https://espacios-publicos-backend.vercel.app";
 const GATEWAY = "https://gateway.test/api/v1";
 
 describe("topicos de suscripcion", () => {
-  it("son los cinco que procesa el webhook, en orden", () => {
+  it("son los que procesa el webhook, en orden", () => {
     expect([...GATEWAY_SUBSCRIPTION_TOPICS]).toEqual([
       "com.citypass.movilidad.RecomendacionDestinoActualizada",
       "com.citypass.reclamos.ReclamoCreado",
       "com.citypass.reclamos.ReclamoActualizado",
       "com.citypass.emergencias.EmergenciaCreada",
-      "com.citypass.emergencias.EmergenciaActualizada"
+      "com.citypass.emergencias.EmergenciaActualizada",
+      "com.citypass.movilidad.MovilidadObstruccionEvaluada",
+      "com.citypass.reclamos.ReclamoReclasificado",
+      "com.citypass.emergencias.EmergenciaEstadoActualizado",
+      "com.citypass.emergencias.EmergenciaCerrada",
+      "com.citypass.emergencias.EmergenciaCancelada",
+      "com.citypass.emergencias.EmergenciaResuelta"
     ]);
   });
 });
@@ -66,7 +72,7 @@ describe("registerSubscriptions", () => {
     const { promise } = run(fetchMock);
     const results = await promise;
 
-    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(fetchMock).toHaveBeenCalledTimes(GATEWAY_SUBSCRIPTION_TOPICS.length);
     for (const [index, topic] of GATEWAY_SUBSCRIPTION_TOPICS.entries()) {
       const [url, init] = fetchMock.mock.calls[index];
       expect(url).toBe(`${GATEWAY}/subscriptions`);
@@ -87,7 +93,7 @@ describe("registerSubscriptions", () => {
     const { promise, lines } = run(fetchMock);
     const results = await promise;
 
-    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(fetchMock).toHaveBeenCalledTimes(GATEWAY_SUBSCRIPTION_TOPICS.length);
     expect(results["com.citypass.reclamos.ReclamoCreado"]).toBe("ya existia");
     expect(lines[1]).toContain("com.citypass.reclamos.ReclamoCreado: ya existía");
     expect(lines[0]).toContain("registrada");
@@ -99,7 +105,7 @@ describe("registerSubscriptions", () => {
     const { promise, lines } = run(fetchMock);
     await promise;
 
-    expect(lines).toHaveLength(5);
+    expect(lines).toHaveLength(GATEWAY_SUBSCRIPTION_TOPICS.length);
     for (const line of lines) {
       expect(line).toContain(`${BACKEND}/webhooks/citypass?token=***`);
       expect(line).not.toContain(WEBHOOK_TOKEN);

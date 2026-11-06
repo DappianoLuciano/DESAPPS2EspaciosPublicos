@@ -3,15 +3,18 @@ import EventAvailabilityNotice from '../components/EventAvailabilityNotice';
 import { eventAvailability } from '../lib/eventAvailability';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Container, Card, Title, Text, Badge, Loader, Center, Group, Button, Stack, ThemeIcon, Image } from '@mantine/core';
-import { IconArrowLeft, IconDownload, IconCheck, IconX, IconCalendar, IconUser, IconMapPin } from '@tabler/icons-react';
+import { IconAlertTriangle, IconArrowLeft, IconDownload, IconCheck, IconX, IconCalendar, IconUser, IconMapPin } from '@tabler/icons-react';
 import QRCode from 'qrcode';
 import { getCommunityEventRegistration } from '../lib/api';
 import type { CitizenCommunityEventRegistration } from '../lib/api';
 import { downloadTicketPdf, getTicketUrl } from '../lib/ticketPdf';
+import { useEmergencyNotices } from '../lib/useEmergencyNotices';
+import EmergencyNotice from '../components/EmergencyNotice';
 
 export default function RegistrationTicket() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const notices = useEmergencyNotices();
   const [registration, setRegistration] = useState<CitizenCommunityEventRegistration | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,6 +88,13 @@ export default function RegistrationTicket() {
 
   const event = registration.communityEvent;
   const isValid = !eventAvailability(event).unavailable && new Date(event.endDate) >= new Date();
+  const notice = notices.get(event.id);
+  const isOnHold = isValid && (notice?.status === 'SUSPENDIDA' || notice?.status === 'A_REPROGRAMAR');
+  const badge = isOnHold
+    ? { color: 'orange', icon: <IconAlertTriangle size={12} />, label: 'Inscripción suspendida' }
+    : isValid
+      ? { color: 'teal', icon: <IconCheck size={12} />, label: 'Inscripción válida' }
+      : { color: 'red', icon: <IconX size={12} />, label: 'Inscripción no válida' };
 
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleString('es-AR', {
@@ -102,16 +112,18 @@ export default function RegistrationTicket() {
           <Stack align="center" gap={6}>
             <Title order={4} ta="center">{event.title}</Title>
             <Badge
-              color={isValid ? 'teal' : 'red'}
+              color={badge.color}
               variant="light"
-              leftSection={isValid ? <IconCheck size={12} /> : <IconX size={12} />}
+              leftSection={badge.icon}
             >
-              {isValid ? 'Inscripción válida' : 'Inscripción no válida'}
+              {badge.label}
             </Badge>
           </Stack>
 
           <EventAvailabilityNotice event={event} />
-          {qrCode && isValid && (
+          <EmergencyNotice notice={notice} />
+
+          {qrCode && isValid && !isOnHold && (
             <Stack align="center" gap={4}>
               <Image src={qrCode} alt="Código QR de la inscripción" w={160} h={160} />
               <Text size="xs" c="dimmed" ta="center">
@@ -148,7 +160,7 @@ export default function RegistrationTicket() {
               size="xs"
               leftSection={<IconDownload size={14} />}
               loading={downloading}
-              disabled={!isValid}
+              disabled={!isValid || isOnHold}
               onClick={async () => {
                 setDownloading(true);
                 try {

@@ -16,6 +16,7 @@ const publicSpaceFields = [
   "longitude",
   "status",
   "exposure",
+  "category",
   "imageUrl"
 ] as const;
 

@@ -1,16 +1,19 @@
 import { Alert, Badge, Box, Button, Card, Container, Flex, Image, Loader, SimpleGrid, Text, Title } from '@mantine/core';
 import EventAvailabilityNotice from '../components/EventAvailabilityNotice';
 import { eventAvailability } from '../lib/eventAvailability';
-import { IconCalendarEvent, IconCheck, IconHistory, IconMapPin, IconPlayerPlay } from '@tabler/icons-react';
+import { IconAlertTriangle, IconCalendarEvent, IconCheck, IconHistory, IconMapPin, IconPlayerPlay } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import EmergencyNotice from '../components/EmergencyNotice';
 import { useAuth } from '../context/AuthContext';
+import { useEmergencyNotices } from '../lib/useEmergencyNotices';
 import { listMyCommunityEventRegistrations } from '../lib/api';
 import type { CitizenCommunityEventRegistration } from '../lib/api';
 
 export default function MyReservations() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const notices = useEmergencyNotices();
   const [reservations, setReservations] = useState<CitizenCommunityEventRegistration[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,10 +97,15 @@ export default function MyReservations() {
 
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
         {reservations.map((reservation) => {
-          const status = getStatus(reservation);
-          const StatusIcon = status.icon;
+          const baseStatus = getStatus(reservation);
           const event = reservation.communityEvent;
-          const canCancel = status.label === 'Confirmada';
+          const noticeStatus = notices.get(event.id)?.status;
+          const isOnHold = noticeStatus === 'SUSPENDIDA' || noticeStatus === 'A_REPROGRAMAR';
+          const status = isOnHold
+            ? { label: 'Suspendida', color: 'orange', icon: IconAlertTriangle, opacity: 1 }
+            : baseStatus;
+          const StatusIcon = status.icon;
+          const canCancel = baseStatus.label === 'Confirmada';
 
           return (
             <Card key={reservation.id} shadow="sm" padding="lg" radius="md" withBorder style={{ opacity: status.opacity }}>
@@ -121,6 +129,8 @@ export default function MyReservations() {
                   {status.label}
                 </Badge>
               </Card.Section>
+
+              <EmergencyNotice notice={notices.get(event.id)} />
 
               <Flex align="center" gap="xs" mt="md" mb="xs" c="dimmed">
                 <IconCalendarEvent size="1.2rem" />
