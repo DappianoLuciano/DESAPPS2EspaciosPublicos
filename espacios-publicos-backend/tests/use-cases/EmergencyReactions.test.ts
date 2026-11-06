@@ -237,6 +237,17 @@ describe("CU-01: al resolverse la emergencia", () => {
     expect(store.outbox[0].payload).toMatchObject({ espacioId: "plaza", tipo: "SIN_CLASIFICAR", latitud: -34.6037 });
   });
 
+  it("sin coordenadas registra la problematica sin adivinar el espacio", async () => {
+    const { resolved, store } = setup([space()], []);
+    store.cases.set(EMERGENCY, {
+      emergenciaId: EMERGENCY, latitude: null, longitude: null, zone: "San Nicolás", occurredAt: new Date(NOW), resolvedAt: null
+    });
+
+    await resolved.execute(resolvedWith(["ESPACIO_PUBLICO"]));
+
+    expect(store.outbox[0].payload).toMatchObject({ espacioId: null, latitud: null, tipo: "SIN_CLASIFICAR" });
+  });
+
   it("no libera ni registra dos veces (RNI-04)", async () => {
     const { created: createdHandler, resolved, eventBus } = setup();
 
@@ -379,6 +390,18 @@ describe("contratos de entrada", () => {
   it("lee latitud y longitud sueltas", () => {
     expect(parseEmergencyCreated({ emergenciaId: EMERGENCY, latitud: -34.6, longitud: -58.3 }))
       .toMatchObject({ latitude: -34.6, longitude: -58.3 });
+  });
+
+  it("lee ubicacion {latitud, longitud} numericas", () => {
+    expect(parseEmergencyCreated({ emergenciaId: EMERGENCY, ubicacion: { latitud: -34.6, longitud: -58.3 } }))
+      .toMatchObject({ latitude: -34.6, longitude: -58.3 });
+  });
+
+  it("ignora coordenadas cifradas y se queda con el barrio", () => {
+    expect(parseEmergencyCreated({
+      emergenciaId: EMERGENCY,
+      ubicacion: { latitud: "enc:v1:AbC9...", longitud: "enc:v1:XyZ1...", barrio: "Recoleta" }
+    })).toMatchObject({ latitude: null, longitude: null, zone: "Recoleta" });
   });
 
   it("lee el barrio del contrato actual de Emergencias", () => {

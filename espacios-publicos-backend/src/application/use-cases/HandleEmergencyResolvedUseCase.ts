@@ -106,8 +106,10 @@ export class HandleEmergencyResolvedUseCase {
   }
 
   private async registerProblem(emergency: EmergencyResolved, location: EmergencyLocation, now: Date): Promise<void> {
-    const spaces: PublicSpace[] = await this.publicSpaceRepository.findAll();
-    const publicSpaceId = nearbySpaces(spaces, location)[0]?.space.id ?? null;
+    // Solo con coordenadas se puede saber cual es el espacio. Con el barrio cualquiera seria una suposicion.
+    const hasCoordinates = location.latitude !== null && location.longitude !== null;
+    const spaces: PublicSpace[] = hasCoordinates ? await this.publicSpaceRepository.findAll() : [];
+    const publicSpaceId = hasCoordinates ? nearbySpaces(spaces, location)[0]?.space.id ?? null : null;
     const problemId = randomUUID();
     const type = emergency.problemType ?? UNCLASSIFIED_PROBLEM;
     const event = buildProblemRegisteredEvent({

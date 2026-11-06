@@ -8,7 +8,8 @@ Espacios actua en dos momentos, siempre por eventos (RNI-08). Todos los eventos 
 Consume `EmergenciaCreada`. Busca reservas y eventos comunitarios activos en espacios cercanos:
 
 - Con `ubicacion {lat, lng}`, usa el radio `EMERGENCY_NEARBY_RADIUS_METERS` (500 m por defecto).
-- Tambien acepta `latitud` y `longitud` sueltas.
+- Tambien acepta `ubicacion {latitud, longitud}` y `latitud`/`longitud` sueltas, siempre numericas. Las
+  coordenadas cifradas que manda Emergencias hoy se ignoran.
 - Sin coordenadas, usa `ubicacion.barrio`.
 - Horario: lo que sigue en curso o empieza dentro de `EMERGENCY_WINDOW_HOURS` (2 h por defecto). Lo
   terminado no cuenta aunque este dentro de las 2 h previas, porque ya no se puede suspender.
@@ -71,8 +72,10 @@ con un mail individual. Un envio que falla se loguea y no frena la emergencia ni
 - El documento dice que Espacios "registra y deriva" la problematica, pero no define a quien. Hoy se registra,
   se publica `ProblematicaRegistrada` y se ve en el backoffice; no hay una accion de derivar.
 - La suspension vive en `emergency_booking_impacts`: `Reservation.status` y `CommunityEvent.status` no
-  cambian. Un evento afectado muestra el aviso, pero sigue aceptando inscripciones; falta unirlo al estado
-  `SUSPENDED` que ya existe para el clima.
+  cambian, para no mezclarla con la suspension por clima. Mientras un evento esta suspendido o pendiente de
+  reprogramar por una emergencia, no acepta inscripciones nuevas.
+- Emergencias cifra latitud y longitud. Sin coordenadas, la busqueda de cercanos usa el barrio, y la
+  problematica se registra sin espacio: con el barrio no se puede saber cual es.
 - Una emergencia no bloquea reservas nuevas en el espacio.
 - Los eventos comunitarios no guardan el mail del organizador: el aviso va a
   `EMERGENCY_NOTIFICATIONS_EMAIL`, si esta definido, y siempre se ve en el backoffice.
