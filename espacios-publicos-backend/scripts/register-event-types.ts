@@ -143,6 +143,37 @@ const spacesDefinitions: EventTypeDefinition[] = [
     { name: "cantidadPersonas", type: "int" },
     { name: "inicio", type: "string", doc: "ISO 8601" },
     { name: "fin", type: "string", doc: "ISO 8601" }
+  ]),
+  record("ReservaAfectada", "CU-01: una reserva o evento cercano fue afectado por una emergencia.", [
+    { name: "correlationId", type: "string", doc: "emergenciaId" },
+    { name: "emergenciaId", type: "string" },
+    { name: "espacioId", type: "string" },
+    { name: "reservaId", type: "string" },
+    { name: "tipoReserva", type: "string", doc: "EVENTO | ESPACIO" },
+    { name: "horario", type: { type: "record", name: "HorarioReserva", fields: [
+      { name: "inicio", type: "string", doc: "ISO 8601" },
+      { name: "fin", type: "string", doc: "ISO 8601" }
+    ] } },
+    { name: "accion", type: "string", doc: "SUSPENDIDA | REPROGRAMADA" },
+    { name: "afectadaEn", type: "string", doc: "ISO 8601" }
+  ]),
+  record("EspacioLiberado", "CU-01: el espacio se libero al resolverse la emergencia.", [
+    { name: "correlationId", type: "string", doc: "emergenciaId" },
+    { name: "emergenciaId", type: "string" },
+    { name: "espacioId", type: "string" },
+    { name: "reservasConfirmadas", type: { type: "array", items: "string" } },
+    { name: "reservasReprogramadas", type: { type: "array", items: "string" } },
+    { name: "liberadoEn", type: "string", doc: "ISO 8601" }
+  ]),
+  record("ProblematicaRegistrada", "CU-01: se registro una problematica del espacio publico.", [
+    { name: "correlationId", type: "string", doc: "emergenciaId" },
+    { name: "emergenciaId", type: "string" },
+    { name: "problematicaId", type: "string" },
+    { name: "espacioId", type: nullable("string"), default: null },
+    { name: "tipo", type: "string" },
+    { name: "latitud", type: nullable("double"), default: null },
+    { name: "longitud", type: nullable("double"), default: null },
+    { name: "registradaEn", type: "string", doc: "ISO 8601" }
   ])
 ];
 
@@ -171,7 +202,10 @@ async function main() {
     EventoCancelado: "COMMUNITY_EVENT_CANCELLED_EVENT_FQN",
     EspacioEstadoCambiado: "PUBLIC_SPACE_STATUS_CHANGED_EVENT_FQN",
     EspacioPublicoAfectado: "PUBLIC_SPACE_AFFECTED_EVENT_FQN",
-    ReservaConfirmada: "RESERVATION_CONFIRMED_EVENT_FQN"
+    ReservaConfirmada: "RESERVATION_CONFIRMED_EVENT_FQN",
+    ReservaAfectada: "RESERVATION_AFFECTED_EVENT_FQN",
+    EspacioLiberado: "SPACE_RELEASED_EVENT_FQN",
+    ProblematicaRegistrada: "PROBLEM_REGISTERED_EVENT_FQN"
   };
 
   for (const definition of selected) {

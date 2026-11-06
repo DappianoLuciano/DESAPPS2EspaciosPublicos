@@ -25,6 +25,7 @@ import { createInternalRoutes } from "./interfaces/http/routes/internalRoutes";
 import { createRoutePlanRoutes } from "./interfaces/http/routes/routePlanRoutes";
 import { createWebhookRoutes } from "./interfaces/http/routes/webhookRoutes";
 import { createWeatherAlertRoutes } from "./interfaces/http/routes/weatherAlertRoutes";
+import { createEmergencyImpactRoutes, createNearbySpacesRoutes } from "./interfaces/http/routes/emergencyImpactRoutes";
 import { isProductionRuntime } from "./shared/runtime/runtimeMode";
 
 export function createApp() {
@@ -67,6 +68,8 @@ export function createApp() {
   app.use("/api/internal", createInternalRoutes(container.internalWeatherController));
   app.use("/api/uploads", uploadRateLimiter, createUploadRoutes(container.storageService));
   app.use("/api/public-spaces", createPublicSpaceRoutes(container.publicSpaceController));
+  app.use("/api/espacios", createNearbySpacesRoutes(container.emergencyImpactController));
+  app.use("/api/emergency-impacts", createEmergencyImpactRoutes(container.emergencyImpactController));
   app.use("/api/reservations", createReservationRoutes(container.reservationController));
   app.use("/api/community-events", createRoutePlanRoutes(container.routePlanController));
   app.use("/api/community-events", createCommunityEventRoutes(container.communityEventController));

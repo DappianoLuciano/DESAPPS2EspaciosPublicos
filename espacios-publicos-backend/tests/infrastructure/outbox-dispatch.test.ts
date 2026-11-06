@@ -20,7 +20,10 @@ const ESPACIOS_FQNS = [
   "com.citypass.espacios.EventoCancelado",
   "com.citypass.espacios.EspacioEstadoCambiado",
   "com.citypass.espacios.EspacioPublicoAfectado",
-  "com.citypass.espacios.ReservaConfirmada"
+  "com.citypass.espacios.ReservaConfirmada",
+  "com.citypass.espacios.ReservaAfectada",
+  "com.citypass.espacios.EspacioLiberado",
+  "com.citypass.espacios.ProblematicaRegistrada"
 ];
 const WEATHER_FQNS = [
   "com.citypass.espacios.CriticidadClimaticaConfirmada",
@@ -40,7 +43,7 @@ describe("outbox: eventos que se despachan al gateway", () => {
     OVERRIDE_VARS.forEach((name) => delete process.env[name]);
   });
 
-  it("incluye los 7 contratos de espacios y cultura mas los 2 del clima", () => {
+  it("incluye los contratos de espacios y cultura mas los 2 del clima", () => {
     expect(dispatchableEventNames().sort()).toEqual([...ESPACIOS_FQNS, ...WEATHER_FQNS].sort());
   });
 

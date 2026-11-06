@@ -322,3 +322,57 @@ model DestinationRecommendation {
 
   @@map("destination_recommendations")
 }
+
+// CU-01: emergencias que Espacios ya proceso. Permite ignorar una emergencia.creada que
+// llegue despues de su resolucion y conservar la ubicacion recibida.
+model EmergencyCase {
+  emergenciaId String    @id
+  latitude     Float?
+  longitude    Float?
+  zone         String?
+  occurredAt   DateTime
+  resolvedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("emergency_cases")
+}
+
+// CU-01 (A10): reserva o evento comunitario afectado por una emergencia cercana. La suspension
+// vive aca y no en el estado de la reserva: no cambia el flujo actual de reservas ni eventos.
+model EmergencyBookingImpact {
+  id             String    @id @default(uuid())
+  emergenciaId   String
+  bookingType    String // RESERVATION | COMMUNITY_EVENT
+  bookingId      String
+  publicSpaceId  String
+  bookingLabel   String
+  startDate      DateTime
+  endDate        DateTime
+  status         String // SUSPENDIDA | CONFIRMADA | REPROGRAMADA | A_REPROGRAMAR
+  organizerName  String
+  organizerEmail String?
+  rescheduledBy  String?
+  rescheduledAt  DateTime?
+  releasedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([emergenciaId, bookingType, bookingId])
+  @@index([emergenciaId, releasedAt])
+  @@index([status])
+  @@map("emergency_booking_impacts")
+}
+
+// CU-01 (A6): problematica del espacio publico informada al resolver la emergencia.
+model PublicSpaceProblem {
+  id            String    @id @default(uuid())
+  emergenciaId  String    @unique
+  publicSpaceId String?
+  type          String
+  latitude      Float?
+  longitude     Float?
+  createdAt     DateTime  @default(now())
+
+  @@map("public_space_problems")
+}

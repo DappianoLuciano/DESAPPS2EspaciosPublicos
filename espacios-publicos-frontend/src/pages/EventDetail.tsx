@@ -8,6 +8,8 @@ import { useDisclosure } from '@mantine/hooks';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import EmergencyNotice from '../components/EmergencyNotice';
+import { useEmergencyNotices } from '../lib/useEmergencyNotices';
 import BikeRoutePlanner from '../components/BikeRoutePlanner';
 import { markerIconConfig } from '../components/LocationPicker';
 import { getCommunityEvent, listMyCommunityEventRegistrations, registerToCommunityEvent } from '../lib/api';
@@ -17,6 +19,7 @@ export default function EventDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { user } = useAuth();
+  const notices = useEmergencyNotices();
   const [opened, { open, close }] = useDisclosure(false);
   const [event, setEvent] = useState<CommunityEventCatalogItem | null>(null);
   const [existingRegistrationId, setExistingRegistrationId] = useState<string | null>(null);
@@ -172,6 +175,8 @@ export default function EventDetail() {
       </Modal>
 
       <Container size="xl" py={40}>
+        <EmergencyNotice notice={notices.get(event.id)} />
+
         {error && (
           <Alert color="red" mb="lg">
             {error}

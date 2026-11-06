@@ -455,3 +455,120 @@ describe("POST /webhooks/citypass", () => {
     });
   });
 });
+
+describe("CU-01 en el webhook", () => {
+  function build() {
+    const cityIncidents = {
+      upsertActive: jest.fn().mockResolvedValue(undefined),
+      deactivate: jest.fn().mockResolvedValue(undefined),
+      findActiveInBounds: jest.fn(),
+      findActiveWithoutCoordinatesWithZone: jest.fn()
+    };
+    const reactions = {
+      onCreated: jest.fn().mockResolvedValue(true),
+      onResolved: jest.fn().mockResolvedValue(true)
+    };
+    const inbound: InboundEventRepository = {
+      exists: jest.fn().mockResolvedValue(false),
+      record: jest.fn().mockResolvedValue(undefined)
+    };
+    const useCase = new ReceiveGatewayEventUseCase(
+      inbound,
+      cityIncidents,
+      { findByEventId: jest.fn(), saveIfNewer: jest.fn() },
+      { findById: jest.fn() },
+      undefined,
+      undefined,
+      reactions
+    );
+
+    return { useCase, reactions, cityIncidents, inbound };
+  }
+
+  const gatewayEvent = (eventType: string, data: Record<string, unknown>) => ({
+    metadata: { eventId: "evt-1", eventType },
+    data
+  });
+
+  it("EmergenciaCreada mantiene el incidente y ademas reacciona", async () => {
+    const { useCase, reactions, cityIncidents } = build();
+
+    await expect(useCase.execute(gatewayEvent("EmergenciaCreada", {
+      emergenciaId: "EMG-1", estado: "CREADA", ubicacion: { barrio: "Retiro" }
+    }))).resolves.toBe("processed");
+
+    expect(cityIncidents.upsertActive).toHaveBeenCalledTimes(1);
+    expect(reactions.onCreated).toHaveBeenCalledTimes(1);
+  });
+
+  it("acepta el sobre estilo CloudEvents y el topico con puntos", async () => {
+    const { useCase, reactions, inbound } = build();
+
+    await expect(useCase.execute({
+      specversion: "1.0",
+      id: "evt-9c20e1",
+      type: "emergencia.resuelta",
+      data: { emergenciaId: "EMG-1", causasRelacionadas: ["VIA"] }
+    })).resolves.toBe("processed");
+
+    expect(reactions.onResolved).toHaveBeenCalledTimes(1);
+    expect(inbound.record).toHaveBeenCalledWith("evt-9c20e1", "emergencia.resuelta");
+  });
+
+  it("EmergenciaResuelta cierra el incidente del plan de llegada", async () => {
+    const { useCase, cityIncidents } = build();
+
+    await useCase.execute(gatewayEvent("EmergenciaResuelta", { emergenciaId: "EMG-1" }));
+
+    expect(cityIncidents.deactivate).toHaveBeenCalledWith("EMERGENCIAS", "EMG-1");
+  });
+
+  it("EmergenciaActualizada solo reacciona cuando la emergencia termino", async () => {
+    const { useCase, reactions } = build();
+    const type = "com.citypass.emergencias.EmergenciaActualizada";
+
+    await useCase.execute(gatewayEvent(type, { emergenciaId: "EMG-1", estado: "EN_ATENCION" }));
+    expect(reactions.onResolved).not.toHaveBeenCalled();
+
+    await useCase.execute(gatewayEvent(type, { emergenciaId: "EMG-1", estado: "RESUELTA" }));
+    expect(reactions.onResolved).toHaveBeenCalledTimes(1);
+  });
+
+  it("los cierres que Emergencias publica hoy tambien liberan", async () => {
+    const { useCase, reactions } = build();
+
+    await useCase.execute(gatewayEvent("EmergenciaCerrada", { emergenciaId: "EMG-1" }));
+    await useCase.execute(gatewayEvent("com.citypass.emergencias.EmergenciaEstadoActualizado", {
+      emergenciaId: "EMG-1", nuevoEstado: "RESUELTA"
+    }));
+
+    expect(reactions.onResolved).toHaveBeenCalledTimes(2);
+  });
+
+  it("una falsa alarma libera lo suspendido e ignora las causas (A1)", async () => {
+    const { useCase, reactions } = build();
+    const causas = { emergenciaId: "EMG-1", causasRelacionadas: ["ESPACIO_PUBLICO"] };
+
+    await useCase.execute(gatewayEvent("emergencia.cancelada", causas));
+    await useCase.execute(gatewayEvent("EmergenciaCancelada", causas));
+    await useCase.execute(gatewayEvent("com.citypass.emergencias.EmergenciaActualizada", {
+      ...causas, estado: "DESCARTADA"
+    }));
+
+    expect(reactions.onResolved).toHaveBeenCalledTimes(3);
+    for (const [emergency] of reactions.onResolved.mock.calls) {
+      expect(emergency).toMatchObject({ emergenciaId: "EMG-1", causes: [] });
+    }
+  });
+
+  it("si la reaccion falla no registra el evento, para que el gateway reintente", async () => {
+    const { useCase, reactions, inbound } = build();
+    reactions.onCreated.mockRejectedValue(new Error("sin tabla"));
+
+    await expect(useCase.execute(gatewayEvent("EmergenciaCreada", {
+      emergenciaId: "EMG-1", ubicacion: { barrio: "Retiro" }
+    }))).rejects.toThrow("sin tabla");
+
+    expect(inbound.record).not.toHaveBeenCalled();
+  });
+});

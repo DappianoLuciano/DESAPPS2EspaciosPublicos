@@ -4,6 +4,7 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import ChatbotWidget from './ChatbotWidget';
+import ModuleDashboard from './ModuleDashboard';
 
 export default function Layout() {
   const [mobileOpened, { toggle: toggleMobile, close: closeMobile }] = useDisclosure(false);
@@ -22,6 +23,7 @@ export default function Layout() {
         <Header mobileOpened={mobileOpened} toggleMobile={toggleMobile} />
         <div style={{ height: 'calc(100vh - 64px)', overflowY: 'auto' }}>
           <Outlet />
+          <ModuleDashboard />
         </div>
         <ChatbotWidget />
       </AppShell.Main>
