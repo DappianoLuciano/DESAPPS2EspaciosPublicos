@@ -110,7 +110,7 @@ function renderCard(item) {
   measures._compile(ts.transpileModule(readFileSync(measuresFile, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
   }).outputText, measuresFile);
-  component.require = id => id === './WeatherMeasuresButton' ? measures.exports : id === '../lib/weatherAlertPresentation' ? loaded.exports : requireModule(id);
+  component.require = id => id.endsWith('.module.css') ? { default: {} } : id === './WeatherMeasuresButton' ? measures.exports : id === '../lib/weatherAlertPresentation' ? loaded.exports : requireModule(id);
   const compiled = ts.transpileModule(readFileSync(componentFile, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
   });
@@ -141,4 +141,49 @@ test('renderiza una proxima sin presentarla como vigente ni como probabilidad', 
   assert.match(html, /Comienza en 1 h/);
   assert.doesNotMatch(html, /Vigente ahora/);
   assert.doesNotMatch(html, /probabilidad de/);
+});
+
+function renderOverview(props) {
+  const React = require('react');
+  const { renderToStaticMarkup } = require('react-dom/server');
+  const { MantineProvider } = require('@mantine/core');
+  const { MemoryRouter } = require('react-router-dom');
+  const file = resolve(__dirname, '../src/components/WeatherAlertOverview.tsx');
+  const component = new Module(file, module);
+  component.filename = file; component.paths = module.paths;
+  const originalRequire = component.require.bind(component);
+  component.require = id => id.endsWith('.module.css') ? { default: {} } : id === '../lib/weatherAlertPresentation' ? loaded.exports : originalRequire(id);
+  component._compile(ts.transpileModule(readFileSync(file, 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
+  }).outputText, file);
+  return renderToStaticMarkup(React.createElement(MantineProvider, { env: 'test' },
+    React.createElement(MemoryRouter, null, React.createElement(component.exports.default, {
+      summary: summarizeWeatherAlerts([], now), pendingRelease: 0, updatedAt: null,
+      loading: false, stale: false, hasData: true, onRefresh() {}, ...props,
+    }))));
+}
+
+test('el dock conserva avisos pendientes, vencidos, fechas invalidas y medidas pendientes', () => {
+  const summary = summarizeWeatherAlerts([alert({ status: 'PENDING' }),
+    alert({ validUntil: '2026-11-02T20:30:00Z' }), alert({ validFrom: 'invalid' })], now);
+  const html = renderOverview({ summary, pendingRelease: 1 });
+  assert.match(html, /1 por validar/);
+  assert.match(html, /3 requieren revisión/);
+  assert.match(html, /con vigencia vencida/);
+  assert.match(html, /con fechas inválidas/);
+  assert.match(html, /finalizadas con medidas pendientes/);
+  assert.match(html, /Revisar gestión/);
+  assert.match(html, /href="\/admin\/weather-alerts"/);
+});
+
+test('no muestra avisos ni contadores falsos mientras no hay datos', () => {
+  const html = renderOverview({ hasData: false, loading: true });
+  assert.doesNotMatch(html, /0 vigentes|0 próximas|requieren revisión|por validar/);
+  assert.match(html, /Ver todas/);
+});
+
+test('mantiene visible la fecha de lectura y advierte datos desactualizados', () => {
+  const html = renderOverview({ updatedAt: '2026-11-02T21:00:00Z', stale: true });
+  assert.match(html, /Sin actualizar/);
+  assert.match(html, /Actualizar/);
 });

@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import type { WeatherAlert, WeatherPhenomenon } from '../lib/api';
 import { formatStartsIn, formatWeatherDate, getWeatherWindow, weatherCriticalityColors, weatherCriticalityLabels, weatherPhenomenonLabels } from '../lib/weatherAlertPresentation';
 import WeatherMeasuresButton from './WeatherMeasuresButton';
+import styles from './WeatherDashboard.module.css';
 
 function PhenomenonIcon({ phenomenon }: { phenomenon: WeatherPhenomenon }) {
   switch (phenomenon) {
@@ -36,60 +37,62 @@ export default function WeatherAlertCard({ alert, now, onUpdated }: { alert: Wea
   const locations = alert.evidence.locations?.length || 1;
 
   return (
-    <Card component="article" aria-labelledby={headingId} radius="lg" shadow="xs" withBorder p={0}
+    <Card component="article" aria-labelledby={headingId} className={styles.card} radius="md" shadow="xs" withBorder p={0}
       style={{ borderInlineStart: `6px solid var(--mantine-color-${color}-7)`, overflow: 'hidden', alignSelf: 'start' }}>
-      <Stack gap="lg" p={{ base: 'md', sm: 'lg' }}>
-        <Group align="flex-start" wrap="nowrap" gap="md">
-          <ThemeIcon color={color} variant="light" size={48} radius="xl" style={{ flexShrink: 0 }}>
+      <div className={styles.layout}>
+        <Box className={styles.identity}>
+        <Group align="center" wrap="nowrap" gap="md">
+          <ThemeIcon color={color} variant="light" size={52} radius="lg" style={{ flexShrink: 0 }}>
             <PhenomenonIcon phenomenon={alert.phenomenon} />
           </ThemeIcon>
           <Box style={{ flex: 1, minWidth: 0 }}>
-            <Title id={headingId} order={3} fz={20} lh={1.3}>{weatherPhenomenonLabels[alert.phenomenon]}</Title>
-            <Group gap={6} mt="xs">
-              <Badge color={color} variant="light">{weatherCriticalityLabels[level]}</Badge>
-              <Badge color="gray" variant="outline">Confirmada</Badge>
-              <Badge color={upcoming ? 'gray' : color} variant="light">{upcoming ? 'Próxima' : 'Vigente ahora'}</Badge>
-              {!alert.confirmedCriticality && <Badge color="gray" variant="outline">Nivel sugerido</Badge>}
+            <Group gap={6} mb={6}>
+              <Badge color={color} size="xs" variant="light">{weatherCriticalityLabels[level]}</Badge>
+              <Badge color="gray" size="xs" variant="outline">Confirmada</Badge>
+              <Badge color={upcoming ? 'gray' : color} size="xs" variant="light">{upcoming ? 'Próxima' : 'Vigente ahora'}</Badge>
+              {!alert.confirmedCriticality && <Badge color="gray" size="xs" variant="outline">Nivel sugerido</Badge>}
             </Group>
+            <Title id={headingId} order={3} fz={22} lh={1.25}>{weatherPhenomenonLabels[alert.phenomenon]}</Title>
           </Box>
         </Group>
 
-        <Text size="sm" c="dimmed" lineClamp={2} title={neighborhoods.join(', ')}>
+        <Text size="xs" c="dimmed" mt="md" lineClamp={2} title={neighborhoods.join(', ')}>
           {neighborhoods.length ? `Barrios de referencia: ${neighborhoods.join(', ')}` : `Zona de referencia: ${alert.zone || 'Sin detalle'}`}
         </Text>
+        </Box>
 
-        <Box>
+        <Box className={styles.timing}>
           <Flex justify="space-between" gap="md" mb="xs">
             <Box style={{ flex: 1, minWidth: 0 }}>
-              <Text size="xs" tt="uppercase" c="dimmed" fw={600}>Inicio</Text>
-              <Text size="sm" fw={600}>{formatWeatherDate(alert.validFrom)}</Text>
+              <Text fz={11} tt="uppercase" c="dimmed" fw={600}>Inicio</Text>
+              <Text size="xs" fw={600} mt={4}>{formatWeatherDate(alert.validFrom)}</Text>
             </Box>
             <Box ta="right" style={{ flex: 1, minWidth: 0 }}>
-              <Text size="xs" tt="uppercase" c="dimmed" fw={600}>Fin previsto</Text>
-              <Text size="sm" fw={600}>{formatWeatherDate(alert.validUntil)}</Text>
+              <Text fz={11} tt="uppercase" c="dimmed" fw={600}>Fin previsto</Text>
+              <Text size="xs" fw={600} mt={4}>{formatWeatherDate(alert.validUntil)}</Text>
             </Box>
           </Flex>
-          <Text size="sm" fw={700} c={`${color}.8`} ta="center" mb="xs">
+          <Text size="xs" fw={700} c={`${color}.8`} mb={6} mt="md">
             {upcoming ? formatStartsIn(window.startsInMinutes) : `${window.progress}% de vigencia transcurrida`}
           </Text>
           {upcoming ? (
-            <Box h={9} role="img" aria-label="La vigencia todavía no comenzó"
+            <Box h={6} role="img" aria-label="La vigencia todavía no comenzó"
               style={{ borderRadius: 999, backgroundColor: 'var(--mantine-color-gray-1)',
                 backgroundImage: `repeating-linear-gradient(135deg, transparent, transparent 8px, var(--mantine-color-${color}-2) 8px, var(--mantine-color-${color}-2) 16px)` }} />
-          ) : <Progress color={color} value={window.progress} size={9} radius="xl" aria-label="Porcentaje de vigencia programada transcurrida" />}
+          ) : <Progress color={color} value={window.progress} size={6} radius="xl" aria-label="Porcentaje de vigencia programada transcurrida" />}
         </Box>
-      </Stack>
-
-      <Box px={{ base: 'md', sm: 'lg' }} pb="md"><WeatherMeasuresButton alert={alert} onUpdated={onUpdated} /></Box>
-      <UnstyledButton onClick={() => setExpanded(value => !value)} aria-expanded={expanded} aria-controls={detailsId}
-        px={{ base: 'md', sm: 'lg' }} py="md" w="100%" style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}>
+        <div className={styles.actions}>
+          <WeatherMeasuresButton alert={alert} onUpdated={onUpdated} />
+          <UnstyledButton className={styles.detailsToggle} onClick={() => setExpanded(value => !value)} aria-expanded={expanded} aria-controls={detailsId}>
         <Group justify="space-between">
-          <Text size="sm" fw={600}>{expanded ? 'Ocultar detalles' : 'Ver detalles'}</Text>
+          <Text size="xs" fw={500}>{expanded ? 'Ocultar detalles técnicos' : 'Ver detalles técnicos'}</Text>
           <IconChevronDown size={18} aria-hidden="true" style={{ transform: expanded ? 'rotate(180deg)' : undefined }} />
         </Group>
       </UnstyledButton>
+        </div>
+      </div>
       <Collapse expanded={expanded} id={detailsId}>
-        <Stack gap="xs" px={{ base: 'md', sm: 'lg' }} pb="lg">
+        <Stack gap="xs" className={styles.details}>
           <Text size="sm">{neighborhoods.length ? `Barrios: ${neighborhoods.join(', ')}` : 'No hay barrios calculados para los puntos de esta alerta.'}</Text>
           <Text size="xs" c="dimmed">Los barrios contienen los puntos de referencia; no representan toda la extensión del fenómeno.</Text>
           <Text size="sm">Origen: {alert.evidence.provider === 'MANUAL' ? 'Carga manual confirmada' : 'Pronóstico Open-Meteo confirmado'} · Ubicaciones: {locations}</Text>

@@ -1,26 +1,22 @@
 import {
   Alert,
-  Badge,
   Box,
   Button,
-  Card,
   Code,
   Container,
   Flex,
-  Group,
   Modal,
   MultiSelect,
   NumberInput,
   Select,
   SimpleGrid,
-  Table,
   Text,
   TextInput,
   Textarea,
   Title,
 } from '@mantine/core';
-import { IconCloudStorm, IconRefresh, IconShieldCheck } from '@tabler/icons-react';
-import { useEffect, useMemo, useState } from 'react';
+import { IconRefresh } from '@tabler/icons-react';
+import { useEffect, useState } from 'react';
 import {
   checkWeatherNow,
   confirmWeatherAlert,
@@ -31,14 +27,7 @@ import {
 } from '../lib/api';
 import type { WeatherAlert, WeatherCriticality, WeatherPhenomenon, WeatherLocation } from '../lib/api';
 import { weatherCriticalityColors as criticalityColors, weatherPhenomenonLabels as phenomenonLabels } from '../lib/weatherAlertPresentation';
-import WeatherMeasuresButton from '../components/WeatherMeasuresButton';
-
-const statusLabels = {
-  PENDING: 'Pendiente de validación',
-  CONFIRMED: 'Confirmada',
-  DISMISSED: 'Descartada',
-  FINALIZED: 'Finalizada',
-};
+import WeatherAlertsList from '../components/WeatherAlertsList';
 
 export default function WeatherAlerts() {
   const [alerts, setAlerts] = useState<WeatherAlert[]>([]);
@@ -197,15 +186,6 @@ export default function WeatherAlerts() {
     };
   }, []);
 
-  const pendingCount = useMemo(
-    () => alerts.filter((alert) => alert.status === 'PENDING').length,
-    [alerts]
-  );
-  const activeCount = useMemo(
-    () => alerts.filter((alert) => alert.status === 'CONFIRMED').length,
-    [alerts]
-  );
-
   const runCheck = async () => {
     setChecking(true);
     setError(null);
@@ -277,6 +257,7 @@ export default function WeatherAlerts() {
             </Alert>
             <Text fw={600}>{phenomenonLabels[messageAlert.phenomenon]}</Text>
             <Text size="sm">Inicio: {formatDate(messageAlert.validFrom)} · Fin: {formatDate(messageAlert.validUntil)}</Text>
+            {messageAlert.status === 'DISMISSED' && <Text size="sm">Motivo del descarte: {messageAlert.dismissalReason || 'Sin motivo registrado'}</Text>}
             <Code block style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
               {JSON.stringify(alertMessagePayload(messageAlert), null, 2)}
             </Code>
@@ -475,94 +456,9 @@ export default function WeatherAlerts() {
       {error && <Alert color="red" mb="lg">{error}</Alert>}
       {notice && <Alert color="green" mb="lg" withCloseButton onClose={() => setNotice(null)}>{notice}</Alert>}
 
-      <SimpleGrid cols={{ base: 1, sm: 2 }} mb="xl">
-        <Card withBorder>
-          <Group justify="space-between">
-            <Box><Text c="dimmed">Pendientes</Text><Title order={2}>{pendingCount}</Title></Box>
-            <IconCloudStorm color="orange" />
-          </Group>
-        </Card>
-        <Card withBorder>
-          <Group justify="space-between">
-            <Box><Text c="dimmed">Contingencias activas</Text><Title order={2}>{activeCount}</Title></Box>
-            <IconShieldCheck color="green" />
-          </Group>
-        </Card>
-      </SimpleGrid>
-
-      <Card withBorder p={0}>
-        <Table.ScrollContainer minWidth={980}>
-          <Table verticalSpacing="md" horizontalSpacing="md" striped>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Fenómeno</Table.Th>
-                <Table.Th>Evidencia</Table.Th>
-                <Table.Th>Criticidad</Table.Th>
-                <Table.Th>Vigencia</Table.Th>
-                <Table.Th>Estado</Table.Th>
-                <Table.Th>Acciones</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {loading && <Table.Tr><Table.Td colSpan={6}>Cargando alertas...</Table.Td></Table.Tr>}
-              {!loading && alerts.length === 0 && (
-                <Table.Tr><Table.Td colSpan={6}>Todavía no se detectaron alertas climáticas.</Table.Td></Table.Tr>
-              )}
-              {alerts.map((alert) => {
-                const displayedCriticality = alert.confirmedCriticality || alert.suggestedCriticality;
-                return (
-                  <Table.Tr key={alert.id}>
-                    <Table.Td>
-                      <Text fw={600}>{phenomenonLabels[alert.phenomenon]}</Text>
-                      {Boolean(alert.evidence.neighborhoods?.length) && (
-                        <Text size="xs" c="dimmed">
-                          {alert.evidence.neighborhoods!.slice(0, 2).join(', ')}
-                          {alert.evidence.neighborhoods!.length > 2 && ` +${alert.evidence.neighborhoods!.length - 2}`}
-                        </Text>
-                      )}
-                    </Table.Td>
-                    <Table.Td>
-                      {alert.evidence.maxWindGustKmh !== undefined &&
-                        <Text fz="sm">Ráfaga: {alert.evidence.maxWindGustKmh} km/h</Text>}
-                      {alert.evidence.accumulatedPrecipitationMm !== undefined &&
-                        <Text fz="sm">Precipitación: {alert.evidence.accumulatedPrecipitationMm} mm</Text>}
-                      {alert.evidence.temperatureMinC !== undefined &&
-                        <Text fz="sm">Temp. mín.: {alert.evidence.temperatureMinC} °C</Text>}
-                      {alert.evidence.temperatureMaxC !== undefined &&
-                        <Text fz="sm">Temp. máx.: {alert.evidence.temperatureMaxC} °C</Text>}
-                      {alert.evidence.provider === 'MANUAL' &&
-                        <Text fz="sm">Fuente: {alert.evidence.manual?.source}</Text>}
-                      <Text fz="sm">Ubicaciones: {alert.evidence.locations?.length || 1}</Text>
-                    </Table.Td>
-                    <Table.Td><Badge color={criticalityColors[displayedCriticality]}>{displayedCriticality}</Badge></Table.Td>
-                    <Table.Td>
-                      <Text size="sm">Desde: {formatDate(alert.validFrom)}</Text>
-                      <Text size="sm">Hasta: {formatDate(alert.validUntil)}</Text>
-                    </Table.Td>
-                    <Table.Td><Badge variant="light">{statusLabels[alert.status]}</Badge></Table.Td>
-                    <Table.Td>
-                      <Group gap="xs">
-                        <Button size="xs" variant="default" onClick={() => setMessageAlert(alert)}>Ver mensaje</Button>
-                        {alert.status === 'PENDING' && (
-                          <>
-                            <Button size="xs" color="green" onClick={() => openConfirm(alert)}>Confirmar</Button>
-                            <Button size="xs" color="red" variant="light" onClick={() => openDismiss(alert)}>Descartar</Button>
-                          </>
-                        )}
-                        {alert.status === 'CONFIRMED' && (
-                          <WeatherMeasuresButton alert={alert} finish onUpdated={() => { void loadAlerts(); }} />
-                        )}
-                        {(alert.status === 'CONFIRMED' || alert.status === 'FINALIZED') &&
-                          <WeatherMeasuresButton alert={alert} onUpdated={() => { void loadAlerts(); }} />}
-                      </Group>
-                    </Table.Td>
-                  </Table.Tr>
-                );
-              })}
-            </Table.Tbody>
-          </Table>
-        </Table.ScrollContainer>
-      </Card>
+      <WeatherAlertsList alerts={alerts} loading={loading} busy={submitting}
+        onMessage={setMessageAlert} onConfirm={openConfirm} onDismiss={openDismiss}
+        onUpdated={() => { void loadAlerts(); }} />
     </Container>
   );
 }
