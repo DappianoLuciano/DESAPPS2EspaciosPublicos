@@ -127,6 +127,9 @@ const KNOWN_EVENT_TYPES: readonly string[] = [
 export const GATEWAY_SUBSCRIPTION_TOPICS: readonly string[] = [
   MOBILITY_RECOMMENDATION_EVENT_TYPE,
   ...Object.keys(INCIDENT_TYPES),
+  // Reclamos publica ReclamoCreado con coordenadas y afectaCirculacion recien desde la v3, que va en
+  // su propio topico. El sobre trae igual eventType = "com.citypass.reclamos.ReclamoCreado".
+  "com.citypass.reclamos.ReclamoCreado.v3",
   OBSTRUCTION_EVALUATED_EVENT_TYPE,
   CLAIM_RECLASSIFIED_EVENT_TYPE,
   EMERGENCY_STATE_UPDATED_EVENT_TYPE,

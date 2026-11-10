@@ -6,7 +6,7 @@ describe("registro unificado de contratos EDA", () => {
       "CriticidadClimaticaConfirmada", "CriticidadClimaticaFinalizada",
       "EventoComunitarioPublicado", "ActividadCreada", "ActividadModificada", "EventoCancelado",
       "EspacioEstadoCambiado", "EspacioPublicoAfectado", "ReservaConfirmada",
-      "ReservaAfectada", "EspacioLiberado", "ProblematicaRegistrada"
+      "ReservaAfectada", "EspacioLiberado", "ProblematicaRegistrada", "IntervencionFinalizada"
     ]);
   });
 

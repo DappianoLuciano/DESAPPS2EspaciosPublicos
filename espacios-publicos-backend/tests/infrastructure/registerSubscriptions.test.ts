@@ -17,6 +17,7 @@ describe("topicos de suscripcion", () => {
       "com.citypass.reclamos.ReclamoActualizado",
       "com.citypass.emergencias.EmergenciaCreada",
       "com.citypass.emergencias.EmergenciaActualizada",
+      "com.citypass.reclamos.ReclamoCreado.v3",
       "com.citypass.movilidad.MovilidadObstruccionEvaluada",
       "com.citypass.reclamos.ReclamoReclasificado",
       "com.citypass.emergencias.EmergenciaEstadoActualizado",

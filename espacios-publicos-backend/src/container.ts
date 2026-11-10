@@ -1,3 +1,7 @@
+import { GetIntegrationOverviewUseCase } from "./application/use-cases/GetIntegrationOverviewUseCase";
+import { PrismaIntegrationStatusRepository } from "./infrastructure/database/PrismaIntegrationStatusRepository";
+import { FinishInterventionUseCase, ListPendingInterventionsUseCase } from "./application/use-cases/FinishInterventionUseCase";
+import { InterventionController } from "./interfaces/http/controllers/InterventionController";
 import { CommunityEventSnapshotPublisher } from "./application/events/communityEventPublished";
 import { PublicSpaceAffectedPublisher } from "./application/events/publicSpaceAffected";
 import { CancelCommunityEventRegistrationUseCase } from "./application/use-cases/CancelCommunityEventRegistrationUseCase";
@@ -214,6 +218,17 @@ export function createContainer() {
       onResolved: (emergency) => handleEmergencyResolvedUseCase.execute(emergency)
     }
   );
+  const integrationOverviewUseCase = new GetIntegrationOverviewUseCase(
+    communityEventRepository,
+    publicSpaceRepository,
+    destinationRecommendationRepository,
+    cityIncidentRepository,
+    new PrismaIntegrationStatusRepository()
+  );
+  const interventionController = new InterventionController(
+    new ListPendingInterventionsUseCase(cityIncidentRepository),
+    new FinishInterventionUseCase(cityIncidentRepository, eventOutboxRepository, eventBus)
+  );
   const emergencyImpactController = new EmergencyImpactController(
     findNearbyBookingsUseCase,
     new GetEmergencyImpactsUseCase(emergencyImpactRepository),
@@ -287,6 +302,8 @@ export function createContainer() {
 
   return {
     adminRepository,
+    interventionController,
+    integrationOverviewUseCase,
     storageService,
     authController,
     adminController: new AdminController(getAdminProfileUseCase, updateAdminProfileUseCase),

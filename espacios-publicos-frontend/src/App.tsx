@@ -22,6 +22,8 @@ import EventManagement from './pages/EventManagement';
 import PublicSpaceManagement from './pages/PublicSpaceManagement';
 import WeatherAlerts from './pages/WeatherAlerts';
 import EmergencyImpacts from './pages/EmergencyImpacts';
+import Interventions from './pages/Interventions';
+import Integrations from './pages/Integrations';
 import { isMockLoginEnabled } from './lib/api';
 
 const theme = {
@@ -60,6 +62,8 @@ function App() {
                   <Route path="/admin/public-spaces" element={<PublicSpaceManagement />} />
                   <Route path="/admin/weather-alerts" element={<WeatherAlerts />} />
                   <Route path="/admin/emergencies" element={<EmergencyImpacts />} />
+                  <Route path="/admin/interventions" element={<Interventions />} />
+                  <Route path="/admin/integrations" element={<Integrations />} />
                   <Route path="/admin/create-event" element={<CreateEvent />} />
                   <Route path="/admin/event/:id/edit" element={<CreateEvent />} />
                   <Route path="/admin/event/:id/attendees" element={<EventAttendees />} />

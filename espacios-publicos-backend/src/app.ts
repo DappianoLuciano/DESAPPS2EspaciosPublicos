@@ -1,3 +1,5 @@
+import { createIntegrationRoutes } from "./interfaces/http/routes/integrationRoutes";
+import { createInterventionRoutes } from "./interfaces/http/routes/interventionRoutes";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
@@ -70,6 +72,8 @@ export function createApp() {
   app.use("/api/public-spaces", createPublicSpaceRoutes(container.publicSpaceController));
   app.use("/api/espacios", createNearbySpacesRoutes(container.emergencyImpactController));
   app.use("/api/emergency-impacts", createEmergencyImpactRoutes(container.emergencyImpactController));
+  app.use("/api/admin/interventions", createInterventionRoutes(container.interventionController));
+  app.use("/api/admin/integrations", createIntegrationRoutes(container.integrationOverviewUseCase));
   app.use("/api/reservations", createReservationRoutes(container.reservationController));
   app.use("/api/community-events", createRoutePlanRoutes(container.routePlanController));
   app.use("/api/community-events", createCommunityEventRoutes(container.communityEventController));

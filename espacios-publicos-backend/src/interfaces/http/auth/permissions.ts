@@ -23,7 +23,9 @@ export const permissions = {
   DISMISS_WEATHER_ALERT: "weather-alert.dismiss",
   FINALIZE_WEATHER_ALERT: "weather-alert.finalize",
   VIEW_EMERGENCY_IMPACTS: "emergency-impact.view",
-  MANAGE_EMERGENCY_IMPACTS: "emergency-impact.manage"
+  MANAGE_EMERGENCY_IMPACTS: "emergency-impact.manage",
+  MANAGE_INTERVENTIONS: "intervention.manage",
+  VIEW_INTEGRATIONS: "integration.view"
 } as const;
 
 export type Permission = (typeof permissions)[keyof typeof permissions];
@@ -54,7 +56,9 @@ const rolePermissions: Record<MockUserRole, ReadonlySet<Permission>> = {
     permissions.DISMISS_WEATHER_ALERT,
     permissions.FINALIZE_WEATHER_ALERT,
     permissions.VIEW_EMERGENCY_IMPACTS,
-    permissions.MANAGE_EMERGENCY_IMPACTS
+    permissions.MANAGE_EMERGENCY_IMPACTS,
+    permissions.MANAGE_INTERVENTIONS,
+    permissions.VIEW_INTEGRATIONS
   ])
 };
 

@@ -36,7 +36,9 @@ describe("POST /webhooks/citypass", () => {
     upsertActive: jest.fn().mockResolvedValue(undefined),
     deactivate: jest.fn().mockResolvedValue(undefined),
     findActiveInBounds: jest.fn(),
-    findActiveWithoutCoordinatesWithZone: jest.fn()
+    findActiveWithoutCoordinatesWithZone: jest.fn(),
+    findActiveBySource: jest.fn(),
+    findActive: jest.fn()
   };
   // Fake en memoria con la misma regla "solo si es mas nueva" que la implementacion Prisma.
   const stored = new Map<string, { calculadaEn: Date; mensaje: string }>();
@@ -462,7 +464,9 @@ describe("CU-01 en el webhook", () => {
       upsertActive: jest.fn().mockResolvedValue(undefined),
       deactivate: jest.fn().mockResolvedValue(undefined),
       findActiveInBounds: jest.fn(),
-      findActiveWithoutCoordinatesWithZone: jest.fn()
+      findActiveWithoutCoordinatesWithZone: jest.fn(),
+    findActiveBySource: jest.fn(),
+    findActive: jest.fn()
     };
     const reactions = {
       onCreated: jest.fn().mockResolvedValue(true),
