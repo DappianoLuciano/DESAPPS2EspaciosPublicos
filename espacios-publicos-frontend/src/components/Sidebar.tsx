@@ -1,5 +1,5 @@
 import { Box, NavLink, Flex, Text } from '@mantine/core';
-import { IconHome, IconCalendarEvent, IconSettings, IconPlus, IconDashboard, IconLogout, IconMapPin, IconCloudStorm, IconAlertTriangle, IconTruck, IconPlugConnected } from '@tabler/icons-react';
+import { IconHome, IconCalendarEvent, IconSettings, IconPlus, IconDashboard, IconLogout, IconMapPin, IconCloudStorm, IconAlertTriangle, IconTruck, IconPlugConnected, IconChartBar } from '@tabler/icons-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -26,6 +26,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
     { icon: IconAlertTriangle, label: 'Emergencias', path: '/admin/emergencies' },
     { icon: IconTruck, label: 'Intervenciones', path: '/admin/interventions' },
     { icon: IconPlugConnected, label: 'Integraciones', path: '/admin/integrations' },
+    { icon: IconChartBar, label: 'Analítica', path: '/admin/analytics' },
   ];
 
   const handleLogout = () => {

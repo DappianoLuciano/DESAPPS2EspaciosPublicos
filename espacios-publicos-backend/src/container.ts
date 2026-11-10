@@ -4,6 +4,9 @@ import { FinishInterventionUseCase, ListPendingInterventionsUseCase } from "./ap
 import { InterventionController } from "./interfaces/http/controllers/InterventionController";
 import { CommunityEventSnapshotPublisher } from "./application/events/communityEventPublished";
 import { PublicSpaceAffectedPublisher } from "./application/events/publicSpaceAffected";
+import { GetAnalyticsDashboardUseCase } from "./application/use-cases/GetAnalyticsDashboardUseCase";
+import { AnalyticsEmbedClient } from "./infrastructure/analytics/AnalyticsEmbedClient";
+import { OAuthServiceTokenProvider, resolveEventAuthTokenUrl } from "./infrastructure/auth/OAuthServiceTokenProvider";
 import { PrismaPublicSpaceAffectationRepository } from "./infrastructure/database/PrismaPublicSpaceAffectationRepository";
 import { CancelCommunityEventRegistrationUseCase } from "./application/use-cases/CancelCommunityEventRegistrationUseCase";
 import { ChangeCommunityEventSuspensionUseCase } from "./application/use-cases/ChangeCommunityEventSuspensionUseCase";
@@ -85,6 +88,19 @@ import { WeatherAlertController } from "./interfaces/http/controllers/WeatherAle
 import { CreateManualWeatherAlertUseCase } from "./application/use-cases/CreateManualWeatherAlertUseCase";
 
 // Este archivo arma las dependencias en un solo lugar para que los controllers no creen objetos por su cuenta.
+// Tablero de Analitica: sin ANALITICA_URL (o sin credenciales de servicio) la pantalla avisa que no esta configurada.
+function createAnalyticsDashboardSource(): AnalyticsEmbedClient | undefined {
+  const baseUrl = process.env.ANALITICA_URL?.trim();
+  const clientId = process.env.EVENT_CLIENT_ID?.trim();
+  const clientSecret = process.env.EVENT_CLIENT_SECRET?.trim();
+
+  if (!baseUrl || !clientId || !clientSecret) {
+    return undefined;
+  }
+
+  return new AnalyticsEmbedClient(baseUrl, new OAuthServiceTokenProvider(resolveEventAuthTokenUrl(), clientId, clientSecret));
+}
+
 export function createContainer() {
   const adminRepository = new PrismaAdminRepository();
   const userRepository = new PrismaUserRepository();
@@ -228,6 +244,7 @@ export function createContainer() {
     cityIncidentRepository,
     new PrismaIntegrationStatusRepository()
   );
+  const analyticsDashboardUseCase = new GetAnalyticsDashboardUseCase(createAnalyticsDashboardSource());
   const interventionController = new InterventionController(
     new ListPendingInterventionsUseCase(cityIncidentRepository),
     new FinishInterventionUseCase(cityIncidentRepository, eventOutboxRepository, eventBus, publicSpaceAffectedPublisher)
@@ -307,6 +324,7 @@ export function createContainer() {
     adminRepository,
     interventionController,
     integrationOverviewUseCase,
+    analyticsDashboardUseCase,
     storageService,
     authController,
     adminController: new AdminController(getAdminProfileUseCase, updateAdminProfileUseCase),

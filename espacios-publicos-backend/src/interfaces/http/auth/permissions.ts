@@ -25,7 +25,8 @@ export const permissions = {
   VIEW_EMERGENCY_IMPACTS: "emergency-impact.view",
   MANAGE_EMERGENCY_IMPACTS: "emergency-impact.manage",
   MANAGE_INTERVENTIONS: "intervention.manage",
-  VIEW_INTEGRATIONS: "integration.view"
+  VIEW_INTEGRATIONS: "integration.view",
+  VIEW_ANALYTICS: "analytics.view"
 } as const;
 
 export type Permission = (typeof permissions)[keyof typeof permissions];
@@ -58,7 +59,8 @@ const rolePermissions: Record<MockUserRole, ReadonlySet<Permission>> = {
     permissions.VIEW_EMERGENCY_IMPACTS,
     permissions.MANAGE_EMERGENCY_IMPACTS,
     permissions.MANAGE_INTERVENTIONS,
-    permissions.VIEW_INTEGRATIONS
+    permissions.VIEW_INTEGRATIONS,
+    permissions.VIEW_ANALYTICS
   ])
 };
 

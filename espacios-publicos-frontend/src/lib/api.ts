@@ -959,3 +959,13 @@ export interface IntegrationOverview {
 export function getIntegrationOverview() {
   return request<IntegrationOverview>('/api/admin/integrations');
 }
+
+export interface AnalyticsDashboard {
+  /** Pagina HTML completa del tablero de Analitica, con los datos adentro. */
+  html: string;
+  generatedAt: string | null;
+}
+
+export function getAnalyticsDashboard() {
+  return request<AnalyticsDashboard>('/api/admin/analytics');
+}

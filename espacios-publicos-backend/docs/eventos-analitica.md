@@ -151,3 +151,25 @@ npm run eda:register-events -- --update-compatible
 - `ActividadCreada` ya esta registrado: sin `--update-compatible`, el script corta con "El esquema
   registrado difiere del local" y deja de procesar los contratos que siguen.
 - Quienes consuman `ActividadModificada` necesitan su propia suscripcion en el gateway.
+
+## Tablero de Analítica embebido en el admin
+
+Analítica (Grupo 8) arma un tablero HTML por módulo con los indicadores que calcula a partir de nuestros eventos
+y su informe semanal. El admin lo ve en **Admin → Analítica** (`/admin/analytics`).
+
+1. El front llama a `GET /api/admin/analytics` con el token del admin, igual que el resto del admin. No usamos
+   cookies, así que un `<iframe src>` apuntando al backend no podría autenticarse.
+2. El backend verifica el permiso `analytics.view` y llama a `GET {ANALITICA_URL}/embed/espacios` con nuestro
+   token de servicio (client credentials, el mismo cliente que usamos para el EDA) y el token del admin. Mientras
+   Analítica no cierre el nombre del header, el token del admin va en `X-User-Token` y en `X-Usuario-Token`.
+3. Acepta la respuesta como JSON `{ modulo, generado_en, html }` o como HTML directo, y devuelve
+   `{ html, generatedAt }` con `Cache-Control: no-store`.
+4. El front muestra el HTML en un iframe con `srcdoc` y `sandbox="allow-scripts"`, sin `allow-same-origin`: el
+   tablero no puede leer la sesión ni el DOM del admin. Ajusta la altura con el mensaje `citypass-tablero-altura`.
+
+Sin `ANALITICA_URL` en el entorno del backend, la pantalla avisa que Analítica todavía no está configurada (503).
+
+**Por qué el backend llama a otro módulo acá.** La integración entre módulos es por eventos y el backend no llama
+a la API de otros módulos. Este tablero es la excepción: no entra ningún dato de negocio a nuestro sistema, solo
+se trae una vista para mostrar. Analítica pidió hacerlo servidor a servidor para validar nuestro token de servicio
+y no exponer su URL ni necesitar CORS.
