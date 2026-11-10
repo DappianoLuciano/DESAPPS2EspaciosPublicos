@@ -73,14 +73,20 @@ function requestPosition(): Promise<LatLng | null> {
   });
 }
 
-function RouteSummary({ icon, label, route }: { icon: React.ReactNode; label: string; route: RoutePath | null }) {
+// Por debajo de esta distancia en linea recta la estacion queda practicamente en la puerta. OSRM
+// ajusta ambos puntos a la misma calle y puede devolver un tramo de pocos metros que confunde.
+const NEXT_TO_EVENT_METERS = 100;
+
+function RouteSummary({ icon, label, route, note }: { icon: React.ReactNode; label: string; route: RoutePath | null; note?: string }) {
   return (
     <Card withBorder radius="md" p="md">
       <Flex align="center" gap="md">
         <ThemeIcon variant="light" size="lg" radius="md">{icon}</ThemeIcon>
         <Box>
           <Text fz="xs" c="dimmed" fw={600} tt="uppercase">{label}</Text>
-          {route ? (
+          {note ? (
+            <Text fw={700}>{note}</Text>
+          ) : route ? (
             <Text fw={700}>{formatDistance(route.distanceMeters)} · {formatDuration(route.durationSeconds)}</Text>
           ) : (
             <Text c="dimmed" fz="sm">Sin estimación</Text>
@@ -283,7 +289,16 @@ export default function BikeRoutePlanner({ eventId }: { eventId: string }) {
 
           <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" mt="md">
             <RouteSummary icon={<IconBike size="1.2rem" />} label="En bici" route={plan.bikeRoute} />
-            <RouteSummary icon={<IconWalk size="1.2rem" />} label="A pie" route={plan.walkRoute} />
+            <RouteSummary
+              icon={<IconWalk size="1.2rem" />}
+              label="A pie"
+              route={plan.walkRoute}
+              note={
+                plan.dropoff?.distanceMeters != null && plan.dropoff.distanceMeters <= NEXT_TO_EVENT_METERS
+                  ? `Estación ${plan.dropoff.stationName} a ${plan.dropoff.distanceMeters} m del evento`
+                  : undefined
+              }
+            />
           </SimpleGrid>
         </Box>
       )}
