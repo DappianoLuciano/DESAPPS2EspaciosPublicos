@@ -139,3 +139,30 @@ estacion; una recomendacion de mas de 30 minutos se devuelve con un aviso de ant
 `distanceMeters`) y los activos sin coordenadas cuyo `zone` coincide con la zona del espacio, sin tildes ni
 mayusculas (`matchedBy: "ZONE"`, con `latitude`, `longitude` y `distanceMeters` en `null`). El front
 muestra estos ultimos como "Emergencia activa en el barrio X" y no los marca en el mapa.
+
+## Estacion de retiro: `com.citypass.movilidad.EstacionDisponibilidadActualizada` (pedido a Movilidad)
+
+El plan "Cómo llegar en bici" tiene tres tramos: a pie desde la ubicación del ciudadano hasta la estación de bicis
+de la ciudad más cercana (retiro), en bici hasta la estación que recomienda Movilidad para el evento (devolución) y a
+pie hasta el evento. La estación de devolución ya llega por el bus (`RecomendacionDestinoActualizada`). La de retiro
+depende de dónde está cada ciudadano en ese momento, y el backend no llama a la API de otro módulo: los módulos se
+comunican solo por eventos. Por eso guardamos una copia local de las estaciones (tabla `bike_stations`, migración
+`20261110130000_bike_stations`) y buscamos ahí la más cercana.
+
+Contrato propuesto a Movilidad. Un evento por estación, cada vez que cambia su disponibilidad. Sin `enum`, para que
+el webhook del gateway lo pueda entregar:
+
+| Campo | Tipo Avro | Notas |
+| --- | --- | --- |
+| `estacionId` | `string` | |
+| `estacion` | `string` | nombre |
+| `latitud` / `longitud` | `double` | |
+| `bicisDisponibles` | `int` | |
+| `lugaresLibres` | `int` | |
+| `capacidad` | `int` | |
+| `activa` | `boolean` | `false` saca la estación de la búsqueda |
+| `actualizadaEn` | `string` (ISO-8601) | un dato más viejo que el guardado no lo pisa |
+
+- Mientras no haya estaciones cargadas, el tramo en bici sale desde la ubicación del ciudadano, como antes, con un aviso.
+- Sin estaciones a menos de 5 km del ciudadano, no se dibuja el tramo en bici y se avisa.
+- Si la estación de retiro no tiene bicis, se avisa. Si es la misma que la de devolución, se sugiere ir caminando.

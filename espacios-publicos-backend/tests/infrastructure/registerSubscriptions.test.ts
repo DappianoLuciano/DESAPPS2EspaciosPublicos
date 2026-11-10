@@ -23,7 +23,8 @@ describe("topicos de suscripcion", () => {
       "com.citypass.emergencias.EmergenciaEstadoActualizado",
       "com.citypass.emergencias.EmergenciaCerrada",
       "com.citypass.emergencias.EmergenciaCancelada",
-      "com.citypass.emergencias.EmergenciaResuelta"
+      "com.citypass.emergencias.EmergenciaResuelta",
+      "com.citypass.movilidad.EstacionDisponibilidadActualizada"
     ]);
   });
 });

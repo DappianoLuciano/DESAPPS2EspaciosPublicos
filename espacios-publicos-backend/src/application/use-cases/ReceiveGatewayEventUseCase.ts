@@ -1,4 +1,5 @@
 import { SaveDestinationRecommendationData } from "../../domain/entities/DestinationRecommendation";
+import { BikeStationRecord, BikeStationRepository } from "../../domain/repositories/BikeStationRepository";
 import { CityIncidentSource } from "../../domain/entities/CityIncidentRecord";
 import { CityIncidentRepository } from "../../domain/repositories/CityIncidentRepository";
 import { CommunityEventRepository } from "../../domain/repositories/CommunityEventRepository";
@@ -28,6 +29,8 @@ export const MOBILITY_RECOMMENDATION_EVENT_TYPE =
 export const EMERGENCY_RESOLVED_EVENT_TYPE = "com.citypass.emergencias.EmergenciaResuelta";
 /** Movilidad evalua una obstruccion en la via (reclamo con coordenadas): es el incidente vial. */
 export const OBSTRUCTION_EVALUATED_EVENT_TYPE = "com.citypass.movilidad.MovilidadObstruccionEvaluada";
+/** Movilidad publica la disponibilidad de cada estacion: es la base para elegir la estacion de retiro. */
+export const STATION_AVAILABILITY_EVENT_TYPE = "com.citypass.movilidad.EstacionDisponibilidadActualizada";
 /** Reclamos publica coordenadas y afectaCirculacion recien al reclasificar (ReclamoCreado no las trae). */
 export const CLAIM_RECLASSIFIED_EVENT_TYPE = "com.citypass.reclamos.ReclamoReclasificado";
 
@@ -115,6 +118,7 @@ const INCIDENT_TYPES: Record<string, IncidentTypeConfig> = {
 const KNOWN_EVENT_TYPES: readonly string[] = [
   ...Object.keys(INCIDENT_TYPES),
   MOBILITY_RECOMMENDATION_EVENT_TYPE,
+  STATION_AVAILABILITY_EVENT_TYPE,
   OBSTRUCTION_EVALUATED_EVENT_TYPE,
   CLAIM_RECLASSIFIED_EVENT_TYPE,
   EMERGENCY_STATE_UPDATED_EVENT_TYPE,
@@ -137,7 +141,10 @@ export const GATEWAY_SUBSCRIPTION_TOPICS: readonly string[] = [
   EMERGENCY_CLOSED_EVENT_TYPE,
   // Van ultimos: si G6 todavia no los registro, el script falla despues de suscribir los demas.
   EMERGENCY_CANCELLED_EVENT_TYPE,
-  EMERGENCY_RESOLVED_EVENT_TYPE
+  EMERGENCY_RESOLVED_EVENT_TYPE,
+  // Lo agrega Movilidad para la estacion de retiro del plan de llegada; mientras no este registrado,
+  // el script de suscripciones falla aca, despues de suscribir todo lo anterior.
+  STATION_AVAILABILITY_EVENT_TYPE
 ];
 
 export class ReceiveGatewayEventUseCase {
@@ -149,7 +156,9 @@ export class ReceiveGatewayEventUseCase {
     // Opcionales: sin ellos el incidente se registra igual, pero no se publica EspacioPublicoAfectado.
     private readonly publicSpaceRepository?: Pick<PublicSpaceRepository, "findAll">,
     private readonly affectedPublisher?: PublicSpaceAffectedPublisher,
-    private readonly emergencyReactions?: EmergencyReactions
+    private readonly emergencyReactions?: EmergencyReactions,
+    // Opcional: sin el, la disponibilidad de estaciones de Movilidad se ignora.
+    private readonly bikeStationRepository?: Pick<BikeStationRepository, "saveIfNewer">
   ) {}
 
   /** Recibe el sobre { metadata, data } que entrega el dispatcher del gateway. */
@@ -159,10 +168,11 @@ export class ReceiveGatewayEventUseCase {
     const incidentType = INCIDENT_TYPES[eventType];
     const isObstruction = eventType === OBSTRUCTION_EVALUATED_EVENT_TYPE;
     const isReclassification = eventType === CLAIM_RECLASSIFIED_EVENT_TYPE;
+    const isStationAvailability = eventType === STATION_AVAILABILITY_EVENT_TYPE && this.bikeStationRepository !== undefined;
 
     const reactsToEmergency = this.reactsToEmergency(eventType, data);
 
-    if (!incidentType && !isRecommendation && !isObstruction && !isReclassification && !reactsToEmergency) {
+    if (!incidentType && !isRecommendation && !isObstruction && !isReclassification && !isStationAvailability && !reactsToEmergency) {
       return "ignored";
     }
 
@@ -175,6 +185,8 @@ export class ReceiveGatewayEventUseCase {
 
     if (isRecommendation) {
       processed = await this.processRecommendation(data);
+    } else if (isStationAvailability) {
+      processed = await this.processStationAvailability(data);
     } else if (isObstruction) {
       processed = await this.processObstructionEvaluated(data);
     } else if (isReclassification) {
@@ -259,6 +271,18 @@ export class ReceiveGatewayEventUseCase {
     }
 
     return saved;
+  }
+
+  // Copia local de las estaciones de Movilidad, para elegir la de retiro sin llamar a su API.
+  private async processStationAvailability(data: Record<string, unknown>): Promise<boolean> {
+    const station = parseStationAvailability(data);
+
+    if (!station) {
+      logger.warn("Disponibilidad de estacion ignorada: el payload no tiene el formato esperado");
+      return false;
+    }
+
+    return this.bikeStationRepository!.saveIfNewer(station);
   }
 
   private async processIncidentCreated(
@@ -507,6 +531,35 @@ function readState(data: Record<string, unknown>, fields: readonly string[]): st
   }
 
   return null;
+}
+
+function parseStationAvailability(data: Record<string, unknown>): BikeStationRecord | null {
+  const id = readId(data.estacionId);
+  const updatedAt = typeof data.actualizadaEn === "string" ? new Date(data.actualizadaEn) : null;
+  const count = (value: unknown) => (typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : null);
+
+  if (
+    !id ||
+    !isNonEmptyString(data.estacion) ||
+    !isCoordinate(data.latitud, 90) ||
+    !isCoordinate(data.longitud, 180) ||
+    !updatedAt ||
+    Number.isNaN(updatedAt.getTime())
+  ) {
+    return null;
+  }
+
+  return {
+    id,
+    name: data.estacion.trim(),
+    latitude: data.latitud,
+    longitude: data.longitud,
+    availableBikes: count(data.bicisDisponibles),
+    availableSlots: count(data.lugaresLibres),
+    capacity: count(data.capacidad),
+    active: data.activa !== false,
+    updatedAt
+  };
 }
 
 function parseRecommendation(data: Record<string, unknown>): SaveDestinationRecommendationData | null {

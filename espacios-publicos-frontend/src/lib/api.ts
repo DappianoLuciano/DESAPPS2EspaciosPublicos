@@ -700,6 +700,16 @@ export interface EventRoutePlan {
     calculatedAt: string;
   } | null;
   origin: { latitude: number; longitude: number } | null;
+  /** Estacion de bicis de la ciudad mas cercana al usuario, donde retira la bici. */
+  pickup: {
+    stationName: string;
+    latitude: number;
+    longitude: number;
+    distanceMeters: number;
+    availableBikes: number | null;
+  } | null;
+  /** A pie hasta la estacion de retiro. */
+  walkToPickupRoute: RoutePath | null;
   bikeRoute: RoutePath | null;
   walkRoute: RoutePath | null;
   warnings: string[];

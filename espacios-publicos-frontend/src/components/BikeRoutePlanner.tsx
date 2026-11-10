@@ -23,6 +23,7 @@ function pinIcon(color: string, symbol: string) {
 }
 
 const originIcon = pinIcon('#2f9e44', '&#9679;');
+const pickupIcon = pinIcon('#f08c00', 'R');
 const dropoffIcon = pinIcon('#1c7ed6', 'D');
 const incidentIcon = pinIcon('#e03131', '!');
 
@@ -124,6 +125,7 @@ export default function BikeRoutePlanner({ eventId }: { eventId: string }) {
   const destination: LatLng | null = plan ? [plan.destination.latitude, plan.destination.longitude] : null;
   const origin: LatLng | null = plan?.origin ? [plan.origin.latitude, plan.origin.longitude] : null;
   const dropoff: LatLng | null = plan?.dropoff ? [plan.dropoff.latitude, plan.dropoff.longitude] : null;
+  const pickup: LatLng | null = plan?.pickup ? [plan.pickup.latitude, plan.pickup.longitude] : null;
 
   // Los de zona no tienen coordenadas: van solo como aviso de texto, nunca al mapa.
   const nearbyIncidents = useMemo(
@@ -143,6 +145,8 @@ export default function BikeRoutePlanner({ eventId }: { eventId: string }) {
     const all: LatLng[] = [[plan.destination.latitude, plan.destination.longitude]];
     if (plan.origin) all.push([plan.origin.latitude, plan.origin.longitude]);
     if (plan.dropoff) all.push([plan.dropoff.latitude, plan.dropoff.longitude]);
+    if (plan.pickup) all.push([plan.pickup.latitude, plan.pickup.longitude]);
+    plan.walkToPickupRoute?.coordinates.forEach((point) => all.push(point));
     nearbyIncidents.forEach((incident) => all.push([incident.latitude, incident.longitude]));
     plan.bikeRoute?.coordinates.forEach((point) => all.push(point));
     plan.walkRoute?.coordinates.forEach((point) => all.push(point));
@@ -248,6 +252,17 @@ export default function BikeRoutePlanner({ eventId }: { eventId: string }) {
                 </Marker>
               )}
 
+              {pickup && plan.pickup && (
+                <Marker position={pickup} icon={pickupIcon}>
+                  <Popup>
+                    <strong>Retiro: {plan.pickup.stationName}</strong>
+                    <br />
+                    {plan.pickup.availableBikes !== null ? `${plan.pickup.availableBikes} bicis disponibles` : 'Estación de retiro'}
+                    {` · a ${plan.pickup.distanceMeters} m de tu ubicación`}
+                  </Popup>
+                </Marker>
+              )}
+
               {dropoff && plan.dropoff && (
                 <Marker position={dropoff} icon={dropoffIcon}>
                   <Popup>
@@ -269,12 +284,16 @@ export default function BikeRoutePlanner({ eventId }: { eventId: string }) {
                 </Marker>
               ))}
 
-              {origin && dropoff && (
-                plan.bikeRoute ? (
-                  <Polyline positions={plan.bikeRoute.coordinates} pathOptions={{ color: '#1c7ed6', weight: 5 }} />
+              {origin && pickup && (
+                plan.walkToPickupRoute ? (
+                  <Polyline positions={plan.walkToPickupRoute.coordinates} pathOptions={{ color: '#495057', weight: 4, dashArray: '2 8' }} />
                 ) : (
-                  <Polyline positions={[origin, dropoff]} pathOptions={{ color: '#1c7ed6', weight: 3, dashArray: '4 8' }} />
+                  <Polyline positions={[origin, pickup]} pathOptions={{ color: '#495057', weight: 3, dashArray: '4 8' }} />
                 )
+              )}
+
+              {plan.bikeRoute && (
+                <Polyline positions={plan.bikeRoute.coordinates} pathOptions={{ color: '#1c7ed6', weight: 5 }} />
               )}
 
               {dropoff && (
@@ -287,11 +306,18 @@ export default function BikeRoutePlanner({ eventId }: { eventId: string }) {
             </MapContainer>
           </Card>
 
-          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" mt="md">
-            <RouteSummary icon={<IconBike size="1.2rem" />} label="En bici" route={plan.bikeRoute} />
+          <SimpleGrid cols={{ base: 1, sm: plan.pickup ? 3 : 2 }} spacing="md" mt="md">
+            {plan.pickup && (
+              <RouteSummary
+                icon={<IconWalk size="1.2rem" />}
+                label={`A pie hasta ${plan.pickup.stationName}`}
+                route={plan.walkToPickupRoute}
+              />
+            )}
+            <RouteSummary icon={<IconBike size="1.2rem" />} label={plan.dropoff ? `En bici hasta ${plan.dropoff.stationName}` : "En bici"} route={plan.bikeRoute} />
             <RouteSummary
               icon={<IconWalk size="1.2rem" />}
-              label="A pie"
+              label="A pie hasta el evento"
               route={plan.walkRoute}
               note={
                 plan.dropoff?.distanceMeters != null && plan.dropoff.distanceMeters <= NEXT_TO_EVENT_METERS
