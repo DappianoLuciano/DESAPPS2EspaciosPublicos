@@ -62,6 +62,12 @@ Pedido por Analitica para graficar los espacios afectados. Sale cada vez que un 
 restringido o con uso parcial. Lo arma `buildPublicSpaceAffectedPayload`
 (`src/application/events/publicSpaceAffected.ts`) y pasa por el outbox como el resto.
 
+**v2 (fechas ISO-8601).** Analitica pidio las fechas como texto ISO-8601 (`2026-11-20T15:00:00.000Z`,
+siempre en UTC). Pasar de `long` a `string` es un cambio incompatible: EDA crea el topico
+`com.citypass.espacios.EspacioPublicoAfectado.v2` y ahi se publica desde entonces. El
+`metadata.eventType` del sobre sigue siendo `com.citypass.espacios.EspacioPublicoAfectado`. Para recibir
+la v2, Analitica se tiene que suscribir al topico `.v2`.
+
 | Campo | Tipo Avro | Origen |
 | --- | --- | --- |
 | `afectacionId` | `string` (UUID) | id de la restriccion climatica, o uno nuevo |
@@ -69,11 +75,11 @@ restringido o con uso parcial. Lo arma `buildPublicSpaceAffectedPayload`
 | `categoria` | `["null","string"]` | `PLAZA`, `SALON`, `CANCHA` o `AUDITORIO`; `null` si el espacio no la tiene cargada |
 | `latitud` / `longitud` | `["null","double"]` | coordenadas del espacio |
 | `tipoAfectacion` | `string` | `CERRADO`, `USO_PARCIAL` o `ACCESO_RESTRINGIDO` |
-| `afectacionDesde` | `long` (`timestamp-millis`) | inicio de la afectacion |
-| `afectacionHastaEstimada` | `["null", long timestamp-millis]` | fin previsto; `null` si no se conoce |
+| `afectacionDesde` | `string` (ISO-8601) | inicio de la afectacion |
+| `afectacionHastaEstimada` | `["null","string"]` (ISO-8601) | fin previsto; `null` si no se conoce |
 | `causaId` / `causaTipo` | `["null","string"]` | ver tabla de fuentes |
 | `correlationId` | `string` | `afectacion-<afectacionId>` |
-| `occurredAt` | `long` (`timestamp-millis`) | momento en que se publico |
+| `occurredAt` | `string` (ISO-8601) | momento en que se publico |
 
 ### Fuentes
 
@@ -96,20 +102,52 @@ restringido o con uso parcial. Lo arma `buildPublicSpaceAffectedPayload`
   espacio): una reevaluacion del mismo reclamo repite el id.
 - Las emergencias no generan afectaciones.
 - Volver a aplicar la misma alerta a un espacio que ya la tenia no publica de nuevo.
-- No hay evento de fin de afectacion: el grafico usa `afectacionHastaEstimada` cuando existe.
 - La categoria se carga en el alta y la edicion del espacio (migracion `20261105230000_public_space_category`).
   Los espacios ya cargados quedan en `null` hasta que se complete.
 
+## `com.citypass.espacios.EspacioPublicoRestaurado`
+
+Termina una afectacion publicada antes. Lleva el mismo `afectacionId` y `correlationId` que el
+`EspacioPublicoAfectado` que cierra, asi que la duracion es `restauradoAt - afectacionDesde`. Las
+afectaciones vigentes se guardan en la tabla `public_space_affectations` (migracion
+`20261109230000_public_space_affectations`). Cada una se restaura una sola vez.
+
+| Campo | Tipo Avro | Origen |
+| --- | --- | --- |
+| `afectacionId` | `string` | el de la afectacion que termina |
+| `espacioId` | `string` | id del espacio |
+| `correlationId` | `string` | `afectacion-<afectacionId>` |
+| `restauradoAt` | `string` (ISO-8601) | momento en que termino |
+
+| Hecho | Que afectaciones termina |
+| --- | --- |
+| Se levantan las medidas de una alerta finalizada (`POST /api/admin/weather-alerts/:id/release`) | las `EVENTO_CLIMATICO` de esa alerta |
+| Un administrador vuelve a habilitar el espacio (`ENABLED`) | el `CERRADO` sin causa de ese espacio (las que tienen causa siguen su ciclo) |
+| `ReclamoActualizado` pasa a `RESUELTO`, `RECHAZADO` o `CERRADO` | las `RECLAMO` e `INCIDENTE_VIAL` de ese reclamo |
+| `ReclamoReclasificado` deja de cortar la circulacion | las `RECLAMO` e `INCIDENTE_VIAL` de ese reclamo |
+| Se finaliza la intervencion del reclamo (`POST /api/admin/interventions/:reclamoId/finish`) | las `RECLAMO` e `INCIDENTE_VIAL` de ese reclamo |
+
+Las afectaciones publicadas antes de esta version no estan en la tabla, asi que nunca reciben su
+`EspacioPublicoRestaurado`.
+
 ## Puesta en marcha
 
-Registrar los contratos **antes** de desplegar el backend; si no, el gateway no conoce
-`ActividadModificada` ni el campo `categoria`:
+Registrar los contratos y aplicar la migracion **antes** de desplegar el backend. Sin los contratos, el
+gateway rechaza las fechas ISO de `EspacioPublicoAfectado` y no conoce `EspacioPublicoRestaurado`. Sin la
+migracion falta la tabla `public_space_affectations`:
+
+```bash
+npx prisma migrate deploy
+```
+
+Despues:
 
 ```bash
 npm run eda:register-events -- --update-compatible
 ```
 
-- `ActividadModificada` es nuevo y se registra sin ese flag.
+- `ActividadModificada` y `EspacioPublicoRestaurado` son nuevos y se registran sin ese flag.
+- `EspacioPublicoAfectado` cambia de tipo: con `--update-compatible` EDA crea el topico `.v2`.
 - `ActividadCreada` ya esta registrado: sin `--update-compatible`, el script corta con "El esquema
   registrado difiere del local" y deja de procesar los contratos que siguen.
 - Quienes consuman `ActividadModificada` necesitan su propia suscripcion en el gateway.

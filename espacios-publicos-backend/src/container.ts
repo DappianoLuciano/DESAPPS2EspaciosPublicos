@@ -4,6 +4,7 @@ import { FinishInterventionUseCase, ListPendingInterventionsUseCase } from "./ap
 import { InterventionController } from "./interfaces/http/controllers/InterventionController";
 import { CommunityEventSnapshotPublisher } from "./application/events/communityEventPublished";
 import { PublicSpaceAffectedPublisher } from "./application/events/publicSpaceAffected";
+import { PrismaPublicSpaceAffectationRepository } from "./infrastructure/database/PrismaPublicSpaceAffectationRepository";
 import { CancelCommunityEventRegistrationUseCase } from "./application/use-cases/CancelCommunityEventRegistrationUseCase";
 import { ChangeCommunityEventSuspensionUseCase } from "./application/use-cases/ChangeCommunityEventSuspensionUseCase";
 import { PrismaWeatherRestrictionRepository } from "./infrastructure/database/PrismaWeatherRestrictionRepository";
@@ -99,7 +100,9 @@ export function createContainer() {
   const baseEventBus = createEventBus();
   const weatherEventBus = baseEventBus;
   const eventBus = new OutboxTrackingEventBus(baseEventBus, eventOutboxRepository);
-  const publicSpaceAffectedPublisher = new PublicSpaceAffectedPublisher(eventOutboxRepository, eventBus);
+  const publicSpaceAffectedPublisher = new PublicSpaceAffectedPublisher(
+    eventOutboxRepository, eventBus, new PrismaPublicSpaceAffectationRepository()
+  );
   const communityEventSnapshotPublisher = new CommunityEventSnapshotPublisher(
     communityEventRepository,
     publicSpaceRepository,
@@ -227,7 +230,7 @@ export function createContainer() {
   );
   const interventionController = new InterventionController(
     new ListPendingInterventionsUseCase(cityIncidentRepository),
-    new FinishInterventionUseCase(cityIncidentRepository, eventOutboxRepository, eventBus)
+    new FinishInterventionUseCase(cityIncidentRepository, eventOutboxRepository, eventBus, publicSpaceAffectedPublisher)
   );
   const emergencyImpactController = new EmergencyImpactController(
     findNearbyBookingsUseCase,

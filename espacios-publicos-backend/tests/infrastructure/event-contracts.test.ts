@@ -5,7 +5,7 @@ describe("registro unificado de contratos EDA", () => {
     expect(definitions.map(item => item.name)).toEqual([
       "CriticidadClimaticaConfirmada", "CriticidadClimaticaFinalizada",
       "EventoComunitarioPublicado", "ActividadCreada", "ActividadModificada", "EventoCancelado",
-      "EspacioEstadoCambiado", "EspacioPublicoAfectado", "ReservaConfirmada",
+      "EspacioEstadoCambiado", "EspacioPublicoAfectado", "EspacioPublicoRestaurado", "ReservaConfirmada",
       "ReservaAfectada", "EspacioLiberado", "ProblematicaRegistrada", "IntervencionFinalizada"
     ]);
   });
@@ -17,10 +17,19 @@ describe("registro unificado de contratos EDA", () => {
       "afectacionId", "espacioId", "categoria", "latitud", "longitud", "tipoAfectacion", "afectacionDesde",
       "afectacionHastaEstimada", "causaId", "causaTipo", "correlationId", "occurredAt"
     ]);
-    expect(afectado.fields).toContainEqual({
-      name: "afectacionHastaEstimada", type: ["null", { type: "long", logicalType: "timestamp-millis" }], default: null
-    });
-    expect(afectado.fields).toContainEqual({ name: "occurredAt", type: { type: "long", logicalType: "timestamp-millis" } });
+    // v2: Analitica pidio las fechas como texto ISO-8601.
+    expect(afectado.fields).toContainEqual(expect.objectContaining({ name: "afectacionDesde", type: "string" }));
+    expect(afectado.fields).toContainEqual(expect.objectContaining({
+      name: "afectacionHastaEstimada", type: ["null", "string"], default: null
+    }));
+    expect(afectado.fields).toContainEqual(expect.objectContaining({ name: "occurredAt", type: "string" }));
+  });
+
+  it("registra EspacioPublicoRestaurado con los campos pedidos por Analitica", () => {
+    const restaurado = definitions.find(item => item.name === "EspacioPublicoRestaurado")!;
+    expect(restaurado.fields.map(field => [field.name, field.type])).toEqual([
+      ["afectacionId", "string"], ["espacioId", "string"], ["correlationId", "string"], ["restauradoAt", "string"]
+    ]);
   });
 
   it("conserva los campos de los cuatro contratos de main", () => {

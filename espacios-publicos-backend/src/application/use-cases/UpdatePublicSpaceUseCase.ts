@@ -78,6 +78,9 @@ export class UpdatePublicSpaceUseCase {
           causaId: null,
           causaTipo: null
         }]);
+      } else {
+        // Al rehabilitarlo termina el cierre manual; las afectaciones con causa siguen su propio ciclo.
+        await this.affectedPublisher?.restore({ espacioId: updated.id, causaTipos: [null] });
       }
     }
 

@@ -4,6 +4,7 @@ import { DomainEvent } from "../../domain/entities/DomainEvent";
 import { CityIncidentRepository } from "../../domain/repositories/CityIncidentRepository";
 import { EventOutboxRepository } from "../../domain/repositories/EventOutboxRepository";
 import { EventBus } from "../../domain/services/EventBus";
+import { CLAIM_AFFECTATION_CAUSES, PublicSpaceAffectedPublisher } from "../events/publicSpaceAffected";
 import { eventNames } from "../../shared/events/eventTypes";
 import { NotFoundError } from "../../shared/errors/NotFoundError";
 import { ValidationError } from "../../shared/errors/ValidationError";
@@ -39,7 +40,9 @@ export class FinishInterventionUseCase {
   constructor(
     private readonly cityIncidentRepository: Pick<CityIncidentRepository, "findActive" | "deactivate">,
     private readonly eventOutboxRepository: EventOutboxRepository,
-    private readonly eventBus: EventBus
+    private readonly eventBus: EventBus,
+    // Opcional: con el reclamo resuelto terminan las afectaciones de espacios que habia causado.
+    private readonly affectedPublisher?: PublicSpaceAffectedPublisher
   ) {}
 
   async execute(input: FinishInterventionInput): Promise<DomainEvent> {
@@ -78,6 +81,7 @@ export class FinishInterventionUseCase {
     await this.cityIncidentRepository.deactivate("RECLAMOS", reclamoId);
     await this.eventOutboxRepository.save(event);
     await this.eventBus.publish(event);
+    await this.affectedPublisher?.restore({ causaId: reclamoId, causaTipos: CLAIM_AFFECTATION_CAUSES }, occurredAt);
 
     return event;
   }

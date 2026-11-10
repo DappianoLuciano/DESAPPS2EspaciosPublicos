@@ -20,6 +20,7 @@ const ESPACIOS_FQNS = [
   "com.citypass.espacios.EventoCancelado",
   "com.citypass.espacios.EspacioEstadoCambiado",
   "com.citypass.espacios.EspacioPublicoAfectado",
+  "com.citypass.espacios.EspacioPublicoRestaurado",
   "com.citypass.espacios.ReservaConfirmada",
   "com.citypass.espacios.ReservaAfectada",
   "com.citypass.espacios.EspacioLiberado",

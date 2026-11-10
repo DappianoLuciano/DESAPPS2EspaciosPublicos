@@ -20,6 +20,9 @@ export const eventNames = {
   // Pedido por Analitica: un espacio cerrado, restringido o con uso parcial (clima, baja manual, reclamo cercano).
   publicSpaceAffected: () =>
     fromEnv("PUBLIC_SPACE_AFFECTED_EVENT_FQN", "com.citypass.espacios.EspacioPublicoAfectado"),
+  // Pedido por Analitica: termina una afectacion publicada en EspacioPublicoAfectado.
+  publicSpaceRestored: () =>
+    fromEnv("PUBLIC_SPACE_RESTORED_EVENT_FQN", "com.citypass.espacios.EspacioPublicoRestaurado"),
   reservationConfirmed: () =>
     fromEnv("RESERVATION_CONFIRMED_EVENT_FQN", "com.citypass.espacios.ReservaConfirmada"),
   // CU-01: emergencia durante un viaje en bicicleta.
@@ -50,6 +53,7 @@ export function dispatchableEventNames(): string[] {
     eventNames.communityEventCancelled(),
     eventNames.publicSpaceStatusChanged(),
     eventNames.publicSpaceAffected(),
+    eventNames.publicSpaceRestored(),
     eventNames.reservationConfirmed(),
     eventNames.reservationAffected(),
     eventNames.spaceReleased(),

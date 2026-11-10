@@ -31,7 +31,7 @@ function capture() {
 }
 
 describe("EspacioPublicoAfectado", () => {
-  it("arma el payload con fechas en milisegundos y null en lo opcional", () => {
+  it("arma el payload con fechas ISO-8601 y null en lo opcional", () => {
     const desde = new Date("2026-11-20T15:00:00.000Z");
     const occurredAt = new Date("2026-11-20T15:00:05.000Z");
 
@@ -49,12 +49,12 @@ describe("EspacioPublicoAfectado", () => {
       latitud: null,
       longitud: null,
       tipoAfectacion: "CERRADO",
-      afectacionDesde: desde.getTime(),
+      afectacionDesde: "2026-11-20T15:00:00.000Z",
       afectacionHastaEstimada: null,
       causaId: null,
       causaTipo: null,
       correlationId: "afectacion-afe-1",
-      occurredAt: occurredAt.getTime()
+      occurredAt: "2026-11-20T15:00:05.000Z"
     });
   });
 
