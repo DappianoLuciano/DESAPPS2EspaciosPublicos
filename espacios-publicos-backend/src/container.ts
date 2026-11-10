@@ -4,6 +4,8 @@ import { FinishInterventionUseCase, ListPendingInterventionsUseCase } from "./ap
 import { InterventionController } from "./interfaces/http/controllers/InterventionController";
 import { CommunityEventSnapshotPublisher } from "./application/events/communityEventPublished";
 import { PublicSpaceAffectedPublisher } from "./application/events/publicSpaceAffected";
+import { NearestBikeStationFinder } from "./application/services/NearestBikeStationFinder";
+import { PrismaBikeStationRepository } from "./infrastructure/database/PrismaBikeStationRepository";
 import { PrismaPublicSpaceAffectationRepository } from "./infrastructure/database/PrismaPublicSpaceAffectationRepository";
 import { CancelCommunityEventRegistrationUseCase } from "./application/use-cases/CancelCommunityEventRegistrationUseCase";
 import { ChangeCommunityEventSuspensionUseCase } from "./application/use-cases/ChangeCommunityEventSuspensionUseCase";
@@ -93,6 +95,7 @@ export function createContainer() {
   const communityEventRepository = new PrismaCommunityEventRepository();
   const communityEventRegistrationRepository = new PrismaCommunityEventRegistrationRepository();
   const eventOutboxRepository = new PrismaEventOutboxRepository();
+  const bikeStationRepository = new PrismaBikeStationRepository();
   const weatherAlertRepository = new PrismaWeatherAlertRepository();
   // EVENT_BUS_DRIVER=console deja los eventos en el log (desarrollo local); citypass los publica
   // en el gateway. Los casos de uso guardan el evento en el outbox y lo publican por este bus,
@@ -219,7 +222,8 @@ export function createContainer() {
     {
       onCreated: (emergency) => handleEmergencyCreatedUseCase.execute(emergency),
       onResolved: (emergency) => handleEmergencyResolvedUseCase.execute(emergency)
-    }
+    },
+    bikeStationRepository
   );
   const integrationOverviewUseCase = new GetIntegrationOverviewUseCase(
     communityEventRepository,
@@ -254,7 +258,8 @@ export function createContainer() {
     new OsrmRoutingService({
       bike: process.env.ROUTING_BIKE_URL || DEFAULT_ROUTING_BIKE_URL,
       foot: process.env.ROUTING_FOOT_URL || DEFAULT_ROUTING_FOOT_URL
-    })
+    }),
+    new NearestBikeStationFinder(bikeStationRepository)
   );
 
   const aiChatService = new GeminiChatService();

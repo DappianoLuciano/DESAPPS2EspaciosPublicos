@@ -157,7 +157,9 @@ describe("GET /api/community-events/:id/route-plan", () => {
       calculatedAt: recommendationRecord!.calculadaEn.toISOString()
     });
     expect(response.body.origin).toEqual({ latitude: -34.62, longitude: -58.4 });
-    expect(response.body).not.toHaveProperty("pickup");
+    // Sin buscador de estaciones (bici propia) no hay estacion de retiro.
+    expect(response.body.pickup).toBeNull();
+    expect(response.body.walkToPickupRoute).toBeNull();
     // OSRM devolvio [lng, lat]; el plan debe traer [lat, lng].
     expect(response.body.bikeRoute).toEqual({
       coordinates: [[-34.62, -58.4], [-34.6046, -58.3798]],

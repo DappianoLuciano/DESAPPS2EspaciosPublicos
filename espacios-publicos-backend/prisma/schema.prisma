@@ -396,3 +396,22 @@ model PublicSpaceAffectation {
   @@index([restoredAt, publicSpaceId])
   @@map("public_space_affectations")
 }
+
+// Estaciones de bicis de la ciudad segun Movilidad (com.citypass.movilidad.EstacionDisponibilidadActualizada).
+// El plan de llegada busca aca la estacion de retiro mas cercana al ciudadano, sin llamar a Movilidad.
+model BikeStation {
+  id             String   @id
+  name           String
+  latitude       Float
+  longitude      Float
+  availableBikes Int?
+  availableSlots Int?
+  capacity       Int?
+  active         Boolean  @default(true)
+  // Momento del dato segun Movilidad: una actualizacion vieja que llega tarde no pisa una nueva.
+  updatedAt      DateTime
+  receivedAt     DateTime @default(now())
+
+  @@index([active])
+  @@map("bike_stations")
+}
