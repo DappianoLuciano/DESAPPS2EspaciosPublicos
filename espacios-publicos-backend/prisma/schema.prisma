@@ -376,3 +376,23 @@ model PublicSpaceProblem {
 
   @@map("public_space_problems")
 }
+
+// Afectaciones de espacios publicadas a Analitica (EspacioPublicoAfectado) que siguen vigentes.
+// Al terminar (se levanta la medida climatica, se rehabilita el espacio, se cierra el reclamo) se
+// marca restoredAt y se publica EspacioPublicoRestaurado con el mismo afectacionId.
+model PublicSpaceAffectation {
+  id             String    @id
+  publicSpaceId  String
+  tipoAfectacion String
+  causaTipo      String?
+  causaId        String?
+  correlationId  String
+  since          DateTime
+  estimatedUntil DateTime?
+  createdAt      DateTime  @default(now())
+  restoredAt     DateTime?
+
+  @@index([restoredAt, causaId])
+  @@index([restoredAt, publicSpaceId])
+  @@map("public_space_affectations")
+}

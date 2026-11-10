@@ -7,6 +7,7 @@ import { InboundEventRepository } from "../../domain/repositories/InboundEventRe
 import { PublicSpaceRepository } from "../../domain/repositories/PublicSpaceRepository";
 import { distanceInMeters, hasCoordinates } from "../../shared/geo/distance";
 import {
+  CLAIM_AFFECTATION_CAUSES,
   PublicSpaceAffectationCause,
   PublicSpaceAffectationType,
   PublicSpaceAffectedPublisher,
@@ -377,6 +378,7 @@ export class ReceiveGatewayEventUseCase {
         return false;
       }
       await this.cityIncidentRepository.deactivate("RECLAMOS", reclamoId);
+      await this.restoreClaimAffectations(reclamoId);
       return true;
     }
 
@@ -439,7 +441,16 @@ export class ReceiveGatewayEventUseCase {
 
     await this.cityIncidentRepository.deactivate(config.source, externalId);
 
+    if (config.source === "RECLAMOS") {
+      await this.restoreClaimAffectations(externalId);
+    }
+
     return true;
+  }
+
+  // Analitica: el reclamo dejo de cortar la calle, asi que los espacios cercanos vuelven a la normalidad.
+  private async restoreClaimAffectations(reclamoId: string): Promise<void> {
+    await this.affectedPublisher?.restore({ causaId: reclamoId, causaTipos: CLAIM_AFFECTATION_CAUSES });
   }
 }
 

@@ -125,7 +125,7 @@ export class PrismaWeatherRestrictionRepository implements WeatherRestrictionRep
   async release(id: string, actor: string) {
     const alertId = requireText(id, "La alerta", 128);
     const releasedBy = requireText(actor, "El administrador", 128);
-    const resumedEventIds = await this.transaction(async tx => {
+    const { resumedEventIds, releasedSpaceRestrictionIds } = await this.transaction(async tx => {
       const resumed: string[] = [];
       const alert = await tx.weatherAlert.findUnique({ where: { id: alertId } });
       if (!alert) throw new NotFoundError("La alerta climática no existe.");
@@ -149,8 +149,12 @@ export class PrismaWeatherRestrictionRepository implements WeatherRestrictionRep
           resumed.push(eventId);
         }
       }
-      return resumed;
+      return { resumedEventIds: resumed, releasedSpaceRestrictionIds: links.filter(row => row.publicSpaceId).map(row => row.id) };
     });
+    // El afectacionId de una medida climatica es el id de la restriccion del espacio.
+    if (releasedSpaceRestrictionIds.length) {
+      await this.affectedPublisher?.restore({ afectacionIds: releasedSpaceRestrictionIds });
+    }
     await this.snapshots?.publish(resumedEventIds);
     return this.preview(alertId);
   }

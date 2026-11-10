@@ -128,12 +128,20 @@ const spacesDefinitions: EventTypeDefinition[] = [
     { name: "latitud", type: nullable("double"), default: null },
     { name: "longitud", type: nullable("double"), default: null },
     { name: "tipoAfectacion", type: "string", doc: "CERRADO | USO_PARCIAL | ACCESO_RESTRINGIDO" },
-    { name: "afectacionDesde", type: { type: "long", logicalType: "timestamp-millis" } },
-    { name: "afectacionHastaEstimada", type: ["null", { type: "long", logicalType: "timestamp-millis" }], default: null },
+    // v2: las fechas pasaron de timestamp-millis a texto ISO-8601 (pedido de Analitica). Es un cambio
+    // incompatible: EDA lo publica en el topico com.citypass.espacios.EspacioPublicoAfectado.v2.
+    { name: "afectacionDesde", type: "string", doc: "ISO 8601" },
+    { name: "afectacionHastaEstimada", type: nullable("string"), default: null, doc: "ISO 8601" },
     { name: "causaId", type: nullable("string"), default: null },
     { name: "causaTipo", type: nullable("string"), default: null, doc: "EVENTO_CLIMATICO | RECLAMO | INCIDENTE_VIAL" },
     { name: "correlationId", type: "string", doc: "afectacion-<afectacionId>" },
-    { name: "occurredAt", type: { type: "long", logicalType: "timestamp-millis" } }
+    { name: "occurredAt", type: "string", doc: "ISO 8601" }
+  ]),
+  record("EspacioPublicoRestaurado", "Pedido por Analitica: termino una afectacion publicada en EspacioPublicoAfectado.", [
+    { name: "afectacionId", type: "string", doc: "El mismo de EspacioPublicoAfectado" },
+    { name: "espacioId", type: "string" },
+    { name: "correlationId", type: "string", doc: "afectacion-<afectacionId>" },
+    { name: "restauradoAt", type: "string", doc: "ISO 8601" }
   ]),
   record("ReservaConfirmada", "Se confirmo la reserva de un espacio o la inscripcion a un evento.", [
     { name: "reservaId", type: "string" },
@@ -210,6 +218,7 @@ async function main() {
     EventoCancelado: "COMMUNITY_EVENT_CANCELLED_EVENT_FQN",
     EspacioEstadoCambiado: "PUBLIC_SPACE_STATUS_CHANGED_EVENT_FQN",
     EspacioPublicoAfectado: "PUBLIC_SPACE_AFFECTED_EVENT_FQN",
+    EspacioPublicoRestaurado: "PUBLIC_SPACE_RESTORED_EVENT_FQN",
     ReservaConfirmada: "RESERVATION_CONFIRMED_EVENT_FQN",
     ReservaAfectada: "RESERVATION_AFFECTED_EVENT_FQN",
     EspacioLiberado: "SPACE_RELEASED_EVENT_FQN",
