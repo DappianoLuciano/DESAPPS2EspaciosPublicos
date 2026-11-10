@@ -3,6 +3,7 @@ import { EventBus } from "../../domain/services/EventBus";
 import { AppError } from "../../shared/errors/AppError";
 import { OAuthServiceTokenProvider } from "../auth/OAuthServiceTokenProvider";
 import { logger } from "../../shared/logging/logger";
+import { eventNames } from "../../shared/events/eventTypes";
 
 export class CityPassEventGatewayBus implements EventBus {
   constructor(
@@ -47,7 +48,9 @@ export class CityPassEventGatewayBus implements EventBus {
         502
       );
     }
-    logger.info({ eventId: event.id, eventName: event.name, statusCode: response.status },
+    const isWeatherEvent = event.name === eventNames.weatherConfirmed() || event.name === eventNames.weatherFinalized();
+    logger.info({ eventId: event.id, eventName: event.name, statusCode: response.status,
+      ...(isWeatherEvent ? { driver: "citypass", payload: event.payload } : {}) },
       "Evento aceptado por el gateway EDA");
   }
 }

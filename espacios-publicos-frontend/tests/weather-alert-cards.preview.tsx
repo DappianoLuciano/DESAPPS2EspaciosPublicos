@@ -1,10 +1,13 @@
 // Vista de QA accesible solo en el servidor de desarrollo. No se importa desde la app.
 // Usa ejemplos visuales y no consulta el backend, Open-Meteo ni EDA.
 import '@mantine/core/styles.css';
-import { Box, Container, MantineProvider, SimpleGrid, Text, Title } from '@mantine/core';
+import { Box, Container, MantineProvider, Stack, Text } from '@mantine/core';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import WeatherAlertCard from '../src/components/WeatherAlertCard';
+import WeatherAlertOverview from '../src/components/WeatherAlertOverview';
+import { summarizeWeatherAlerts } from '../src/lib/weatherAlertPresentation';
+import styles from '../src/components/WeatherDashboard.module.css';
 import type { WeatherAlert } from '../src/lib/api';
 
 const now = Date.now();
@@ -26,18 +29,19 @@ const second: WeatherAlert = {
   suggestedCriticality: 'ALTA', confirmedCriticality: 'ALTA', validFrom: date(2), validUntil: date(6),
   evidence: { ...evidence, neighborhoods: ['PALERMO'], forecastFrom: date(2), forecastTo: date(6) },
 };
+const summary = summarizeWeatherAlerts([first, { ...second, status: 'PENDING' },
+  ...[1, 2, 3, 4].map(id => ({ ...first, id: `vencida-${id}`, validFrom: date(-6), validUntil: date(-2) }))], now);
 
 createRoot(document.getElementById('root')!).render(
   <MantineProvider theme={{ fontFamily: 'Arial, sans-serif' }}>
     <MemoryRouter>
       <Box mih="100vh" bg="#F8F9F7" py={32}>
-        <Container size="lg">
-          <Title order={1} fz={28}>Cards de alertas climáticas</Title>
-          <Text c="dimmed" mb="xl">Vista de prueba local con datos de ejemplo. No publica ni modifica alertas reales.</Text>
-          <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-            <WeatherAlertCard alert={first} now={now} />
-            <WeatherAlertCard alert={second} now={now} />
-          </SimpleGrid>
+        <Container size="xl">
+          <Text size="xs" c="dimmed" mb="md">Prueba visual con datos de ejemplo. No publica ni modifica alertas reales.</Text>
+          <Box component="section" className={styles.section}>
+            <WeatherAlertOverview summary={summary} pendingRelease={0} updatedAt={date(0)} hasData loading={false} stale={false} onRefresh={() => {}} />
+            <Stack gap="md"><WeatherAlertCard alert={first} now={now} /></Stack>
+          </Box>
         </Container>
       </Box>
     </MemoryRouter>

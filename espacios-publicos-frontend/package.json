@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test:address": "node --test tests/address-search.test.cjs",
-    "test:weather-cards": "node --test tests/weather-alert-cards.test.cjs tests/event-availability.test.cjs",
+    "test:weather-cards": "node --test tests/weather-alert-cards.test.cjs tests/event-availability.test.cjs tests/weather-alert-list.test.cjs",
     "preview": "vite preview"
   },
   "dependencies": {

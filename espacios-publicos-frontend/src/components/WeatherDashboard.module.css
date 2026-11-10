@@ -1,0 +1,107 @@
+.section {
+  container-type: inline-size;
+  border: 1px solid var(--mantine-color-gray-3);
+  border-radius: 20px;
+  padding: 24px;
+  background: var(--mantine-color-body);
+  box-shadow: 0 6px 22px rgba(15, 23, 42, 0.035);
+}
+
+.header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  align-items: center;
+  padding-bottom: 24px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+}
+
+.dock {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
+  gap: 12px;
+}
+
+.capsule {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid;
+  border-radius: 16px;
+  min-width: 0;
+}
+
+.capsuleLink {
+  display: block;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid currentColor;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+  text-decoration: none;
+}
+
+.card {
+  container-type: inline-size;
+  width: 100%;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  padding: 22px;
+  align-items: center;
+}
+
+.identity, .timing, .actions { min-width: 0; }
+
+.timing {
+  padding-top: 18px;
+  border-top: 1px solid var(--mantine-color-gray-2);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.actions > button:first-child {
+  background-color: #142030;
+  border-color: #142030;
+  color: white;
+  height: auto;
+  min-height: 42px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.actions > button:first-child:hover { background-color: #25374c; }
+.actions > button:first-child span { white-space: normal; }
+
+.detailsToggle {
+  width: 100%;
+  padding: 8px 0;
+  color: var(--mantine-color-gray-7);
+}
+
+.details {
+  padding: 18px 22px 22px;
+  border-top: 1px solid var(--mantine-color-gray-2);
+}
+
+@container (min-width: 900px) {
+  .headerWithDock { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 245px; gap: 24px; }
+  .timing { border-top: 0; border-left: 1px solid var(--mantine-color-gray-3); padding: 0 0 0 24px; }
+  .actions { border-left: 1px solid var(--mantine-color-gray-3); padding-left: 24px; }
+}
+
+@media (max-width: 480px) {
+  .section { padding: 16px; border-radius: 16px; }
+  .layout { padding: 16px; }
+}
