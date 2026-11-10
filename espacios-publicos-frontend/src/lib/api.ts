@@ -700,15 +700,90 @@ export interface EventRoutePlan {
     calculatedAt: string;
   } | null;
   origin: { latitude: number; longitude: number } | null;
+  /** Estacion de bicis de la ciudad donde se retira la bici (la elige Movilidad). */
+  pickup: PickupStation | null;
+  /** A pie hasta la estacion de retiro. */
+  walkToPickupRoute: RoutePath | null;
   bikeRoute: RoutePath | null;
   walkRoute: RoutePath | null;
   warnings: string[];
 }
 
-export function getEventRoutePlan(id: string, from?: { latitude: number; longitude: number }) {
-  const query = from ? `?fromLat=${from.latitude}&fromLng=${from.longitude}` : '';
+export interface PickupStation {
+  stationName: string;
+  latitude: number;
+  longitude: number;
+  availableBikes: number | null;
+}
+
+export function getEventRoutePlan(
+  id: string,
+  from?: { latitude: number; longitude: number },
+  pickup?: PickupStation
+) {
+  const params = new URLSearchParams();
+  if (from) {
+    params.set('fromLat', String(from.latitude));
+    params.set('fromLng', String(from.longitude));
+  }
+  if (from && pickup) {
+    params.set('pickupLat', String(pickup.latitude));
+    params.set('pickupLng', String(pickup.longitude));
+    params.set('pickupName', pickup.stationName);
+    if (pickup.availableBikes !== null) params.set('pickupBikes', String(pickup.availableBikes));
+  }
+  const query = params.toString() ? `?${params}` : '';
 
   return request<EventRoutePlan>(`/api/community-events/${encodeURIComponent(id)}/route-plan${query}`);
+}
+
+// Movilidad elige la estacion de retiro segun la ubicacion del ciudadano. La consulta el navegador y no nuestro
+// backend, porque los backends de los modulos solo se comunican por eventos.
+const MOBILITY_API_URL = (
+  import.meta.env.VITE_MOBILITY_API_URL?.trim() || 'https://daii-grupo-8-backend-m4uf.onrender.com'
+).replace(/\/+$/, '');
+// Movilidad corre en Render y puede estar dormido: no se espera mas que esto.
+const PICKUP_TIMEOUT_MS = 8_000;
+
+export type PickupLookup =
+  | { kind: 'station'; station: PickupStation }
+  | { kind: 'none'; message: string }
+  | { kind: 'unavailable' };
+
+interface MobilityPickupResponse {
+  status?: string;
+  message?: string;
+  station?: { stationName?: string; latitude?: number | string; longitude?: number | string; availableBikes?: number } | null;
+}
+
+export async function findPickupStation(from: { latitude: number; longitude: number }): Promise<PickupLookup> {
+  const url = `${MOBILITY_API_URL}/api/v1/stations/recommendation?lat=${from.latitude}&lng=${from.longitude}&purpose=PICKUP`;
+
+  try {
+    const response = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(PICKUP_TIMEOUT_MS) });
+    if (!response.ok) return { kind: 'unavailable' };
+
+    const body = (await response.json()) as MobilityPickupResponse;
+    const latitude = Number(body.station?.latitude);
+    const longitude = Number(body.station?.longitude);
+
+    if (body.status === 'RECOMMENDED' && body.station?.stationName && Number.isFinite(latitude) && Number.isFinite(longitude)) {
+      return {
+        kind: 'station',
+        station: {
+          stationName: body.station.stationName,
+          latitude,
+          longitude,
+          availableBikes: typeof body.station.availableBikes === 'number' ? body.station.availableBikes : null,
+        },
+      };
+    }
+
+    return { kind: 'none', message: body.message || 'No hay estaciones con bicis disponibles cerca de tu ubicación.' };
+  } catch {
+    // Dormido, caido o bloqueado por CORS: el plan sigue sin estacion de retiro.
+    return { kind: 'unavailable' };
+  }
 }
 
 export type CancellationCauseType = 'EVENTO_CLIMATICO' | 'RECLAMO' | 'INCIDENTE_VIAL';

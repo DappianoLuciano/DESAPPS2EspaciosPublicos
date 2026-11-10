@@ -11,6 +11,8 @@ import { requireText } from "../../shared/validation/inputValidation";
 
 export const ROUTE_PLAN_INCIDENT_RADIUS_METERS = 1000;
 export const STALE_RECOMMENDATION_MINUTES = 30;
+/** Si la estacion de retiro y la de devolucion estan a esta distancia o menos, no tiene sentido ir en bici. */
+export const SAME_STATION_METERS = 150;
 
 const METERS_PER_DEGREE_LATITUDE = 111_320;
 const INCIDENTS_UNAVAILABLE_WARNING = "No se pudieron consultar los incidentes cercanos.";
@@ -31,9 +33,20 @@ function pushOnce(warnings: string[], warning: string): void {
   }
 }
 
+/** Estacion de bicis de la ciudad donde el ciudadano retira la bici. La elige Movilidad y la pasa el front. */
+export interface PickupStation extends RoutePoint {
+  stationName: string;
+  availableBikes: number | null;
+}
+
 export interface RoutePlanInput {
   eventId: string;
   from?: RoutePoint;
+  /**
+   * Con estacion de retiro, el plan va a pie hasta ella, en bici hasta la de devolucion y a pie al evento.
+   * Sin ella, el tramo en bici sale desde la ubicacion del ciudadano (bici propia).
+   */
+  pickup?: PickupStation;
 }
 
 export interface RoutePlan {
@@ -69,7 +82,12 @@ export interface RoutePlan {
     calculatedAt: string;
   } | null;
   origin: RoutePoint | null;
+  pickup: PickupStation | null;
+  /** A pie desde la ubicacion del ciudadano hasta la estacion de retiro. */
+  walkToPickupRoute: RoutePath | null;
+  /** En bici hasta la estacion de devolucion, desde la de retiro (o desde el ciudadano, sin estacion de retiro). */
   bikeRoute: RoutePath | null;
+  /** A pie desde la estacion de devolucion hasta el evento. */
   walkRoute: RoutePath | null;
   warnings: string[];
 }
@@ -122,10 +140,20 @@ export class GetEventRoutePlanUseCase {
     ]);
 
     const origin = input.from ?? null;
-    const [bikeRoute, walkRoute] = await Promise.all([
-      origin && dropoff
-        ? this.findRoute("bike", origin, dropoff, "en bici", warnings)
+    // La estacion de retiro solo tiene sentido junto con la ubicacion del ciudadano y una de devolucion.
+    const pickup = origin && dropoff ? input.pickup ?? null : null;
+    const bikeStart = pickup ?? origin;
+
+    if (pickup && dropoff && distanceInMeters(pickup, dropoff) <= SAME_STATION_METERS) {
+      warnings.push("Estás cerca del evento: conviene ir caminando.");
+    }
+
+    const ride = bikeStart && dropoff && (!pickup || distanceInMeters(pickup, dropoff) > SAME_STATION_METERS);
+    const [walkToPickupRoute, bikeRoute, walkRoute] = await Promise.all([
+      origin && pickup
+        ? this.findRoute("foot", origin, pickup, "hasta la estación de retiro", warnings)
         : Promise.resolve(null),
+      ride ? this.findRoute("bike", bikeStart!, dropoff!, "en bici", warnings) : Promise.resolve(null),
       dropoff ? this.findRoute("foot", dropoff, destination, "a pie", warnings) : Promise.resolve(null)
     ]);
 
@@ -140,6 +168,8 @@ export class GetEventRoutePlanUseCase {
       incidents,
       dropoff,
       origin,
+      pickup,
+      walkToPickupRoute,
       bikeRoute,
       walkRoute,
       warnings

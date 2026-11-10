@@ -157,7 +157,9 @@ describe("GET /api/community-events/:id/route-plan", () => {
       calculatedAt: recommendationRecord!.calculadaEn.toISOString()
     });
     expect(response.body.origin).toEqual({ latitude: -34.62, longitude: -58.4 });
-    expect(response.body).not.toHaveProperty("pickup");
+    // Sin estacion de retiro (bici propia) el tramo en bici sale desde la ubicacion.
+    expect(response.body.pickup).toBeNull();
+    expect(response.body.walkToPickupRoute).toBeNull();
     // OSRM devolvio [lng, lat]; el plan debe traer [lat, lng].
     expect(response.body.bikeRoute).toEqual({
       coordinates: [[-34.62, -58.4], [-34.6046, -58.3798]],
@@ -365,6 +367,50 @@ describe("GET /api/community-events/:id/route-plan", () => {
     eventRecord = null;
 
     await request(buildApp()).get("/api/community-events/nada/route-plan").expect(404);
+  });
+
+  describe("con la estacion de retiro que el front le pidio a Movilidad", () => {
+    const PICKUP = "pickupLat=-34.6058&pickupLng=-58.3807&pickupName=OBELISCO&pickupBikes=10";
+
+    it("va a pie hasta la estacion de retiro, en bici hasta la de devolucion y a pie al evento", async () => {
+      const response = await request(buildApp())
+        .get(`/api/community-events/event-1/route-plan?fromLat=-34.62&fromLng=-58.4&${PICKUP}`)
+        .expect(200);
+
+      expect(response.body.pickup).toEqual({ latitude: -34.6058, longitude: -58.3807, stationName: "OBELISCO", availableBikes: 10 });
+      expect(response.body.walkToPickupRoute).not.toBeNull();
+      expect(fetchedUrls().sort()).toEqual(
+        [
+          `${FOOT}/route/v1/driving/-58.4,-34.62;-58.3807,-34.6058?overview=full&geometries=geojson`,
+          `${BIKE}/route/v1/driving/-58.3807,-34.6058;-58.3798,-34.6046?overview=full&geometries=geojson`,
+          `${FOOT}/route/v1/driving/-58.3798,-34.6046;-58.3816,-34.6037?overview=full&geometries=geojson`
+        ].sort()
+      );
+      expect(response.body.warnings).toEqual([]);
+    });
+
+    it("si la estacion de retiro es la misma que la de devolucion, sugiere ir caminando", async () => {
+      const response = await request(buildApp())
+        .get("/api/community-events/event-1/route-plan?fromLat=-34.62&fromLng=-58.4&pickupLat=-34.6046&pickupLng=-58.3798&pickupName=DIAGONAL%20NORTE")
+        .expect(200);
+
+      expect(response.body.bikeRoute).toBeNull();
+      expect(response.body.warnings).toEqual(["Estás cerca del evento: conviene ir caminando."]);
+      expect(fetchedUrls().some((url) => url.startsWith(BIKE))).toBe(false);
+    });
+
+    it("sin ubicacion del usuario ignora la estacion de retiro", async () => {
+      const response = await request(buildApp()).get(`/api/community-events/event-1/route-plan?${PICKUP}`).expect(200);
+
+      expect(response.body.pickup).toBeNull();
+      expect(response.body.bikeRoute).toBeNull();
+    });
+
+    it("responde 400 si la estacion de retiro viene incompleta", async () => {
+      await request(buildApp())
+        .get("/api/community-events/event-1/route-plan?fromLat=-34.62&fromLng=-58.4&pickupLat=-34.6058&pickupName=OBELISCO")
+        .expect(400);
+    });
   });
 
   it("responde 422 si el espacio no tiene coordenadas", async () => {
