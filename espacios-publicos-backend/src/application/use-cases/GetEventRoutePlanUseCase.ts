@@ -2,8 +2,6 @@ import { CityIncidentRepository } from "../../domain/repositories/CityIncidentRe
 import { CommunityEventRepository } from "../../domain/repositories/CommunityEventRepository";
 import { DestinationRecommendationRepository } from "../../domain/repositories/DestinationRecommendationRepository";
 import { PublicSpaceRepository } from "../../domain/repositories/PublicSpaceRepository";
-import { BikeStationFinder, NoBikeStationsKnownError } from "../../domain/services/BikeStationFinder";
-import { MAX_PICKUP_DISTANCE_METERS } from "../services/NearestBikeStationFinder";
 import { RoutePath, RoutePoint, RoutingService } from "../../domain/services/RoutingService";
 import { NotFoundError } from "../../shared/errors/NotFoundError";
 import { UnprocessableEntityError } from "../../shared/errors/UnprocessableEntityError";
@@ -35,9 +33,20 @@ function pushOnce(warnings: string[], warning: string): void {
   }
 }
 
+/** Estacion de bicis de la ciudad donde el ciudadano retira la bici. La elige Movilidad y la pasa el front. */
+export interface PickupStation extends RoutePoint {
+  stationName: string;
+  availableBikes: number | null;
+}
+
 export interface RoutePlanInput {
   eventId: string;
   from?: RoutePoint;
+  /**
+   * Con estacion de retiro, el plan va a pie hasta ella, en bici hasta la de devolucion y a pie al evento.
+   * Sin ella, el tramo en bici sale desde la ubicacion del ciudadano (bici propia).
+   */
+  pickup?: PickupStation;
 }
 
 export interface RoutePlan {
@@ -73,17 +82,10 @@ export interface RoutePlan {
     calculatedAt: string;
   } | null;
   origin: RoutePoint | null;
-  /** Estacion de bicis de la ciudad mas cercana al ciudadano, donde retira la bici (la informa Movilidad). */
-  pickup: {
-    stationName: string;
-    latitude: number;
-    longitude: number;
-    distanceMeters: number;
-    availableBikes: number | null;
-  } | null;
+  pickup: PickupStation | null;
   /** A pie desde la ubicacion del ciudadano hasta la estacion de retiro. */
   walkToPickupRoute: RoutePath | null;
-  /** En bici desde la estacion de retiro (o desde el ciudadano, con bici propia) hasta la de devolucion. */
+  /** En bici hasta la estacion de devolucion, desde la de retiro (o desde el ciudadano, sin estacion de retiro). */
   bikeRoute: RoutePath | null;
   /** A pie desde la estacion de devolucion hasta el evento. */
   walkRoute: RoutePath | null;
@@ -98,9 +100,7 @@ export class GetEventRoutePlanUseCase {
     private readonly publicSpaceRepository: PublicSpaceRepository,
     private readonly cityIncidentRepository: CityIncidentRepository,
     private readonly destinationRecommendationRepository: DestinationRecommendationRepository,
-    private readonly routingService: RoutingService,
-    // Opcional: sin el, el tramo en bici sale desde la ubicacion del ciudadano (bici propia).
-    private readonly stationFinder?: BikeStationFinder
+    private readonly routingService: RoutingService
   ) {}
 
   async execute(input: RoutePlanInput): Promise<RoutePlan> {
@@ -140,20 +140,20 @@ export class GetEventRoutePlanUseCase {
     ]);
 
     const origin = input.from ?? null;
-    const { pickup, ownBike } = origin && dropoff
-      ? await this.findPickup(origin, dropoff, warnings)
-      : { pickup: null, ownBike: false };
-    // Con bici de la ciudad se sale de la estacion de retiro. Si no se conocen las estaciones, se sale
-    // en bici desde la ubicacion del ciudadano, como antes.
-    const bikeStart: RoutePoint | null = ownBike ? origin : pickup;
-    const ride = bikeStart && dropoff && (ownBike || distanceInMeters(bikeStart, dropoff) > SAME_STATION_METERS)
-      ? { from: bikeStart, to: dropoff }
-      : null;
+    // La estacion de retiro solo tiene sentido junto con la ubicacion del ciudadano y una de devolucion.
+    const pickup = origin && dropoff ? input.pickup ?? null : null;
+    const bikeStart = pickup ?? origin;
+
+    if (pickup && dropoff && distanceInMeters(pickup, dropoff) <= SAME_STATION_METERS) {
+      warnings.push("Estás cerca del evento: conviene ir caminando.");
+    }
+
+    const ride = bikeStart && dropoff && (!pickup || distanceInMeters(pickup, dropoff) > SAME_STATION_METERS);
     const [walkToPickupRoute, bikeRoute, walkRoute] = await Promise.all([
       origin && pickup
         ? this.findRoute("foot", origin, pickup, "hasta la estación de retiro", warnings)
         : Promise.resolve(null),
-      ride ? this.findRoute("bike", ride.from, ride.to, "en bici", warnings) : Promise.resolve(null),
+      ride ? this.findRoute("bike", bikeStart!, dropoff!, "en bici", warnings) : Promise.resolve(null),
       dropoff ? this.findRoute("foot", dropoff, destination, "a pie", warnings) : Promise.resolve(null)
     ]);
 
@@ -320,55 +320,6 @@ export class GetEventRoutePlanUseCase {
       message: recommendation.mensaje,
       discardedByIncidents: recommendation.descartadasPorIncidentes,
       calculatedAt: recommendation.calculadaEn.toISOString()
-    };
-  }
-
-  // Estacion de retiro: la de bicis de la ciudad mas cercana al ciudadano, segun Movilidad.
-  private async findPickup(
-    origin: RoutePoint,
-    dropoff: RoutePoint,
-    warnings: string[]
-  ): Promise<{ pickup: RoutePlan["pickup"]; ownBike: boolean }> {
-    if (!this.stationFinder) {
-      return { pickup: null, ownBike: true };
-    }
-
-    let station;
-
-    try {
-      station = await this.stationFinder.findNearest(origin);
-    } catch (error) {
-      if (error instanceof NoBikeStationsKnownError) {
-        warnings.push("Todavía no tenemos las estaciones de bicis de la ciudad: el recorrido en bici sale desde tu ubicación.");
-        return { pickup: null, ownBike: true };
-      }
-      logger.error({ err: error }, "No se pudieron leer las estaciones de bicis");
-      warnings.push("No pudimos consultar la estación de bicis más cercana a tu ubicación.");
-      return { pickup: null, ownBike: false };
-    }
-
-    if (!station) {
-      warnings.push(`No hay estaciones de bicis de la ciudad a menos de ${MAX_PICKUP_DISTANCE_METERS / 1000} km de tu ubicación.`);
-      return { pickup: null, ownBike: false };
-    }
-
-    if (station.availableBikes === 0) {
-      warnings.push(`La estación ${station.name} no tiene bicis disponibles en este momento.`);
-    }
-
-    if (distanceInMeters(station, dropoff) <= SAME_STATION_METERS) {
-      warnings.push("Estás cerca del evento: conviene ir caminando.");
-    }
-
-    return {
-      pickup: {
-        stationName: station.name,
-        latitude: station.latitude,
-        longitude: station.longitude,
-        distanceMeters: station.distanceMeters,
-        availableBikes: station.availableBikes
-      },
-      ownBike: false
     };
   }
 
