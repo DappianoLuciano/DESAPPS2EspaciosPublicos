@@ -28,11 +28,15 @@ export default function Analytics() {
 
   useEffect(load, [load]);
 
-  // El tablero avisa su altura para que no haya doble scroll.
+  // El tablero avisa su altura para que no haya doble scroll. Solo se acepta de nuestro iframe: con srcdoc y sin
+  // allow-same-origin su origen es "null".
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
+      if (event.origin !== 'null' || event.source !== frame.current?.contentWindow) {
+        return;
+      }
       const message = event.data as { tipo?: string; altura?: unknown } | null;
-      if (event.source === frame.current?.contentWindow && message?.tipo === 'citypass-tablero-altura' && typeof message.altura === 'number') {
+      if (message?.tipo === 'citypass-tablero-altura' && typeof message.altura === 'number') {
         setHeight(Math.max(MIN_HEIGHT, Math.min(Math.round(message.altura), 20_000)));
       }
     };

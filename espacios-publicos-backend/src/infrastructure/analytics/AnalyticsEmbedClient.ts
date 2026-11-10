@@ -8,6 +8,12 @@ export const ANALYTICS_MODULE = "espacios";
 
 type FetchFn = typeof fetch;
 
+function withoutTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url[end - 1] === "/") end--;
+  return url.slice(0, end);
+}
+
 interface TokenProvider {
   getToken(): Promise<string>;
 }
@@ -30,7 +36,7 @@ export class AnalyticsEmbedClient implements AnalyticsDashboardSource {
 
     try {
       const serviceToken = await this.serviceTokens.getToken();
-      response = await this.fetchFn(`${this.baseUrl.replace(/\/+$/, "")}/embed/${ANALYTICS_MODULE}`, {
+      response = await this.fetchFn(`${withoutTrailingSlashes(this.baseUrl)}/embed/${ANALYTICS_MODULE}`, {
         headers: {
           Authorization: `Bearer ${serviceToken}`,
           "X-User-Token": userToken,
