@@ -842,3 +842,45 @@ export function finishIntervention(reclamoId: string, resultado: InterventionRes
     body: JSON.stringify(idAuto ? { resultado, idAuto } : { resultado }),
   });
 }
+
+export interface IntegrationOverview {
+  generatedAt: string;
+  events: Array<{
+    id: string;
+    title: string;
+    status: string;
+    startDate: string;
+    endDate: string;
+    space: { id: string; name: string | null; zone: string | null };
+    recommendation: {
+      estado: 'RECOMMENDED' | 'NO_RECOMMENDATION';
+      estacion: string | null;
+      lugaresLibres: number | null;
+      distanciaMetros: number | null;
+      mensaje: string;
+      descartadasPorIncidentes: number;
+      calculadaEn: string;
+    } | null;
+  }>;
+  incidents: Array<{
+    source: 'RECLAMOS' | 'EMERGENCIAS';
+    externalId: string;
+    category: string | null;
+    zone: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    reportedAt: string;
+  }>;
+  inbound: {
+    byType: Array<{ eventType: string; count: number; lastReceivedAt: string }>;
+    recent: Array<{ eventId: string; eventType: string; receivedAt: string }>;
+  };
+  outbox: {
+    byName: Array<{ name: string; published: number; pending: number; failed: number; lastCreatedAt: string | null }>;
+    problems: Array<{ id: string; name: string; status: 'PENDING' | 'FAILED'; attempts: number; lastError: string | null; createdAt: string }>;
+  };
+}
+
+export function getIntegrationOverview() {
+  return request<IntegrationOverview>('/api/admin/integrations');
+}
