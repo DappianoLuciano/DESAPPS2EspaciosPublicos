@@ -20,14 +20,15 @@ afectacion en `emergency_booking_impacts`, avisa al organizador y publica `Reser
 
 ## Al resolverse la emergencia
 
-Consume `EmergenciaResuelta` y `emergencia.resuelta`. Tambien `EmergenciaCerrada`, y
-`EmergenciaEstadoActualizado` o `EmergenciaActualizada` con estado `RESUELTA` o `CERRADA`, que es lo que
-Emergencias publica hoy. Esos cierres no traen causas, asi que liberan pero no registran problematicas.
+Emergencias publica la resolucion, el cierre y la falsa alarma como `EmergenciaActualizada` con
+`estadoNuevo` en `RESUELTA`, `CERRADA`, `CANCELADA` o `DESCARTADA`, con `causasRelacionadas` y la ubicacion
+cifrada. Es lo unico que hace falta: el webhook acepta tambien `EmergenciaResuelta`, `EmergenciaCerrada`,
+`EmergenciaCancelada` y los nombres con puntos, pero no se suscriben porque Emergencias no los publica.
 
 - **A10**, aunque la causa sea otra: por espacio afectado, confirma las reservas cuyo horario sigue
   vigente, deja `A_REPROGRAMAR` las que ya pasaron y publica `EspacioLiberado`.
 - **A6**, solo con `ESPACIO_PUBLICO` en `causasRelacionadas`: registra la problematica y publica
-  `ProblematicaRegistrada`. El tipo sale de `tipoProblematica`; si falta, queda `SIN_CLASIFICAR`.
+  `ProblematicaRegistrada`. El tipo sale de `tipoProblematica`; si falta, queda `SIN_CLASIFICAR`. El contrato de Emergencias todavia no lo trae.
 - Sin reservas afectadas y sin esa causa, no hace nada.
 
 Una falsa alarma (A1) tambien libera lo suspendido y nunca registra problematicas. Se reconoce por
@@ -87,8 +88,7 @@ En este orden, coordinado con el responsable de la base:
 1. Aplicar `prisma/migrations/20261104120000_cu_01_emergency_impacts`. Solo crea tablas.
 2. `npm run eda:register-events`
 3. Desplegar el backend.
-4. `npm run eda:register-subscriptions`. `EmergenciaCancelada` y `EmergenciaResuelta` van ultimos: si
-   Emergencias todavia no los registro, el script falla ahi despues de suscribir los demas.
+4. `npm run eda:register-subscriptions`.
 
 ## Prueba local
 

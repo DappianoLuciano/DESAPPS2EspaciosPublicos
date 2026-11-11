@@ -565,6 +565,23 @@ describe("CU-01 en el webhook", () => {
     }
   });
 
+  it("toma el contrato vigente de Emergencias: coordenadas cifradas, barrio y estadoNuevo", async () => {
+    const { useCase, reactions } = build();
+    const ubicacion = { latitud: "enc:v1:9f3a...", longitud: "enc:v1:41c2...", barrio: "Recoleta" };
+    const type = "com.citypass.emergencias.EmergenciaActualizada";
+
+    await useCase.execute(gatewayEvent("com.citypass.emergencias.EmergenciaCreada", {
+      emergenciaId: "EMG-1", estado: "CREADA", ubicacion
+    }));
+    await useCase.execute({
+      metadata: { eventId: "evt-2", eventType: type },
+      data: { emergenciaId: "EMG-1", estadoNuevo: "RESUELTA", causasRelacionadas: ["ESPACIO_PUBLICO"], ubicacion }
+    });
+
+    expect(reactions.onCreated.mock.calls[0][0]).toMatchObject({ latitude: null, zone: "Recoleta" });
+    expect(reactions.onResolved.mock.calls[0][0]).toMatchObject({ causes: ["ESPACIO_PUBLICO"], latitude: null });
+  });
+
   it("si la reaccion falla no registra el evento, para que el gateway reintente", async () => {
     const { useCase, reactions, inbound } = build();
     reactions.onCreated.mockRejectedValue(new Error("sin tabla"));
