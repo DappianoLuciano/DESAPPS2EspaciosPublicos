@@ -746,7 +746,8 @@ const MOBILITY_API_URL = (
 const PICKUP_TIMEOUT_MS = 8_000;
 
 export type PickupLookup =
-  | { kind: 'station'; station: PickupStation }
+  // message: la explicacion de Movilidad (por ejemplo, por que no es la estacion mas cercana).
+  | { kind: 'station'; station: PickupStation; message: string | null }
   | { kind: 'none'; message: string }
   | { kind: 'unavailable' };
 
@@ -776,6 +777,7 @@ export async function findPickupStation(from: { latitude: number; longitude: num
           longitude,
           availableBikes: typeof body.station.availableBikes === 'number' ? body.station.availableBikes : null,
         },
+        message: body.message?.trim() || null,
       };
     }
 

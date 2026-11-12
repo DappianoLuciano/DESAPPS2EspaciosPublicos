@@ -106,6 +106,8 @@ export default function BikeRoutePlanner({ eventId }: { eventId: string }) {
   const [error, setError] = useState<string | null>(null);
   // Aviso sobre la estacion de retiro: Movilidad no tiene una cerca o no respondio.
   const [pickupNotice, setPickupNotice] = useState<string | null>(null);
+  // Explicacion de Movilidad sobre la estacion de retiro elegida (por ejemplo, la mas cercana no tiene bicis).
+  const [pickupMessage, setPickupMessage] = useState<string | null>(null);
   // La antigüedad se calcula contra el momento en que llegó el plan, no en cada render.
   const [receivedAt, setReceivedAt] = useState(0);
 
@@ -124,12 +126,15 @@ export default function BikeRoutePlanner({ eventId }: { eventId: string }) {
         // A pie hasta la estacion de retiro, en bici hasta la de devolucion y a pie al evento.
         result = await getEventRoutePlan(eventId, origin, lookup.station);
         setPickupNotice(null);
+        setPickupMessage(lookup.message);
       } else if (lookup?.kind === 'none') {
         // Sin bicis de la ciudad cerca no se dibuja un tramo en bici desde la ubicacion.
         result = await getEventRoutePlan(eventId);
         setPickupNotice(lookup.message);
+        setPickupMessage(null);
       } else {
         result = await getEventRoutePlan(eventId, origin);
+        setPickupMessage(null);
         setPickupNotice(origin ? 'No pudimos consultar la estación de retiro en Movilidad: el recorrido en bici sale desde tu ubicación.' : null);
       }
       setReceivedAt(Date.now());
@@ -198,8 +203,14 @@ export default function BikeRoutePlanner({ eventId }: { eventId: string }) {
 
       {plan && destination && (
         <Box mt="lg">
+          {pickupMessage && plan.pickup && (
+            <Alert color="blue" variant="light" mb="sm" title="Retiro">
+              {pickupMessage}
+            </Alert>
+          )}
+
           {plan.dropoff && (
-            <Alert color="blue" variant="light" mb="sm">
+            <Alert color="blue" variant="light" mb="sm" title="Devolución">
               {plan.dropoff.message}
               <Text size="xs" c="dimmed" mt={4}>{formatAge(plan.dropoff.calculatedAt, receivedAt)}</Text>
             </Alert>
