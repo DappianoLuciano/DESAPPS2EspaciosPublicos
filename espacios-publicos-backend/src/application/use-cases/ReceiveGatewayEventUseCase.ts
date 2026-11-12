@@ -14,7 +14,7 @@ import {
   stableAffectationId
 } from "../events/publicSpaceAffected";
 import { ValidationError } from "../../shared/errors/ValidationError";
-import { EmergencyReactions, parseEmergencyCreated, parseEmergencyResolved } from "../events/emergencyEvents";
+import { EmergencyReactions, parseEmergencyCreated, parseEmergencyLocation, parseEmergencyResolved } from "../events/emergencyEvents";
 import { logger } from "../../shared/logging/logger";
 
 /** Un reclamo que corta la circulacion a esta distancia o menos deja el espacio con uso parcial. */
@@ -70,8 +70,9 @@ interface IncidentTypeConfig {
   source: CityIncidentSource;
   idField: string;
   /**
-   * Solo para "created". Reclamos publica coordenadas y afectaCirculacion; Emergencias
-   * solo publica el barrio (data.ubicacion.barrio) y se ubica por zona.
+   * Solo para "created". Reclamos publica coordenadas y afectaCirculacion; Emergencias publica
+   * latitud/longitud en la raiz de data (en claro) y el barrio en data.ubicacion.barrio.
+   * "zone": se guardan las coordenadas si vienen y el barrio queda de respaldo.
    */
   location?: "coordinates" | "zone";
   /** Estados que dan el incidente por terminado. */
@@ -269,16 +270,16 @@ export class ReceiveGatewayEventUseCase {
       : this.processCoordinateIncidentCreated(config, data);
   }
 
-  // Emergencias: sin coordenadas ni afectaCirculacion; se ubica por barrio. No se filtra por tipo.
+  // Emergencias: sin afectaCirculacion, no se filtra por tipo. Con coordenadas el plan de llegada la
+  // cruza por radio; sin ellas, por barrio.
   private async processZoneIncidentCreated(
     config: IncidentTypeConfig,
     data: Record<string, unknown>
   ): Promise<boolean> {
     const externalId = readId(data[config.idField]);
-    const ubicacion = asRecord(data.ubicacion);
-    const barrio = ubicacion && isNonEmptyString(ubicacion.barrio) ? ubicacion.barrio.trim() : null;
+    const { latitude, longitude, zone: barrio } = parseEmergencyLocation(data);
 
-    if (!externalId || !barrio) {
+    if (!externalId || (latitude === null && !barrio)) {
       return false;
     }
 
@@ -296,8 +297,8 @@ export class ReceiveGatewayEventUseCase {
       source: config.source,
       externalId,
       category: emergencyCategory(data),
-      latitude: null,
-      longitude: null,
+      latitude,
+      longitude,
       zone: barrio
     });
 

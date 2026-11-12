@@ -189,7 +189,7 @@ describe("POST /webhooks/citypass", () => {
       );
     });
 
-    describe("Emergencias (contrato real: barrio, sin coordenadas ni afectaCirculacion)", () => {
+    describe("Emergencias (contrato real: coordenadas en la raiz, barrio, sin afectaCirculacion)", () => {
       const CREADA = "com.citypass.emergencias.EmergenciaCreada";
       const ACTUALIZADA = "com.citypass.emergencias.EmergenciaActualizada";
 
@@ -218,6 +218,37 @@ describe("POST /webhooks/citypass", () => {
           zone: "Villa Pueyrredón"
         });
         expect(inboundRepository.record).toHaveBeenCalledWith("evt-1", CREADA);
+      });
+
+      it("guarda las coordenadas en claro de la raiz de data aunque las de ubicacion vengan cifradas", async () => {
+        await post(envelope({
+          eventType: CREADA,
+          data: emergencia({
+            latitud: -34.604,
+            longitud: -58.382,
+            ubicacion: { latitud: "enc:v1:9f3a...", longitud: "enc:v1:41c2...", barrio: "San Nicolás" }
+          })
+        })).expect(204);
+
+        expect(cityIncidentRepository.upsertActive).toHaveBeenCalledWith({
+          source: "EMERGENCIAS",
+          externalId: "emg-7",
+          category: "INCENDIO",
+          latitude: -34.604,
+          longitude: -58.382,
+          zone: "San Nicolás"
+        });
+      });
+
+      it("con coordenadas la da de alta aunque no venga el barrio", async () => {
+        await post(envelope({
+          eventType: CREADA,
+          data: emergencia({ latitud: -34.604, longitud: -58.382, ubicacion: null })
+        })).expect(204);
+
+        expect(cityIncidentRepository.upsertActive).toHaveBeenCalledWith(
+          expect.objectContaining({ latitude: -34.604, longitude: -58.382, zone: null })
+        );
       });
 
       it("toma la categoria del campo categoria del contrato", async () => {
@@ -609,6 +640,20 @@ describe("CU-01 en el webhook", () => {
 
     expect(reactions.onCreated.mock.calls[0][0]).toMatchObject({ latitude: null, zone: "Recoleta" });
     expect(reactions.onResolved.mock.calls[0][0]).toMatchObject({ causes: ["ESPACIO_PUBLICO"], latitude: null });
+  });
+
+  it("con latitud y longitud en claro en la raiz reacciona por radio, aunque ubicacion venga cifrada", async () => {
+    const { useCase, reactions } = build();
+
+    await useCase.execute(gatewayEvent("com.citypass.emergencias.EmergenciaCreada", {
+      emergenciaId: "EMG-1",
+      estado: "CREADA",
+      latitud: -34.588,
+      longitud: -58.393,
+      ubicacion: { latitud: "enc:v1:9f3a...", longitud: "enc:v1:41c2...", barrio: "Recoleta" }
+    }));
+
+    expect(reactions.onCreated.mock.calls[0][0]).toMatchObject({ latitude: -34.588, longitude: -58.393, zone: "Recoleta" });
   });
 
   it("si la reaccion falla no registra el evento, para que el gateway reintente", async () => {

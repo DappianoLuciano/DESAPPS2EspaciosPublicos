@@ -8,9 +8,12 @@ Espacios actua en dos momentos, siempre por eventos (RNI-08). Todos los eventos 
 Consume `EmergenciaCreada`. Busca reservas y eventos comunitarios activos en espacios cercanos:
 
 - Con `ubicacion {lat, lng}`, usa el radio `EMERGENCY_NEARBY_RADIUS_METERS` (500 m por defecto).
-- Tambien acepta `ubicacion {latitud, longitud}` y `latitud`/`longitud` sueltas, siempre numericas. Las
-  coordenadas cifradas que manda Emergencias hoy se ignoran.
+- Tambien acepta `ubicacion {latitud, longitud}` y `latitud`/`longitud` en la raiz de `data`, siempre
+  numericas. Emergencias cifra `ubicacion.latitud`/`ubicacion.longitud` pero manda `latitud`/`longitud` en
+  claro en la raiz (3 decimales, ~100 m): se saltean las cifradas y se usan esas.
 - Sin coordenadas, usa `ubicacion.barrio`.
+- El incidente del plan de llegada (`city_incidents`) guarda esas mismas coordenadas, asi que se cruza
+  con el evento por radio; el barrio queda de respaldo.
 - Horario: lo que sigue en curso o empieza dentro de `EMERGENCY_WINDOW_HOURS` (2 h por defecto). Lo
   terminado no cuenta aunque este dentro de las 2 h previas, porque ya no se puede suspender.
 

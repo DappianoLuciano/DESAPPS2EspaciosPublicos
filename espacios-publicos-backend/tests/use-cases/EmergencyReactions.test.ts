@@ -387,6 +387,15 @@ describe("contratos de entrada", () => {
       .toMatchObject({ latitude: -34.6, longitude: -58.3, zone: null });
   });
 
+  it("saltea las coordenadas cifradas de ubicacion y usa las de la raiz", () => {
+    expect(parseEmergencyCreated({
+      emergenciaId: EMERGENCY,
+      latitud: -34.6,
+      longitud: -58.3,
+      ubicacion: { latitud: "enc:v1:AbC9...", longitud: "enc:v1:XyZ1...", barrio: "Recoleta" }
+    })).toMatchObject({ latitude: -34.6, longitude: -58.3, zone: "Recoleta" });
+  });
+
   it("lee latitud y longitud sueltas", () => {
     expect(parseEmergencyCreated({ emergenciaId: EMERGENCY, latitud: -34.6, longitud: -58.3 }))
       .toMatchObject({ latitude: -34.6, longitude: -58.3 });
