@@ -127,7 +127,11 @@ export function createContainer() {
     eventOutboxRepository,
     eventBus
   );
-  const weatherRestrictions = new PrismaWeatherRestrictionRepository(publicSpaceAffectedPublisher, communityEventSnapshotPublisher);
+  // El bus publica ActividadModificada apenas se confirma la transaccion: Reclamos lo necesita en
+  // el momento. El worker del outbox solo cubre los fallos de esa publicacion.
+  const weatherRestrictions = new PrismaWeatherRestrictionRepository(
+    publicSpaceAffectedPublisher, communityEventSnapshotPublisher, eventBus
+  );
   const storageService = new SupabaseStorageService();
   const qrGenerator = new NodeQrGenerator();
   const emailSender = new NodemailerEmailSender();
