@@ -50,11 +50,15 @@ export class CommunityEventController {
   };
 
   suspend = async (request: Request, response: Response): Promise<void> => {
-    response.json(await this.changeSuspensionUseCase.execute(request.params.id, "suspend", request.body?.reason));
+    response.json(await this.changeSuspensionUseCase.execute(
+      request.params.id, "suspend", request.body?.reason, request.user?.id ?? null
+    ));
   };
 
   resume = async (request: Request, response: Response): Promise<void> => {
-    response.json(await this.changeSuspensionUseCase.execute(request.params.id, "resume"));
+    response.json(await this.changeSuspensionUseCase.execute(
+      request.params.id, "resume", undefined, request.user?.id ?? null
+    ));
   };
 
   list = async (request: Request, response: Response): Promise<void> => {

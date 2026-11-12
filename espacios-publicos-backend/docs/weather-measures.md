@@ -13,7 +13,7 @@ En el dashboard y en Gestión de Alertas: **Gestionar espacios y eventos** → r
 
 El levantamiento es transaccional por alerta. Se marca quién aplicó/levantó y cuándo, sin borrar los registros. Solo se reanudan eventos suspendidos por estas medidas que no terminaron, recuperando ACTIVE/ACTIVE_FULL según cupos. Otra alerta mantiene la suspensión; una cancelación definitiva y un espacio administrativamente deshabilitado no se reactivan. Una suspensión manual previa no se selecciona ni se toma como propia.
 
-No se modifica ENABLED/DISABLED del espacio. No se publican contratos EDA nuevos: la confirmación/finalización del clima y la cancelación definitiva conservan sus contratos existentes.
+No se modifica ENABLED/DISABLED del espacio. No se publican contratos EDA nuevos: la confirmación/finalización del clima y la cancelación definitiva conservan sus contratos existentes. Los eventos que cambian de estado publican `ActividadModificada` con `causaTipo = EVENTO_CLIMATICO` y `causaId` = id de la alerta (`SUSPENDIDA` al aplicar, `PROGRAMADA` al levantar). La fila se guarda en el outbox dentro de la misma transacción y se publica después del commit. Ver `eventos-analitica.md`.
 
 ## API administrativa
 

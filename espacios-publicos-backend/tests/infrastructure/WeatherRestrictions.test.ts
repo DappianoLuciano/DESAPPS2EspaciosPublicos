@@ -14,12 +14,24 @@ function setup() {
     publicSpace: { findMany: jest.fn().mockResolvedValue([space]) },
     communityEvent: { findMany: jest.fn().mockResolvedValue([event]), updateMany: jest.fn(),
       findUnique: jest.fn().mockResolvedValue(event), update: jest.fn() },
-    weatherRestriction: { findMany: jest.fn().mockResolvedValue([]), createMany: jest.fn(), updateMany: jest.fn() }
+    weatherRestriction: { findMany: jest.fn().mockResolvedValue([]), createMany: jest.fn(), updateMany: jest.fn() },
+    eventOutbox: { create: jest.fn() }
   };
-  (prisma.$transaction as jest.Mock).mockImplementation(run => run(tx));
-  const repository = new PrismaWeatherRestrictionRepository();
-  return { repository, tx, alert, event };
+  // Registra si cada escritura al outbox y cada publicacion al bus ocurren dentro de la transaccion.
+  let inTransaction = false;
+  const timeline: string[] = [];
+  (prisma.$transaction as jest.Mock).mockImplementation(async run => {
+    inTransaction = true;
+    try { return await run(tx); } finally { inTransaction = false; }
+  });
+  tx.eventOutbox.create.mockImplementation(async () => { timeline.push(inTransaction ? "outbox:tx" : "outbox:fuera"); });
+  const bus = { publish: jest.fn(async () => { timeline.push(inTransaction ? "bus:tx" : "bus:despues"); }) };
+  const repository = new PrismaWeatherRestrictionRepository(undefined, undefined, bus);
+  return { repository, tx, alert, event, bus, timeline };
 }
+
+const outboxRows = (tx: ReturnType<typeof setup>["tx"]) =>
+  tx.eventOutbox.create.mock.calls.map(([args]) => args.data);
 
 describe("Medidas climáticas manuales", () => {
   beforeEach(() => jest.clearAllMocks());
@@ -79,6 +91,101 @@ describe("Medidas climáticas manuales", () => {
     await repository.release("a1", "admin");
     expect(tx.communityEvent.update).toHaveBeenCalledWith(expect.objectContaining({ data: { statusReason: expect.stringContaining("Espacio deshabilitado") } }));
   });
+  describe("ActividadModificada por medidas climáticas", () => {
+    it.each(["ACTIVE", "ACTIVE_FULL"])("aplicar medidas a un evento %s publica SUSPENDIDA con la causa climática", async status => {
+      const { repository, tx, event, bus, timeline } = setup(); event.status = status;
+      const before = Date.now();
+      await repository.apply("a1", { spaceIds: [], eventIds: ["e1"], reason: "Tormenta fuerte" }, "admin-sub");
+
+      const rows = outboxRows(tx);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].name).toBe("com.citypass.espacios.ActividadModificada");
+      expect(rows[0].payload).toEqual({
+        correlationId: "act-e1",
+        actividadId: "e1",
+        estadoAnterior: "PROGRAMADA",
+        estadoNuevo: "SUSPENDIDA",
+        motivo: "Tormenta fuerte",
+        causaId: "a1",
+        causaTipo: "EVENTO_CLIMATICO",
+        modificadaEn: expect.any(Number),
+        actorSub: "admin-sub"
+      });
+      expect(rows[0].payload.modificadaEn).toBeGreaterThanOrEqual(before);
+      expect(rows[0].occurredAt.getTime()).toBe(rows[0].payload.modificadaEn);
+      // Misma fila en el outbox (dentro de la transaccion) y en el bus (despues del commit).
+      expect(bus.publish).toHaveBeenCalledWith(expect.objectContaining({ id: rows[0].id, payload: rows[0].payload }));
+      expect(timeline).toEqual(["outbox:tx", "bus:despues"]);
+    });
+
+    it("levantar las medidas que reanudan el evento publica PROGRAMADA con la misma causa y sin motivo", async () => {
+      const { repository, tx, alert, event, bus, timeline } = setup(); alert.status = "FINALIZED"; event.status = "SUSPENDED";
+      tx.weatherRestriction.findMany.mockResolvedValueOnce([{ communityEventId: "e1" }]);
+      await repository.release("a1", "admin-sub");
+
+      const rows = outboxRows(tx);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].payload).toEqual({
+        correlationId: "act-e1",
+        actividadId: "e1",
+        estadoAnterior: "SUSPENDIDA",
+        estadoNuevo: "PROGRAMADA",
+        motivo: null,
+        causaId: "a1",
+        causaTipo: "EVENTO_CLIMATICO",
+        modificadaEn: expect.any(Number),
+        actorSub: "admin-sub"
+      });
+      expect(bus.publish).toHaveBeenCalledTimes(1);
+      expect(timeline).toEqual(["outbox:tx", "bus:despues"]);
+    });
+
+    it("aplicar medidas a un evento ya suspendido por otra alerta no publica", async () => {
+      const { repository, tx, event, bus } = setup();
+      Object.assign(event, { status: "SUSPENDED", weatherRestrictions: [{ alertId: "a2", releasedAt: null }] });
+      await repository.apply("a1", { spaceIds: [], eventIds: ["e1"], reason: "Clima" }, "admin-sub");
+      // La medida se registra igual, pero el estado no cambia.
+      expect(tx.weatherRestriction.createMany).toHaveBeenCalled();
+      expect(tx.eventOutbox.create).not.toHaveBeenCalled();
+      expect(bus.publish).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["otra alerta mantiene la suspensión", { weatherRestrictions: [{ alertId: "a2", reason: "Otra alerta" }] }],
+      ["el espacio está deshabilitado", { publicSpace: { status: "DISABLED" } }],
+      ["el evento ya terminó", { endDate: new Date(Date.now() - 1) }],
+      ["el evento fue cancelado", { status: "CANCELLED" }]
+    ])("levantar medidas sin reanudar no publica: %s", async (_case, overrides) => {
+      const { repository, tx, alert, event, bus } = setup(); alert.status = "FINALIZED";
+      Object.assign(event, { status: "SUSPENDED" }, overrides);
+      tx.weatherRestriction.findMany.mockResolvedValueOnce([{ communityEventId: "e1" }]);
+      await repository.release("a1", "admin-sub");
+      expect(tx.eventOutbox.create).not.toHaveBeenCalled();
+      expect(bus.publish).not.toHaveBeenCalled();
+    });
+
+    it("medidas solo sobre espacios no publican ActividadModificada", async () => {
+      const { repository, tx, bus } = setup();
+      await repository.apply("a1", { spaceIds: ["s1"], eventIds: [], reason: "Clima" }, "admin-sub");
+      expect(tx.eventOutbox.create).not.toHaveBeenCalled();
+      expect(bus.publish).not.toHaveBeenCalled();
+    });
+
+    it("si la transacción falla no publica en el bus", async () => {
+      const { repository, tx, bus } = setup();
+      tx.communityEvent.updateMany.mockRejectedValueOnce(new Error("serialization"));
+      await expect(repository.apply("a1", { spaceIds: [], eventIds: ["e1"], reason: "Clima" }, "admin-sub")).rejects.toThrow();
+      expect(bus.publish).not.toHaveBeenCalled();
+    });
+
+    it("sin bus deja la fila en el outbox para el worker", async () => {
+      const { tx } = setup();
+      const repository = new PrismaWeatherRestrictionRepository();
+      await repository.apply("a1", { spaceIds: [], eventIds: ["e1"], reason: "Clima" }, "admin-sub");
+      expect(tx.eventOutbox.create).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("comprueba restricciones por id y cruce de horarios, no por zona global", async () => {
     const { repository } = setup(); (prisma.weatherRestriction.count as jest.Mock).mockResolvedValue(1);
     const from = new Date(), until = new Date(Date.now() + 1);
