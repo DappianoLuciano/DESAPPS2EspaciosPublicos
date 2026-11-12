@@ -214,3 +214,27 @@ Sin `ANALITICA_URL` en el entorno del backend, la pantalla avisa que Analítica 
 a la API de otros módulos. Este tablero es la excepción: no entra ningún dato de negocio a nuestro sistema, solo
 se trae una vista para mostrar. Analítica pidió hacerlo servidor a servidor para validar nuestro token de servicio
 y no exponer su URL ni necesitar CORS.
+
+## Ciclo de vida de la reserva (Parte 2)
+
+Analitica procesa `ReservaCreada` y `ReservaActualizada` (`CONTRATO_ESPACIOS.md`). Se publican **ademas** de
+`ReservaConfirmada`, que sigue saliendo igual porque la consume Movilidad (CU-INT-01).
+
+| Momento | Eventos |
+| --- | --- |
+| Reserva de un espacio o inscripcion a un evento | `ReservaConfirmada`, `ReservaCreada` (PENDIENTE) y `ReservaActualizada` (PENDIENTE a CONFIRMADA) |
+| El ciudadano cancela su inscripcion | `ReservaActualizada` (CONFIRMADA a CANCELADA) |
+
+`ReservaCreada` (`RESERVATION_CREATED_EVENT_FQN`): `reservaId`, `tipoReserva` (`ESPACIO`/`EVENTO`), `recursoId`,
+`espacioId`, `categoria`, `zona`, `latitud`, `longitud`, `fechaHora` (inicio), `fechaFin`, `cantidadPersonas`,
+`cupoMaximo`, `organizadorId` (por ahora `null`), `createdAt` y `correlationId` (= `reservaId`).
+
+`ReservaActualizada` (`RESERVATION_UPDATED_EVENT_FQN`): `reservaId`, `estadoAnterior`, `estadoNuevo`, `motivo`,
+`updatedAt` y `correlationId`.
+
+- `categoria` es la del evento en una inscripcion, y la del espacio (`PLAZA`, `SALON`, ...) en una reserva de espacio.
+- Se mandan `zona` y tambien `latitud`/`longitud`: hoy Analitica lee `zona` y el contrato de la Parte 2 la reemplaza.
+- No viaja `ciudadanoId` ni otro dato personal. `organizadorId` va en `null` porque los eventos no guardan un id
+  de organizador.
+- Si la publicacion falla, la reserva sigue igual: se loguea y no se reintenta fuera del outbox.
+- Las reservas de espacio no tienen hoy un flujo de cancelacion, asi que solo las inscripciones publican `CANCELADA`.

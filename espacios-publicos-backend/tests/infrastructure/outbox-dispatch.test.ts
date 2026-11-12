@@ -22,6 +22,8 @@ const ESPACIOS_FQNS = [
   "com.citypass.espacios.EspacioPublicoAfectado",
   "com.citypass.espacios.EspacioPublicoRestaurado",
   "com.citypass.espacios.ReservaConfirmada",
+  "com.citypass.espacios.ReservaCreada",
+  "com.citypass.espacios.ReservaActualizada",
   "com.citypass.espacios.ReservaAfectada",
   "com.citypass.espacios.EspacioLiberado",
   "com.citypass.espacios.ProblematicaRegistrada",

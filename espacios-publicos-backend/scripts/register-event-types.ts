@@ -152,6 +152,31 @@ const spacesDefinitions: EventTypeDefinition[] = [
     { name: "inicio", type: "string", doc: "ISO 8601" },
     { name: "fin", type: "string", doc: "ISO 8601" }
   ]),
+  record("ReservaCreada", "Analitica: alta de una reserva de espacio o de una inscripcion a un evento.", [
+    { name: "reservaId", type: "string" },
+    { name: "tipoReserva", type: "string", doc: "EVENTO | ESPACIO" },
+    { name: "recursoId", type: "string", doc: "eventoId o espacioId segun tipoReserva" },
+    { name: "espacioId", type: "string" },
+    { name: "categoria", type: nullable("string"), default: null },
+    { name: "zona", type: nullable("string"), default: null },
+    { name: "latitud", type: nullable("double"), default: null },
+    { name: "longitud", type: nullable("double"), default: null },
+    { name: "fechaHora", type: "string", doc: "Inicio, ISO 8601" },
+    { name: "fechaFin", type: "string", doc: "ISO 8601" },
+    { name: "cantidadPersonas", type: "int" },
+    { name: "cupoMaximo", type: nullable("int"), default: null },
+    { name: "organizadorId", type: nullable("string"), default: null },
+    { name: "createdAt", type: "string", doc: "ISO 8601" },
+    { name: "correlationId", type: "string" }
+  ]),
+  record("ReservaActualizada", "Analitica: cambio de estado de una reserva o inscripcion.", [
+    { name: "reservaId", type: "string" },
+    { name: "estadoAnterior", type: "string", doc: "PENDIENTE | CONFIRMADA | CANCELADA" },
+    { name: "estadoNuevo", type: "string", doc: "PENDIENTE | CONFIRMADA | CANCELADA" },
+    { name: "motivo", type: nullable("string"), default: null },
+    { name: "updatedAt", type: "string", doc: "ISO 8601" },
+    { name: "correlationId", type: "string" }
+  ]),
   record("ReservaAfectada", "CU-01: una reserva o evento cercano fue afectado por una emergencia.", [
     { name: "correlationId", type: "string", doc: "emergenciaId" },
     { name: "emergenciaId", type: "string" },
@@ -220,6 +245,8 @@ async function main() {
     EspacioPublicoAfectado: "PUBLIC_SPACE_AFFECTED_EVENT_FQN",
     EspacioPublicoRestaurado: "PUBLIC_SPACE_RESTORED_EVENT_FQN",
     ReservaConfirmada: "RESERVATION_CONFIRMED_EVENT_FQN",
+    ReservaCreada: "RESERVATION_CREATED_EVENT_FQN",
+    ReservaActualizada: "RESERVATION_UPDATED_EVENT_FQN",
     ReservaAfectada: "RESERVATION_AFFECTED_EVENT_FQN",
     EspacioLiberado: "SPACE_RELEASED_EVENT_FQN",
     ProblematicaRegistrada: "PROBLEM_REGISTERED_EVENT_FQN",

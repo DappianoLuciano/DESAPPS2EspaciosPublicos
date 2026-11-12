@@ -18,6 +18,7 @@ import { RequestReservationInput } from "../dtos/RequestReservationInput";
 import { EmailSender } from "../../domain/services/EmailSender";
 import { QrGenerator } from "../../domain/services/QrGenerator";
 import { WeatherRestrictionRepository } from "../../domain/repositories/WeatherRestrictionRepository";
+import { ReservationLifecyclePublisher } from "../events/ReservationLifecyclePublisher";
 
 export class RequestReservationUseCase {
   constructor(
@@ -28,7 +29,8 @@ export class RequestReservationUseCase {
     private readonly eventBus: EventBus,
     private readonly qrGenerator: QrGenerator,
     private readonly emailSender: EmailSender,
-    private readonly weatherRestrictionRepository?: WeatherRestrictionRepository
+    private readonly weatherRestrictionRepository?: WeatherRestrictionRepository,
+    private readonly reservationLifecycle?: Pick<ReservationLifecyclePublisher, "createdAndConfirmed">
   ) {}
 
   async execute(input: RequestReservationInput): Promise<Reservation> {
@@ -125,6 +127,22 @@ export class RequestReservationUseCase {
     // Outbox primero: si luego falla el broker, queda trazabilidad para reintentar.
     await this.eventOutboxRepository.save(event);
     await this.eventBus.publish(event);
+
+    await this.reservationLifecycle?.createdAndConfirmed({
+      reservaId: reservation.id,
+      tipoReserva: "ESPACIO",
+      recursoId: reservation.publicSpaceId,
+      espacioId: reservation.publicSpaceId,
+      categoria: publicSpace.category ?? null,
+      zona: publicSpace.zone ?? null,
+      latitud: publicSpace.latitude ?? null,
+      longitud: publicSpace.longitude ?? null,
+      inicio: reservation.startDate,
+      fin: reservation.endDate,
+      cantidadPersonas: reservation.estimatedAttendees,
+      cupoMaximo: publicSpace.capacity,
+      createdAt: reservation.createdAt
+    });
 
     const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
     const verificationUrl = `${frontendUrl}/reservations/verify/${reservation.id}`;
