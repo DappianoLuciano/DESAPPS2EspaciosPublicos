@@ -15,6 +15,7 @@ import { QrGenerator } from "../../domain/services/QrGenerator";
 import { PublicSpaceRepository } from "../../domain/repositories/PublicSpaceRepository";
 import { buildCommunityEventPublishedEvent } from "../events/communityEventPublished";
 import { EmergencyImpactRepository } from "../../domain/repositories/EmergencyImpactRepository";
+import { ReservationLifecyclePublisher } from "../events/ReservationLifecyclePublisher";
 
 export class RegisterCitizenToCommunityEventUseCase {
   constructor(
@@ -26,7 +27,8 @@ export class RegisterCitizenToCommunityEventUseCase {
     private readonly emailSender: EmailSender,
     private readonly publicSpaceRepository: Pick<PublicSpaceRepository, "findById">,
     // CU-01: opcional para no cambiar los usos existentes. Sin el, no se controla la emergencia.
-    private readonly emergencyHolds?: Pick<EmergencyImpactRepository, "isEventOnHold">
+    private readonly emergencyHolds?: Pick<EmergencyImpactRepository, "isEventOnHold">,
+    private readonly reservationLifecycle?: Pick<ReservationLifecyclePublisher, "createdAndConfirmed">
   ) {}
 
   async execute(input: RegisterCitizenToCommunityEventInput): Promise<CommunityEventRegistration> {
@@ -114,6 +116,22 @@ export class RegisterCitizenToCommunityEventUseCase {
 
     await this.eventOutboxRepository.save(published);
     await this.eventBus.publish(published);
+
+    await this.reservationLifecycle?.createdAndConfirmed({
+      reservaId: registration.id,
+      tipoReserva: "EVENTO",
+      recursoId: communityEvent.id,
+      espacioId: communityEvent.publicSpaceId,
+      categoria: communityEvent.category,
+      zona: space?.zone ?? null,
+      latitud: space?.latitude ?? null,
+      longitud: space?.longitude ?? null,
+      inicio: communityEvent.startDate,
+      fin: communityEvent.endDate,
+      cantidadPersonas: 1,
+      cupoMaximo: communityEvent.capacity,
+      createdAt: registration.createdAt
+    });
 
     const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
     const eventUrl = `${frontendUrl}/event/${communityEvent.id}`;

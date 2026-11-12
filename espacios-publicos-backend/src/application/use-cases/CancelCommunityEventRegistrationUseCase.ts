@@ -7,6 +7,7 @@ import { NotFoundError } from "../../shared/errors/NotFoundError";
 import { ForbiddenError } from "../../shared/errors/ForbiddenError";
 import { requireEmail, requireText } from "../../shared/validation/inputValidation";
 import { buildCommunityEventPublishedEvent } from "../events/communityEventPublished";
+import { ReservationLifecyclePublisher } from "../events/ReservationLifecyclePublisher";
 
 export class CancelCommunityEventRegistrationUseCase {
   constructor(
@@ -14,7 +15,8 @@ export class CancelCommunityEventRegistrationUseCase {
     private readonly communityEventRegistrationRepository: CommunityEventRegistrationRepository,
     private readonly publicSpaceRepository: Pick<PublicSpaceRepository, "findById">,
     private readonly eventOutboxRepository: EventOutboxRepository,
-    private readonly eventBus: EventBus
+    private readonly eventBus: EventBus,
+    private readonly reservationLifecycle?: Pick<ReservationLifecyclePublisher, "cancelled">
   ) {}
 
   async execute(registrationId: string, citizenEmail?: string): Promise<void> {
@@ -40,6 +42,7 @@ export class CancelCommunityEventRegistrationUseCase {
     }
 
     await this.republishCommunityEvent(registration.communityEventId);
+    await this.reservationLifecycle?.cancelled(normalizedRegistrationId, "Cancelada por el ciudadano");
   }
 
   // Cambiaron los inscriptos (y quizas el estado): se republica el evento con el total actual.

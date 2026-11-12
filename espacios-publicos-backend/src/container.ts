@@ -1,3 +1,4 @@
+import { ReservationLifecyclePublisher } from "./application/events/ReservationLifecyclePublisher";
 import { GetIntegrationOverviewUseCase } from "./application/use-cases/GetIntegrationOverviewUseCase";
 import { PrismaIntegrationStatusRepository } from "./infrastructure/database/PrismaIntegrationStatusRepository";
 import { FinishInterventionUseCase, ListPendingInterventionsUseCase } from "./application/use-cases/FinishInterventionUseCase";
@@ -153,6 +154,7 @@ export function createContainer() {
   );
   const deletePublicSpaceUseCase = new DeletePublicSpaceUseCase(publicSpaceRepository);
 
+  const reservationLifecycle = new ReservationLifecyclePublisher(eventOutboxRepository, eventBus);
   const requestReservationUseCase = new RequestReservationUseCase(
     publicSpaceRepository,
     reservationRepository,
@@ -161,7 +163,8 @@ export function createContainer() {
     eventBus,
     qrGenerator,
     emailSender,
-    weatherRestrictions
+    weatherRestrictions,
+    reservationLifecycle
   );
   const listReservationsUseCase = new ListReservationsUseCase(reservationRepository);
   const getReservationUseCase = new GetReservationUseCase(reservationRepository);
@@ -185,7 +188,8 @@ export function createContainer() {
     qrGenerator,
     emailSender,
     publicSpaceRepository,
-    emergencyImpactRepository
+    emergencyImpactRepository,
+    reservationLifecycle
   );
   const listCommunityEventRegistrationsUseCase = new ListCommunityEventRegistrationsUseCase(
     communityEventRepository,
@@ -198,7 +202,8 @@ export function createContainer() {
     communityEventRegistrationRepository,
     publicSpaceRepository,
     eventOutboxRepository,
-    eventBus
+    eventBus,
+    reservationLifecycle
   );
   const getCommunityEventRegistrationUseCase = new GetCommunityEventRegistrationUseCase(
     communityEventRegistrationRepository
