@@ -202,7 +202,7 @@ export class ReceiveGatewayEventUseCase {
   private reactsToEmergency(eventType: string, data: Record<string, unknown>): boolean {
     return (
       this.emergencyReactions !== undefined &&
-      (EMERGENCY_CREATED_TYPES.includes(eventType) ||
+      ((EMERGENCY_CREATED_TYPES.includes(eventType) && !isPreventiveCoverage(data)) ||
         EMERGENCY_RESOLVED_TYPES.includes(eventType) ||
         (EMERGENCY_UPDATED_TYPES.includes(eventType) &&
           EMERGENCY_FINISHED_STATES.includes(readState(data, EMERGENCY_STATE_FIELDS) ?? "")))
@@ -287,10 +287,15 @@ export class ReceiveGatewayEventUseCase {
       return false;
     }
 
+    // Una cobertura preventiva (Emergencias manda personal a un evento masivo) no es un incidente.
+    if (isPreventiveCoverage(data)) {
+      return false;
+    }
+
     await this.cityIncidentRepository.upsertActive({
       source: config.source,
       externalId,
-      category: isNonEmptyString(data.tipo) ? data.tipo : null,
+      category: emergencyCategory(data),
       latitude: null,
       longitude: null,
       zone: barrio
@@ -493,6 +498,17 @@ function resolveEventType(type: string): string {
   }
 
   return KNOWN_EVENT_TYPES.find((fqn) => fqn.endsWith(`.${type}`)) ?? type;
+}
+
+/** Emergencias informa la categoria en "categoria"; "tipo" queda como compatibilidad. */
+function emergencyCategory(data: Record<string, unknown>): string | null {
+  const value = isNonEmptyString(data.categoria) ? data.categoria : isNonEmptyString(data.tipo) ? data.tipo : null;
+  return value ? value.trim() : null;
+}
+
+/** Cobertura preventiva de un evento masivo: categoria PREVENTIVA (causaTipo EVENTO_PUBLICO, causaId = eventoId). */
+function isPreventiveCoverage(data: Record<string, unknown>): boolean {
+  return emergencyCategory(data)?.toUpperCase() === "PREVENTIVA";
 }
 
 /** Primer campo de estado con texto, en el orden configurado (ej. estado y luego estadoNuevo). */
