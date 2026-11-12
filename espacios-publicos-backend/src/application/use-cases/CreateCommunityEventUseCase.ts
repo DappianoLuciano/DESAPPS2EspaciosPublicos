@@ -19,6 +19,7 @@ import {
 } from "../../shared/validation/inputValidation";
 import { CreateCommunityEventInput } from "../dtos/CreateCommunityEventInput";
 import { buildCommunityEventPublishedEvent } from "../events/communityEventPublished";
+import { buildActivityCreatedEvent } from "../events/activityCreated";
 
 export class CreateCommunityEventUseCase {
   constructor(
@@ -120,10 +121,15 @@ export class CreateCommunityEventUseCase {
     });
 
     // Recien creado: todavia no hay inscriptos.
-    const event = buildCommunityEventPublishedEvent(communityEvent, publicSpace, 0);
+    const publishedEvent = buildCommunityEventPublishedEvent(communityEvent, publicSpace, 0);
+    const activityCreatedEvent = buildActivityCreatedEvent(communityEvent, publicSpace);
 
-    await this.eventOutboxRepository.save(event);
-    await this.eventBus.publish(event);
+    // Los dos contratos tienen consumidores distintos: Reclamos mantiene
+    // EventoComunitarioPublicado y Residuos programa refuerzos con ActividadCreada.
+    for (const event of [publishedEvent, activityCreatedEvent]) {
+      await this.eventOutboxRepository.save(event);
+      await this.eventBus.publish(event);
+    }
 
     return communityEvent;
   }

@@ -22,6 +22,7 @@ import { AuthController } from "./interfaces/http/controllers/AuthController";
 import { PrismaCommunityEventRegistrationRepository } from "./infrastructure/database/PrismaCommunityEventRegistrationRepository";
 import { PrismaCommunityEventRepository } from "./infrastructure/database/PrismaCommunityEventRepository";
 import { PrismaEventOutboxRepository } from "./infrastructure/database/PrismaEventOutboxRepository";
+import { InMemoryEventOutboxRepository } from "./infrastructure/database/InMemoryEventOutboxRepository";
 import { PrismaPublicSpaceRepository } from "./infrastructure/database/PrismaPublicSpaceRepository";
 import { PrismaReservationRepository } from "./infrastructure/database/PrismaReservationRepository";
 import { PrismaWeatherAlertRepository } from "./infrastructure/database/PrismaWeatherAlertRepository";
@@ -73,6 +74,7 @@ import { ProcessMobilityObstructionEvaluatedUseCase } from "./application/use-ca
 import { RequestTowUseCase } from "./application/use-cases/RequestTowUseCase";
 import { InMemoryTowInterventionRepository } from "./infrastructure/database/InMemoryTowInterventionRepository";
 import { TowInterventionController } from "./interfaces/http/controllers/TowInterventionController";
+import { isTestRuntime } from "./shared/runtime/runtimeMode";
 
 // Este archivo arma las dependencias en un solo lugar para que los controllers no creen objetos por su cuenta.
 export function createContainer() {
@@ -82,7 +84,9 @@ export function createContainer() {
   const reservationRepository = new PrismaReservationRepository();
   const communityEventRepository = new PrismaCommunityEventRepository();
   const communityEventRegistrationRepository = new PrismaCommunityEventRegistrationRepository();
-  const eventOutboxRepository = new PrismaEventOutboxRepository();
+  const eventOutboxRepository = isTestRuntime()
+    ? new InMemoryEventOutboxRepository()
+    : new PrismaEventOutboxRepository();
   const weatherAlertRepository = new PrismaWeatherAlertRepository();
   const towInterventionRepository = new InMemoryTowInterventionRepository();
   // EVENT_BUS_DRIVER=console deja los eventos en el log (desarrollo local); citypass los publica
@@ -167,11 +171,18 @@ export function createContainer() {
 
   const cityIncidentRepository = new PrismaCityIncidentRepository();
   const destinationRecommendationRepository = new PrismaDestinationRecommendationRepository();
+  const processMobilityObstructionEvaluatedUseCase =
+    new ProcessMobilityObstructionEvaluatedUseCase(
+      towInterventionRepository,
+      eventOutboxRepository,
+      eventBus
+    );
   const receiveGatewayEventUseCase = new ReceiveGatewayEventUseCase(
     new PrismaInboundEventRepository(),
     cityIncidentRepository,
     destinationRecommendationRepository,
-    communityEventRepository
+    communityEventRepository,
+    processMobilityObstructionEvaluatedUseCase
   );
   const getEventRoutePlanUseCase = new GetEventRoutePlanUseCase(
     communityEventRepository,
@@ -228,14 +239,14 @@ export function createContainer() {
     finalizeWeatherAlertUseCase,
     new CreateManualWeatherAlertUseCase(weatherAlertRepository)
   );
-  const processMobilityObstructionEvaluatedUseCase =
-    new ProcessMobilityObstructionEvaluatedUseCase(towInterventionRepository);
   const listTowInterventionsUseCase = new ListTowInterventionsUseCase(
     towInterventionRepository
   );
   const requestTowUseCase = new RequestTowUseCase(towInterventionRepository);
   const completeTowServiceUseCase = new CompleteTowServiceUseCase(
-    towInterventionRepository
+    towInterventionRepository,
+    eventOutboxRepository,
+    eventBus
   );
 
   return {

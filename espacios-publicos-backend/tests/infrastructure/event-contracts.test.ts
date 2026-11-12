@@ -1,10 +1,11 @@
 import { definitions } from "../../scripts/register-event-types";
 
 describe("registro unificado de contratos EDA", () => {
-  it("conserva los seis contratos, sin duplicar el catalogo climatico", () => {
+  it("conserva los ocho contratos, sin duplicar el catalogo climatico", () => {
     expect(definitions.map(item => item.name)).toEqual([
       "CriticidadClimaticaConfirmada", "CriticidadClimaticaFinalizada",
-      "EventoComunitarioPublicado", "EventoCancelado", "EspacioEstadoCambiado", "ReservaConfirmada"
+      "EventoComunitarioPublicado", "EventoCancelado", "EspacioEstadoCambiado", "ReservaConfirmada",
+      "ActividadCreada", "IntervencionFinalizada"
     ]);
   });
 
@@ -13,7 +14,9 @@ describe("registro unificado de contratos EDA", () => {
       EventoComunitarioPublicado: ["eventoId", "espacioId", "titulo", "zona", "direccion", "latitud", "longitud", "inicio", "fin", "capacidad", "cupoMaximo", "inscriptos", "estado", "categoria", "correlationId"],
       EventoCancelado: ["eventoId", "espacioId", "motivo", "canceladoEn", "correlationId"],
       EspacioEstadoCambiado: ["espacioId", "estadoNuevo", "zona", "latitud", "longitud", "cambiadoEn"],
-      ReservaConfirmada: ["reservaId", "tipoReserva", "recursoId", "espacioId", "cantidadPersonas", "inicio", "fin"]
+      ReservaConfirmada: ["reservaId", "tipoReserva", "recursoId", "espacioId", "cantidadPersonas", "inicio", "fin"],
+      ActividadCreada: ["actividadId", "titulo", "estado", "capacidad", "fechaHoraInicio", "fechaHoraFinalizacion", "ubicacion", "direccion", "espacioNombre"],
+      IntervencionFinalizada: ["reclamoId", "resultado", "idAuto", "solicitadoAt", "resueltoAt"]
     };
     for (const [name, fields] of Object.entries(expected)) {
       expect(definitions.find(item => item.name === name)?.fields.map(field => field.name)).toEqual(fields);

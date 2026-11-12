@@ -230,8 +230,8 @@ describe("CreateCommunityEventUseCase", () => {
 
     expect(communityEvent.status).toBe("ACTIVE");
     expect(communityEvent.requiresRegistration).toBe(true);
-    expect(eventOutboxRepository.events).toHaveLength(1);
-    expect(eventBus.events).toHaveLength(1);
+    expect(eventOutboxRepository.events).toHaveLength(2);
+    expect(eventBus.events).toHaveLength(2);
     expect(eventBus.events[0].name).toBe("com.citypass.espacios.EventoComunitarioPublicado");
     expect(eventOutboxRepository.events[0]).toBe(eventBus.events[0]);
     // Contrato EventoComunitarioPublicado: exactamente estos campos, con null en los opcionales.
@@ -252,6 +252,21 @@ describe("CreateCommunityEventUseCase", () => {
       categoria: communityEvent.category,
       correlationId: `evento-${communityEvent.id}`
     });
+    expect(eventBus.events[1]).toMatchObject({
+      name: "com.citypass.espacios.ActividadCreada",
+      payload: {
+        actividadId: communityEvent.id,
+        titulo: communityEvent.title,
+        estado: "ACTIVE",
+        capacidad: 300,
+        fechaHoraInicio: EVENT_START.getTime(),
+        fechaHoraFinalizacion: EVENT_END.getTime(),
+        ubicacion: { lat: -34.6066, lng: -58.4357 },
+        direccion: "CABA",
+        espacioNombre: "Parque Centenario"
+      }
+    });
+    expect(eventOutboxRepository.events[1]).toBe(eventBus.events[1]);
   });
 
   it("permite publicar un evento de libre acceso cuando no requiere inscripcion previa", async () => {

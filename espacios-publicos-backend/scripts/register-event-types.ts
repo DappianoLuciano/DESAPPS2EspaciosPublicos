@@ -100,6 +100,27 @@ const spacesDefinitions: EventTypeDefinition[] = [
     { name: "cantidadPersonas", type: "int" },
     { name: "inicio", type: "string", doc: "ISO 8601" },
     { name: "fin", type: "string", doc: "ISO 8601" }
+  ]),
+  record("ActividadCreada", "Una actividad fue creada en un espacio publico.", [
+    { name: "actividadId", type: "string" },
+    { name: "titulo", type: "string" },
+    { name: "estado", type: nullable("string"), default: null },
+    { name: "capacidad", type: nullable("int"), default: null },
+    { name: "fechaHoraInicio", type: "long", doc: "Epoch en milisegundos" },
+    { name: "fechaHoraFinalizacion", type: "long", doc: "Epoch en milisegundos" },
+    { name: "ubicacion", type: { type: "record", name: "UbicacionActividad", fields: [
+      { name: "lat", type: "double" },
+      { name: "lng", type: "double" }
+    ] } },
+    { name: "direccion", type: nullable("string"), default: null },
+    { name: "espacioNombre", type: nullable("string"), default: null }
+  ]),
+  record("IntervencionFinalizada", "Una intervencion de Espacios Publicos finalizo.", [
+    { name: "reclamoId", type: "string" },
+    { name: "resultado", type: "string", doc: "RESUELTO | RECHAZADO" },
+    { name: "idAuto", type: nullable("string"), default: null },
+    { name: "solicitadoAt", type: nullable("long"), default: null },
+    { name: "resueltoAt", type: nullable("long"), default: null }
   ])
 ];
 
@@ -125,7 +146,9 @@ async function main() {
     EventoComunitarioPublicado: "COMMUNITY_EVENT_PUBLISHED_EVENT_FQN",
     EventoCancelado: "COMMUNITY_EVENT_CANCELLED_EVENT_FQN",
     EspacioEstadoCambiado: "PUBLIC_SPACE_STATUS_CHANGED_EVENT_FQN",
-    ReservaConfirmada: "RESERVATION_CONFIRMED_EVENT_FQN"
+    ReservaConfirmada: "RESERVATION_CONFIRMED_EVENT_FQN",
+    ActividadCreada: "ACTIVITY_CREATED_EVENT_FQN",
+    IntervencionFinalizada: "INTERVENTION_FINISHED_EVENT_FQN"
   };
 
   for (const definition of selected) {

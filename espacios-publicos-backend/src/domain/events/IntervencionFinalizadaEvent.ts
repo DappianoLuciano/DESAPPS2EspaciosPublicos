@@ -2,30 +2,30 @@ import { randomUUID } from "crypto";
 import { DomainEvent } from "../entities/DomainEvent";
 import { TowIntervention } from "../entities/TowIntervention";
 import { ValidationError } from "../../shared/errors/ValidationError";
+import { eventNames } from "../../shared/events/eventTypes";
 
-export const INCIDENTE_RESUELTO_EVENT_NAME =
-  "com.citypass.espacios.IncidenteResuelto";
+export type InterventionResult = "RESUELTO" | "RECHAZADO";
 
-export interface IncidenteResueltoPayload {
+export interface IntervencionFinalizadaPayload extends Record<string, unknown> {
   reclamoId: string;
-  correlationId: string;
-  resultado: "RESUELTO";
+  resultado: InterventionResult;
   idAuto: string | null;
   solicitadoAt: number | null;
-  resueltoAt: number;
+  resueltoAt: number | null;
 }
 
-export type IncidenteResueltoEvent = DomainEvent<IncidenteResueltoPayload>;
+export type IntervencionFinalizadaEvent =
+  DomainEvent<IntervencionFinalizadaPayload>;
 
 type EventIdFactory = () => string;
 
-export function createIncidenteResueltoEvent(
+export function createIntervencionFinalizadaEvent(
   intervention: TowIntervention,
   eventIdFactory: EventIdFactory = randomUUID
-): IncidenteResueltoEvent {
+): IntervencionFinalizadaEvent {
   if (intervention.status !== "COMPLETED" || !intervention.resueltoAt) {
     throw new ValidationError(
-      "La intervencion debe estar completada antes de preparar el evento de resolucion."
+      "La intervencion debe estar completada antes de publicar su finalizacion."
     );
   }
 
@@ -40,10 +40,9 @@ export function createIncidenteResueltoEvent(
 
   return {
     id: eventIdFactory(),
-    name: INCIDENTE_RESUELTO_EVENT_NAME,
+    name: eventNames.interventionFinished(),
     payload: {
       reclamoId: intervention.reclamoId,
-      correlationId: intervention.correlationId,
       resultado: "RESUELTO",
       idAuto: intervention.patente,
       solicitadoAt: intervention.solicitadoAt?.getTime() ?? null,

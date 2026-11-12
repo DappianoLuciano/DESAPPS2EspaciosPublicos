@@ -9,6 +9,8 @@ import { createWebhookRoutes } from "../../src/interfaces/http/routes/webhookRou
 
 const WEBHOOK_TOKEN = "token-de-prueba";
 const RECOMMENDATION_TYPE = "com.citypass.movilidad.RecomendacionDestinoActualizada";
+const MOBILITY_OBSTRUCTION_TYPE =
+  "com.citypass.movilidad.MovilidadObstruccionEvaluada";
 
 function envelope(overrides: { eventId?: string; eventType?: string; data?: unknown } = {}) {
   return {
@@ -57,6 +59,9 @@ describe("POST /webhooks/citypass", () => {
   const communityEventRepository = {
     findById: jest.fn(async (id: string) => (knownEvents.has(id) ? ({ id } as never) : null))
   };
+  const processMobilityObstructionEvaluatedUseCase = {
+    execute: jest.fn().mockResolvedValue({})
+  };
 
   function buildApp() {
     const app = express();
@@ -70,7 +75,8 @@ describe("POST /webhooks/citypass", () => {
             inboundRepository,
             cityIncidentRepository,
             recommendationRepository,
-            communityEventRepository
+            communityEventRepository,
+            processMobilityObstructionEvaluatedUseCase
           )
         )
       )
@@ -86,6 +92,7 @@ describe("POST /webhooks/citypass", () => {
   beforeEach(() => {
     recorded.clear();
     stored.clear();
+    processMobilityObstructionEvaluatedUseCase.execute.mockClear();
     process.env.GATEWAY_WEBHOOK_TOKEN = WEBHOOK_TOKEN;
   });
 
@@ -328,6 +335,117 @@ describe("POST /webhooks/citypass", () => {
       await post(envelope()).expect(204);
 
       expect(cityIncidentRepository.upsertActive).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("MovilidadObstruccionEvaluada", () => {
+    const mobilityData = {
+      reclamoId: "reclamo-movilidad-1",
+      correlationId: "correlation-movilidad-1",
+      latitud: -34.6037,
+      longitud: -58.3816,
+      direccion: "Av. Corrientes 1000",
+      barrio: "San Nicolas",
+      afectaCiclovia: true,
+      estacionesAfectadasIds: [10, 11],
+      impactoCirculacion: "ALTO",
+      desvioSugerido: "Av. Cordoba",
+      requiereIntervencionInmediata: true,
+      requiereGrua: true,
+      evaluadoAt: 1793800000000
+    };
+
+    it("envia el payload al caso de uso de intervenciones y registra el evento", async () => {
+      await post(
+        envelope({
+          eventId: "evt-movilidad-1",
+          eventType: MOBILITY_OBSTRUCTION_TYPE,
+          data: mobilityData
+        })
+      ).expect(204);
+
+      expect(processMobilityObstructionEvaluatedUseCase.execute).toHaveBeenCalledWith(
+        mobilityData
+      );
+      expect(inboundRepository.record).toHaveBeenCalledWith(
+        "evt-movilidad-1",
+        MOBILITY_OBSTRUCTION_TYPE
+      );
+    });
+
+    it("normaliza los textos del payload antes de procesarlo", async () => {
+      await post(
+        envelope({
+          eventId: "evt-movilidad-normalizado",
+          eventType: MOBILITY_OBSTRUCTION_TYPE,
+          data: {
+            ...mobilityData,
+            reclamoId: "  reclamo-movilidad-2  ",
+            correlationId: "  correlation-movilidad-2  ",
+            direccion: "  Av. Santa Fe 2000  ",
+            barrio: "  Recoleta  "
+          }
+        })
+      ).expect(204);
+
+      expect(processMobilityObstructionEvaluatedUseCase.execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reclamoId: "reclamo-movilidad-2",
+          correlationId: "correlation-movilidad-2",
+          direccion: "Av. Santa Fe 2000",
+          barrio: "Recoleta"
+        })
+      );
+    });
+
+    it.each([
+      ["requiereGrua ausente", { requiereGrua: undefined }],
+      ["reclamoId vacio", { reclamoId: "   " }],
+      ["latitud fuera de rango", { latitud: 91 }],
+      ["evaluadoAt invalido", { evaluadoAt: "hoy" }]
+    ])("rechaza un payload con %s", async (_label, invalidData) => {
+      await post(
+        envelope({
+          eventId: `evt-movilidad-invalido-${String(_label)}`,
+          eventType: MOBILITY_OBSTRUCTION_TYPE,
+          data: { ...mobilityData, ...invalidData }
+        })
+      ).expect(400);
+
+      expect(processMobilityObstructionEvaluatedUseCase.execute).not.toHaveBeenCalled();
+    });
+
+    it("no vuelve a procesar el mismo eventId", async () => {
+      recorded.add("evt-movilidad-duplicado");
+
+      await post(
+        envelope({
+          eventId: "evt-movilidad-duplicado",
+          eventType: MOBILITY_OBSTRUCTION_TYPE,
+          data: mobilityData
+        })
+      ).expect(204);
+
+      expect(processMobilityObstructionEvaluatedUseCase.execute).not.toHaveBeenCalled();
+    });
+
+    it("no registra el evento si falla la logica de intervenciones", async () => {
+      processMobilityObstructionEvaluatedUseCase.execute.mockRejectedValueOnce(
+        new Error("fallo de procesamiento")
+      );
+
+      await post(
+        envelope({
+          eventId: "evt-movilidad-error",
+          eventType: MOBILITY_OBSTRUCTION_TYPE,
+          data: mobilityData
+        })
+      ).expect(500);
+
+      expect(inboundRepository.record).not.toHaveBeenCalledWith(
+        "evt-movilidad-error",
+        MOBILITY_OBSTRUCTION_TYPE
+      );
     });
   });
 

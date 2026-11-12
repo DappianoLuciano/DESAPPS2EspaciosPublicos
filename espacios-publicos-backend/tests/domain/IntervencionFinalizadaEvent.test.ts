@@ -1,7 +1,6 @@
 import {
-  createIncidenteResueltoEvent,
-  INCIDENTE_RESUELTO_EVENT_NAME
-} from "../../src/domain/events/IncidenteResueltoEvent";
+  createIntervencionFinalizadaEvent
+} from "../../src/domain/events/IntervencionFinalizadaEvent";
 import { TowIntervention } from "../../src/domain/entities/TowIntervention";
 
 const baseIntervention: TowIntervention = {
@@ -27,19 +26,18 @@ const baseIntervention: TowIntervention = {
   updatedAt: new Date("2026-11-04T12:20:00.000Z")
 };
 
-describe("IncidenteResueltoEvent", () => {
-  it("prepara el contrato definitivo para un vehiculo retirado por grua", () => {
-    const event = createIncidenteResueltoEvent(
+describe("IntervencionFinalizadaEvent", () => {
+  it("prepara el contrato registrado para un vehiculo retirado por grua", () => {
+    const event = createIntervencionFinalizadaEvent(
       baseIntervention,
       () => "evento-1"
     );
 
     expect(event).toEqual({
       id: "evento-1",
-      name: INCIDENTE_RESUELTO_EVENT_NAME,
+      name: "com.citypass.espacios.IntervencionFinalizada",
       payload: {
         reclamoId: "reclamo-1",
-        correlationId: "correlation-1",
         resultado: "RESUELTO",
         idAuto: "AB123CD",
         solicitadoAt: Date.parse("2026-11-04T12:05:00.000Z"),
@@ -50,7 +48,7 @@ describe("IncidenteResueltoEvent", () => {
   });
 
   it("prepara la resolucion automatica sin datos de grua", () => {
-    const event = createIncidenteResueltoEvent(
+    const event = createIntervencionFinalizadaEvent(
       {
         ...baseIntervention,
         requiereGrua: false,
@@ -60,7 +58,8 @@ describe("IncidenteResueltoEvent", () => {
       () => "evento-2"
     );
 
-    expect(event.payload).toMatchObject({
+    expect(event.payload).toEqual({
+      reclamoId: "reclamo-1",
       resultado: "RESUELTO",
       idAuto: null,
       solicitadoAt: null,
@@ -70,13 +69,13 @@ describe("IncidenteResueltoEvent", () => {
 
   it("no prepara el evento para una intervencion pendiente", () => {
     expect(() =>
-      createIncidenteResueltoEvent({
+      createIntervencionFinalizadaEvent({
         ...baseIntervention,
         status: "TOW_REQUESTED",
         resueltoAt: null
       })
     ).toThrow(
-      "La intervencion debe estar completada antes de preparar el evento de resolucion."
+      "La intervencion debe estar completada antes de publicar su finalizacion."
     );
   });
 });
