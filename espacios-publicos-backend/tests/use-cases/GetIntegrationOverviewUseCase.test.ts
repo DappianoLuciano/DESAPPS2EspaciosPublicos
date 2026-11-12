@@ -23,7 +23,9 @@ function build() {
     inboundByType: jest.fn().mockResolvedValue([{ eventType: "com.citypass.reclamos.ReclamoActualizado", count: 14, lastReceivedAt: now }]),
     recentInbound: jest.fn().mockResolvedValue([{ eventId: "e1", eventType: "com.citypass.reclamos.ReclamoActualizado", receivedAt: now }]),
     outboxByName: jest.fn().mockResolvedValue([{ name: "com.citypass.espacios.EventoCancelado", published: 3, pending: 0, failed: 1, lastCreatedAt: now }]),
-    outboxProblems: jest.fn().mockResolvedValue([])
+    outboxProblems: jest.fn().mockResolvedValue([]),
+    outboxSince: jest.fn().mockResolvedValue([{ status: "PUBLISHED", attempts: 0, createdAt: hours(-2), publishedAt: hours(-2) }]),
+    inboundSince: jest.fn().mockResolvedValue([{ eventType: "com.citypass.movilidad.RecomendacionDestinoActualizada", receivedAt: hours(-1) }])
   };
   const findActiveBySource = jest.fn(async (source: string) => source === "RECLAMOS"
     ? [{ id: "i1", source: "RECLAMOS" as const, externalId: "rec-1", category: "BACHE", latitude: -34.6, longitude: -58.4, zone: "Caballito", active: true, reportedAt: hours(-2), updatedAt: now }]
@@ -85,6 +87,16 @@ describe("GetIntegrationOverviewUseCase", () => {
     expect(overview.inbound.byType[0].count).toBe(14);
     expect(overview.outbox.byName[0].failed).toBe(1);
   });
+  it("suma los indicadores de la ultima semana y la cobertura de Movilidad de los eventos proximos", async () => {
+    const { useCase, status } = build();
+
+    const overview = await useCase.execute(now);
+
+    expect((status.outboxSince as jest.Mock).mock.calls[0][1]).toEqual(new Date("2026-10-28T03:00:00.000Z"));
+    expect(overview.metrics.published.current).toBe(1);
+    expect(overview.metrics.receivedByModule).toEqual([{ module: "movilidad", count: 1 }]);
+    expect(overview.metrics.mobility).toEqual({ upcoming: 2, withRecommendation: 1, fresh: 1, coverage: 0.5 });
+  });
 });
 
 describe("GET /api/admin/integrations", () => {
@@ -102,7 +114,7 @@ describe("GET /api/admin/integrations", () => {
 
   it("el admin lo ve", async () => {
     const response = await request(app("municipal_admin")).get("/api/admin/integrations").expect(200);
-    expect(Object.keys(response.body)).toEqual(["generatedAt", "events", "incidents", "inbound", "outbox"]);
+    expect(Object.keys(response.body)).toEqual(["generatedAt", "events", "incidents", "inbound", "outbox", "metrics"]);
   });
 
   it("un ciudadano no", async () => {

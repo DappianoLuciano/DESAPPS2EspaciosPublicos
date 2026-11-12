@@ -956,6 +956,18 @@ export interface IntegrationOverview {
     byName: Array<{ name: string; published: number; pending: number; failed: number; lastCreatedAt: string | null }>;
     problems: Array<{ id: string; name: string; status: 'PENDING' | 'FAILED'; attempts: number; lastError: string | null; createdAt: string }>;
   };
+  metrics: IntegrationMetrics;
+}
+
+export interface IntegrationMetrics {
+  windowDays: number;
+  published: { current: number; previous: number };
+  received: { current: number; previous: number };
+  delivery: { rate: number | null; published: number; failed: number; pending: number; recoveredByRetry: number };
+  latencySeconds: { median: number | null; p95: number | null };
+  receivedByModule: Array<{ module: string; count: number }>;
+  mobility: { upcoming: number; withRecommendation: number; fresh: number; coverage: number | null };
+  daily: Array<{ date: string; published: number; received: number }>;
 }
 
 export function getIntegrationOverview() {
