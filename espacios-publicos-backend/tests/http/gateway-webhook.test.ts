@@ -220,6 +220,24 @@ describe("POST /webhooks/citypass", () => {
         expect(inboundRepository.record).toHaveBeenCalledWith("evt-1", CREADA);
       });
 
+      it("toma la categoria del campo categoria del contrato", async () => {
+        await post(envelope({ eventType: CREADA, data: emergencia({ tipo: undefined, categoria: "ACCIDENTE" }) })).expect(204);
+
+        expect(cityIncidentRepository.upsertActive).toHaveBeenCalledWith(
+          expect.objectContaining({ category: "ACCIDENTE" })
+        );
+      });
+
+      it("una cobertura preventiva de un evento no es un incidente", async () => {
+        await post(envelope({
+          eventType: CREADA,
+          data: emergencia({ tipo: undefined, categoria: "PREVENTIVA", causaTipo: "EVENTO_PUBLICO", causaId: "evento-1" })
+        })).expect(204);
+
+        expect(cityIncidentRepository.upsertActive).not.toHaveBeenCalled();
+        expect(inboundRepository.record).not.toHaveBeenCalled();
+      });
+
       it("no filtra por tipo", async () => {
         await post(envelope({ eventType: CREADA, data: emergencia({ tipo: "MEDICA" }) })).expect(204);
 
@@ -503,6 +521,17 @@ describe("CU-01 en el webhook", () => {
 
     expect(cityIncidents.upsertActive).toHaveBeenCalledTimes(1);
     expect(reactions.onCreated).toHaveBeenCalledTimes(1);
+  });
+
+  it("una cobertura preventiva no dispara las reacciones del CU-01", async () => {
+    const { useCase, reactions, cityIncidents } = build();
+
+    await expect(useCase.execute(gatewayEvent("EmergenciaCreada", {
+      emergenciaId: "EMG-2", estado: "CREADA", categoria: "PREVENTIVA", ubicacion: { barrio: "Retiro" }
+    }))).resolves.toBe("ignored");
+
+    expect(cityIncidents.upsertActive).not.toHaveBeenCalled();
+    expect(reactions.onCreated).not.toHaveBeenCalled();
   });
 
   it("acepta el sobre estilo CloudEvents y el topico con puntos", async () => {
