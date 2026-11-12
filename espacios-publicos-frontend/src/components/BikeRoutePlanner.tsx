@@ -54,12 +54,6 @@ function formatDuration(seconds: number) {
   return `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
 }
 
-function formatAge(calculatedAt: string, now: number) {
-  const minutes = Math.max(0, Math.floor((now - new Date(calculatedAt).getTime()) / 60_000));
-
-  return `Calculada hace ${minutes} min`;
-}
-
 function requestPosition(): Promise<LatLng | null> {
   if (!('geolocation' in navigator)) {
     return Promise.resolve(null);
@@ -108,8 +102,6 @@ export default function BikeRoutePlanner({ eventId }: { eventId: string }) {
   const [pickupNotice, setPickupNotice] = useState<string | null>(null);
   // Explicacion de Movilidad sobre la estacion de retiro elegida (por ejemplo, la mas cercana no tiene bicis).
   const [pickupMessage, setPickupMessage] = useState<string | null>(null);
-  // La antigüedad se calcula contra el momento en que llegó el plan, no en cada render.
-  const [receivedAt, setReceivedAt] = useState(0);
 
   const handleClick = async () => {
     setLoading(true);
@@ -137,7 +129,6 @@ export default function BikeRoutePlanner({ eventId }: { eventId: string }) {
         setPickupMessage(null);
         setPickupNotice(origin ? 'No pudimos consultar la estación de retiro en Movilidad: el recorrido en bici sale desde tu ubicación.' : null);
       }
-      setReceivedAt(Date.now());
       setPlan(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo calcular cómo llegar.');
@@ -212,7 +203,6 @@ export default function BikeRoutePlanner({ eventId }: { eventId: string }) {
           {plan.dropoff && (
             <Alert color="blue" variant="light" mb="sm" title="Devolución">
               {plan.dropoff.message}
-              <Text size="xs" c="dimmed" mt={4}>{formatAge(plan.dropoff.calculatedAt, receivedAt)}</Text>
             </Alert>
           )}
 
