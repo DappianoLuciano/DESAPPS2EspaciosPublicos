@@ -1,7 +1,9 @@
 import {
+  InboundArrival,
   InboundEventEntry,
   InboundTypeSummary,
   IntegrationStatusRepository,
+  OutboxDelivery,
   OutboxNameSummary,
   OutboxProblemEntry
 } from "../../domain/repositories/IntegrationStatusRepository";
@@ -57,5 +59,21 @@ export class PrismaIntegrationStatusRepository implements IntegrationStatusRepos
     });
 
     return rows as OutboxProblemEntry[];
+  }
+
+  async outboxSince(names: string[], since: Date): Promise<OutboxDelivery[]> {
+    const rows = await prisma.eventOutbox.findMany({
+      where: { name: { in: names }, OR: [{ createdAt: { gte: since } }, { publishedAt: { gte: since } }] },
+      select: { status: true, attempts: true, createdAt: true, publishedAt: true }
+    });
+
+    return rows as OutboxDelivery[];
+  }
+
+  async inboundSince(since: Date): Promise<InboundArrival[]> {
+    return prisma.inboundEvent.findMany({
+      where: { receivedAt: { gte: since } },
+      select: { eventType: true, receivedAt: true }
+    });
   }
 }

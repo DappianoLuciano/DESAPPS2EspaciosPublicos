@@ -1,3 +1,4 @@
+import { computeIntegrationMetrics, IntegrationMetrics, metricsSince } from "../integrations/integrationMetrics";
 import { CityIncidentSource } from "../../domain/entities/CityIncidentRecord";
 import { CityIncidentRepository } from "../../domain/repositories/CityIncidentRepository";
 import { CommunityEventRepository } from "../../domain/repositories/CommunityEventRepository";
@@ -51,6 +52,7 @@ export interface IntegrationOverview {
   incidents: IntegrationIncidentRow[];
   inbound: { byType: InboundTypeSummary[]; recent: InboundEventEntry[] };
   outbox: { byName: OutboxNameSummary[]; problems: OutboxProblemEntry[] };
+  metrics: IntegrationMetrics;
 }
 
 /** Panel de integraciones del admin: estado de CU-INT-01 y de la mensajeria con los otros modulos. */
@@ -107,13 +109,23 @@ export class GetIntegrationOverviewUseCase {
       }));
 
     const names = dispatchableEventNames();
-    const [byType, recent, byName, problems] = await Promise.all([
+    const since = metricsSince(now);
+    const [byType, recent, byName, problems, deliveries, arrivals] = await Promise.all([
       this.statusRepository.inboundByType(),
       this.statusRepository.recentInbound(RECENT_INBOUND_LIMIT),
       this.statusRepository.outboxByName(names),
-      this.statusRepository.outboxProblems(names, OUTBOX_PROBLEMS_LIMIT)
+      this.statusRepository.outboxProblems(names, OUTBOX_PROBLEMS_LIMIT),
+      this.statusRepository.outboxSince(names, since),
+      this.statusRepository.inboundSince(since)
     ]);
 
-    return { generatedAt: now, events, incidents, inbound: { byType, recent }, outbox: { byName, problems } };
+    const metrics = computeIntegrationMetrics({
+      now,
+      deliveries,
+      arrivals,
+      recommendations: events.map((event) => event.recommendation?.calculadaEn ?? null)
+    });
+
+    return { generatedAt: now, events, incidents, inbound: { byType, recent }, outbox: { byName, problems }, metrics };
   }
 }
