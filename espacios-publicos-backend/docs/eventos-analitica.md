@@ -2,25 +2,58 @@
 
 ## `com.citypass.espacios.ActividadModificada`
 
-Se publica al cancelar un evento comunitario (`PATCH /api/community-events/:id/cancel`), desde
-`CancelCommunityEventUseCase`. El FQN se puede sobrescribir con `ACTIVITY_MODIFIED_EVENT_FQN`.
+Se publica cada vez que una actividad (evento comunitario) cambia de estado. El payload lo arma
+`buildActivityModifiedPayload` (`src/application/events/activityModified.ts`). El FQN se puede
+sobrescribir con `ACTIVITY_MODIFIED_EVENT_FQN`. Lo consumen Analitica y Reclamos: con `CANCELADA` o
+`SUSPENDIDA`, Reclamos deja de relacionar reclamos nuevos de la zona con la actividad, y con
+`PROGRAMADA` vuelve a hacerlo.
 
-**Convive con `EventoCancelado`** (CU-INT-01): ese evento no cambia y se sigue publicando primero.
-Los dos se guardan en `event_outbox` y se publican por el bus, asi que los reintentos los maneja el
-outbox (ver `eventos-cu-int-01.md`). Comparten el instante de la cancelacion, pero cada uno tiene su
-propio id de evento.
+### Cuando se publica
+
+| Accion | Origen | `estadoAnterior` → `estadoNuevo` | `motivo` | Causa |
+| --- | --- | --- | --- | --- |
+| Cancelar (`PATCH /api/community-events/:id/cancel`) | `CancelCommunityEventUseCase` | estado real → `CANCELADA` | `reason` del body | la del body (opcional, ver abajo) |
+| Suspender a mano (`PATCH /:id/suspend`) | `ChangeCommunityEventSuspensionUseCase` | `PROGRAMADA` → `SUSPENDIDA` | `reason` del body | `null` |
+| Reanudar a mano (`PATCH /:id/resume`) | `ChangeCommunityEventSuspensionUseCase` | `SUSPENDIDA` → `PROGRAMADA` | `null` | `null` |
+| Aplicar medidas de una alerta (`POST /api/admin/weather-alerts/:id/restrictions`) | `PrismaWeatherRestrictionRepository.apply` | `PROGRAMADA` → `SUSPENDIDA` | `reason` de las medidas | `EVENTO_CLIMATICO` + id de la alerta |
+| Levantar las medidas (`POST .../restrictions/release`) | `PrismaWeatherRestrictionRepository.release` | `SUSPENDIDA` → `PROGRAMADA` | `null` | `EVENTO_CLIMATICO` + id de la alerta |
+
+**Solo cuando el estado cambia.** No se publica nada si la accion no cambia el estado de la actividad:
+
+- Aplicar medidas a un evento que ya estaba suspendido por otra alerta (la medida se registra igual).
+- Levantar medidas de un evento que sigue suspendido: por otra alerta todavia activa, porque el espacio
+  esta deshabilitado, porque el evento ya termino o porque fue cancelado.
+- Medidas que solo afectan espacios, sin eventos seleccionados.
+- Una operacion rechazada (validacion, evento inexistente o estado cambiado mientras tanto).
+
+En las medidas climaticas se publica un evento por actividad que cambio, todos con el mismo
+`modificadaEn` (el instante de la operacion).
+
+**Convive con otros eventos.** La cancelacion publica primero `EventoCancelado` (CU-INT-01), que no
+cambia. La suspension y la reanudacion, manuales o por medidas, siguen publicando el snapshot de
+`EventoComunitarioPublicado` para Movilidad. Cada evento tiene su propio id. El orden entre ellos no
+esta garantizado (el bus no lo asegura) y los consumidores no lo asumen.
+
+**Outbox.** Todos se guardan en `event_outbox` y se publican por el bus, asi que los reintentos los
+maneja el outbox (ver `eventos-cu-int-01.md`):
+
+- Cancelacion y suspension/reanudacion manual: se guarda la fila y se publica enseguida, como el resto
+  de los casos de uso.
+- Medidas climaticas: la fila se guarda dentro de la transaccion `Serializable` que cambia los estados
+  (si la transaccion falla, no queda nada) y se publica en el bus despues del commit. Si esa
+  publicacion falla, el worker del outbox la reintenta.
 
 | Campo | Tipo Avro | Origen |
 | --- | --- | --- |
 | `correlationId` | `string` | `"act-" + actividadId` |
 | `actividadId` | `string` | id del evento comunitario |
-| `estadoAnterior` | `string` | estado antes de cancelar, mapeado |
-| `estadoNuevo` | `string` | `PROGRAMADA`, `SUSPENDIDA` o `CANCELADA`; hoy siempre `CANCELADA` |
-| `motivo` | `["null","string"]`, default `null` | `reason` del body, igual que en `EventoCancelado` |
-| `causaId` | `["null","string"]`, default `null` | `causaId` del body |
-| `causaTipo` | `["null","string"]`, default `null` | `causaTipo` del body: `EVENTO_CLIMATICO`, `RECLAMO` o `INCIDENTE_VIAL` |
-| `modificadaEn` | `long` (`timestamp-millis`) | momento de la cancelacion (`date.getTime()`, no ISO) |
-| `actorSub` | `["null","string"]`, default `null` | `sub` del token de quien cancela |
+| `estadoAnterior` | `string` | estado real antes del cambio, mapeado |
+| `estadoNuevo` | `string` | `PROGRAMADA`, `SUSPENDIDA` o `CANCELADA` |
+| `motivo` | `["null","string"]`, default `null` | ver tabla de arriba |
+| `causaId` | `["null","string"]`, default `null` | ver tabla de arriba |
+| `causaTipo` | `["null","string"]`, default `null` | `EVENTO_CLIMATICO`, `RECLAMO` o `INCIDENTE_VIAL` |
+| `modificadaEn` | `long` (`timestamp-millis`) | momento del cambio (`date.getTime()`, no ISO) |
+| `actorSub` | `["null","string"]`, default `null` | `sub` del token del admin que hizo la accion; `null` si no hay |
 
 ### Mapeo de estados
 
@@ -36,7 +69,15 @@ compila hasta sumarlo.
 
 ### Causa
 
-El endpoint acepta `causaTipo` y `causaId` opcionales en el body:
+**Automatica por alerta.** Cuando la suspension o la reanudacion vienen de las medidas de una alerta
+climatica, la causa la pone el backend: `causaTipo = "EVENTO_CLIMATICO"` y `causaId` = id de la alerta
+(el mismo `alertaId` de `CriticidadClimaticaConfirmada`). Es la misma alerta al suspender y al
+reanudar, asi que se puede unir con ese id.
+
+**Manual (suspender y reanudar).** Los endpoints `/suspend` y `/resume` no reciben causa: viaja en
+`null`.
+
+**Cancelacion.** El endpoint de cancelacion acepta `causaTipo` y `causaId` opcionales en el body:
 
 - Van los dos o ninguno. Un valor vacio o en blanco cuenta como ausente.
 - `causaTipo` tiene que ser uno de los tres valores exactos y `causaId` es texto de hasta 128 caracteres.
