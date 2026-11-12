@@ -234,7 +234,7 @@ export class GetEventRoutePlanUseCase {
     }
   }
 
-  // Emergencias solo informa el barrio: se cruzan por zona, sin tildes ni mayusculas.
+  // Incidentes sin coordenadas (emergencias que solo traen el barrio): se cruzan por zona, sin tildes ni mayusculas.
   private async findIncidentsByZone(
     zone: string | null,
     warnings: string[]

@@ -5,7 +5,7 @@ export interface CityIncidentRecord {
   source: CityIncidentSource;
   externalId: string;
   category: string | null;
-  /** null cuando el modulo de origen solo informa el barrio (Emergencias). */
+  /** null cuando el modulo de origen solo informa el barrio (emergencias sin coordenadas en claro). */
   latitude: number | null;
   longitude: number | null;
   /** Barrio informado por el modulo de origen, tal como llego. */
