@@ -4,6 +4,7 @@ import { FinishInterventionUseCase, ListPendingInterventionsUseCase } from "./ap
 import { InterventionController } from "./interfaces/http/controllers/InterventionController";
 import { CommunityEventSnapshotPublisher } from "./application/events/communityEventPublished";
 import { PublicSpaceAffectedPublisher } from "./application/events/publicSpaceAffected";
+import { ActivityModifiedPublisher } from "./application/events/activityModified";
 import { GetAnalyticsDashboardUseCase } from "./application/use-cases/GetAnalyticsDashboardUseCase";
 import { AnalyticsEmbedClient } from "./infrastructure/analytics/AnalyticsEmbedClient";
 import { OAuthServiceTokenProvider, resolveEventAuthTokenUrl } from "./infrastructure/auth/OAuthServiceTokenProvider";
@@ -354,7 +355,8 @@ export function createContainer() {
         communityEventRepository,
         communityEventRegistrationRepository,
         publicSpaceRepository,
-        communityEventSnapshotPublisher
+        communityEventSnapshotPublisher,
+        new ActivityModifiedPublisher(eventOutboxRepository, eventBus)
       )
     ),
     routePlanController: new RoutePlanController(getEventRoutePlanUseCase),
