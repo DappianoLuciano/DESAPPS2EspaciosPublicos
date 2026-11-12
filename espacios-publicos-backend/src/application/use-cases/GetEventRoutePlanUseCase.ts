@@ -10,7 +10,6 @@ import { logger } from "../../shared/logging/logger";
 import { requireText } from "../../shared/validation/inputValidation";
 
 export const ROUTE_PLAN_INCIDENT_RADIUS_METERS = 1000;
-export const STALE_RECOMMENDATION_MINUTES = 30;
 /** Si la estacion de retiro y la de devolucion estan a esta distancia o menos, no tiene sentido ir en bici. */
 export const SAME_STATION_METERS = 150;
 
@@ -303,12 +302,6 @@ export class GetEventRoutePlanUseCase {
     if (!stationName || latitude === null || longitude === null) {
       warnings.push(recommendation.mensaje || "Movilidad no informó la ubicación de la estación.");
       return null;
-    }
-
-    const ageMinutes = Math.floor((Date.now() - recommendation.calculadaEn.getTime()) / 60_000);
-
-    if (ageMinutes > STALE_RECOMMENDATION_MINUTES) {
-      warnings.push(`La disponibilidad puede haber cambiado (calculada hace ${ageMinutes} min)`);
     }
 
     return {
