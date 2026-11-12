@@ -740,7 +740,7 @@ export function getEventRoutePlan(
 // Movilidad elige la estacion de retiro segun la ubicacion del ciudadano. La consulta el navegador y no nuestro
 // backend, porque los backends de los modulos solo se comunican por eventos.
 const MOBILITY_API_URL = (
-  import.meta.env.VITE_MOBILITY_API_URL?.trim() || 'https://daii-grupo-8-backend-m4uf.onrender.com'
+  import.meta.env.VITE_MOBILITY_API_URL?.trim() || 'https://movilidad-backend.onrender.com'
 ).replace(/\/+$/, '');
 // Movilidad corre en Render y puede estar dormido: no se espera mas que esto.
 const PICKUP_TIMEOUT_MS = 8_000;
