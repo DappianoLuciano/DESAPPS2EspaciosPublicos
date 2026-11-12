@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Card, Flex, List, SimpleGrid, Text, ThemeIcon, Title } from '@mantine/core';
+import { Alert, Box, Button, Card, Flex, Grid, List, Stack, Text, ThemeIcon, Title } from '@mantine/core';
 import { IconAlertTriangle, IconBike, IconWalk } from '@tabler/icons-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -266,112 +266,118 @@ export default function BikeRoutePlanner({ eventId }: { eventId: string }) {
             </Alert>
           ))}
 
-          <Card withBorder radius="md" p={0} h={380} style={{ overflow: 'hidden', position: 'relative', zIndex: 1 }}>
-            <MapContainer center={destination} zoom={15} style={{ height: '100%', width: '100%', zIndex: 1 }}>
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              <FitBounds points={points} />
+          {/* Los tramos van al costado del mapa: abajo quedaban tapados por el boton del chatbot. */}
+          <Grid gap="md">
+            <Grid.Col span={{ base: 12, md: 8 }}>
+              <Card withBorder radius="md" p={0} h={380} style={{ overflow: 'hidden', position: 'relative', zIndex: 1 }}>
+                <MapContainer center={destination} zoom={15} style={{ height: '100%', width: '100%', zIndex: 1 }}>
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <FitBounds points={points} />
 
-              <Marker position={destination} icon={markerIconConfig}>
-                <Popup>
-                  <strong>{plan.destination.title}</strong>
-                  <br />
-                  {plan.destination.address}
-                </Popup>
-              </Marker>
+                  <Marker position={destination} icon={markerIconConfig}>
+                    <Popup>
+                      <strong>{plan.destination.title}</strong>
+                      <br />
+                      {plan.destination.address}
+                    </Popup>
+                  </Marker>
 
-              {origin && (
-                <Marker position={origin} icon={originIcon}>
-                  <Popup>
-                    <strong>Tu ubicación</strong>
-                  </Popup>
-                </Marker>
-              )}
+                  {origin && (
+                    <Marker position={origin} icon={originIcon}>
+                      <Popup>
+                        <strong>Tu ubicación</strong>
+                      </Popup>
+                    </Marker>
+                  )}
 
-              {pickup && plan.pickup && (
-                <Marker position={pickup} icon={pickupIcon}>
-                  <Popup>
-                    <strong>Retiro: {plan.pickup.stationName}</strong>
-                    <br />
-                    {plan.pickup.availableBikes !== null ? `${plan.pickup.availableBikes} bicis disponibles` : 'Estación de retiro'}
-                  </Popup>
-                </Marker>
-              )}
+                  {pickup && plan.pickup && (
+                    <Marker position={pickup} icon={pickupIcon}>
+                      <Popup>
+                        <strong>Retiro: {plan.pickup.stationName}</strong>
+                        <br />
+                        {plan.pickup.availableBikes !== null ? `${plan.pickup.availableBikes} bicis disponibles` : 'Estación de retiro'}
+                      </Popup>
+                    </Marker>
+                  )}
 
-              {dropoff && plan.dropoff && (
-                <Marker position={dropoff} icon={dropoffIcon}>
-                  <Popup>
-                    <strong>Devolución: {plan.dropoff.stationName}</strong>
-                    <br />
-                    {plan.dropoff.availableSlots !== null ? `${plan.dropoff.availableSlots} lugares libres` : 'Estación de devolución'}
-                    {plan.dropoff.distanceMeters !== null && ` · a ${plan.dropoff.distanceMeters} m del evento`}
-                  </Popup>
-                </Marker>
-              )}
+                  {dropoff && plan.dropoff && (
+                    <Marker position={dropoff} icon={dropoffIcon}>
+                      <Popup>
+                        <strong>Devolución: {plan.dropoff.stationName}</strong>
+                        <br />
+                        {plan.dropoff.availableSlots !== null ? `${plan.dropoff.availableSlots} lugares libres` : 'Estación de devolución'}
+                        {plan.dropoff.distanceMeters !== null && ` · a ${plan.dropoff.distanceMeters} m del evento`}
+                      </Popup>
+                    </Marker>
+                  )}
 
-              {nearbyIncidents.map((incident, index) => (
-                <Marker key={`${incident.source}-${index}`} position={[incident.latitude, incident.longitude]} icon={incidentIcon}>
-                  <Popup>
-                    <strong>{incident.category || 'Incidente'}</strong>
-                    <br />
-                    A {Math.round(incident.distanceMeters)} m del evento
-                  </Popup>
-                </Marker>
-              ))}
+                  {nearbyIncidents.map((incident, index) => (
+                    <Marker key={`${incident.source}-${index}`} position={[incident.latitude, incident.longitude]} icon={incidentIcon}>
+                      <Popup>
+                        <strong>{incident.category || 'Incidente'}</strong>
+                        <br />
+                        A {Math.round(incident.distanceMeters)} m del evento
+                      </Popup>
+                    </Marker>
+                  ))}
 
-              {origin && pickup && (
-                plan.walkToPickupRoute ? (
-                  <Polyline positions={plan.walkToPickupRoute.coordinates} pathOptions={{ color: '#495057', weight: 4, dashArray: '2 8' }} />
-                ) : (
-                  <Polyline positions={[origin, pickup]} pathOptions={{ color: '#495057', weight: 3, dashArray: '4 8' }} />
-                )
-              )}
+                  {origin && pickup && (
+                    plan.walkToPickupRoute ? (
+                      <Polyline positions={plan.walkToPickupRoute.coordinates} pathOptions={{ color: '#495057', weight: 4, dashArray: '2 8' }} />
+                    ) : (
+                      <Polyline positions={[origin, pickup]} pathOptions={{ color: '#495057', weight: 3, dashArray: '4 8' }} />
+                    )
+                  )}
 
-              {plan.bikeRoute ? (
-                <Polyline positions={plan.bikeRoute.coordinates} pathOptions={{ color: '#1c7ed6', weight: 5 }} />
-              ) : (
-                // Sin recorrido en bici (fallo el ruteo) se marca en linea recta, salvo que convenga caminar.
-                rideStart && dropoff && !plan.warnings.includes(WALK_INSTEAD_WARNING) && (
-                  <Polyline positions={[rideStart, dropoff]} pathOptions={{ color: '#1c7ed6', weight: 3, dashArray: '4 8' }} />
-                )
-              )}
+                  {plan.bikeRoute ? (
+                    <Polyline positions={plan.bikeRoute.coordinates} pathOptions={{ color: '#1c7ed6', weight: 5 }} />
+                  ) : (
+                    // Sin recorrido en bici (fallo el ruteo) se marca en linea recta, salvo que convenga caminar.
+                    rideStart && dropoff && !plan.warnings.includes(WALK_INSTEAD_WARNING) && (
+                      <Polyline positions={[rideStart, dropoff]} pathOptions={{ color: '#1c7ed6', weight: 3, dashArray: '4 8' }} />
+                    )
+                  )}
 
-              {dropoff && (
-                plan.walkRoute ? (
-                  <Polyline positions={plan.walkRoute.coordinates} pathOptions={{ color: '#495057', weight: 4, dashArray: '2 8' }} />
-                ) : (
-                  <Polyline positions={[dropoff, destination]} pathOptions={{ color: '#495057', weight: 3, dashArray: '4 8' }} />
-                )
-              )}
-            </MapContainer>
-          </Card>
-
-          <SimpleGrid cols={{ base: 1, sm: plan.pickup ? 3 : 2 }} spacing="md" mt="md">
-            {plan.pickup && (
-              <RouteSummary
-                icon={<IconWalk size="1.2rem" />}
-                label={`A pie hasta ${plan.pickup.stationName}`}
-                route={plan.walkToPickupRoute}
-              />
-            )}
-            <RouteSummary
-              icon={<IconBike size="1.2rem" />}
-              label={plan.dropoff ? `En bici hasta ${plan.dropoff.stationName}` : 'En bici'}
-              route={plan.bikeRoute}
-            />
-            <RouteSummary
-              icon={<IconWalk size="1.2rem" />}
-              label="A pie hasta el evento"
-              route={plan.walkRoute}
-              note={
-                plan.dropoff?.distanceMeters != null && plan.dropoff.distanceMeters <= NEXT_TO_EVENT_METERS
-                  ? `Estación ${plan.dropoff.stationName} a ${plan.dropoff.distanceMeters} m del evento`
-                  : undefined
-              }
-            />
-          </SimpleGrid>
+                  {dropoff && (
+                    plan.walkRoute ? (
+                      <Polyline positions={plan.walkRoute.coordinates} pathOptions={{ color: '#495057', weight: 4, dashArray: '2 8' }} />
+                    ) : (
+                      <Polyline positions={[dropoff, destination]} pathOptions={{ color: '#495057', weight: 3, dashArray: '4 8' }} />
+                    )
+                  )}
+                </MapContainer>
+              </Card>
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <Stack gap="sm">
+                {plan.pickup && (
+                  <RouteSummary
+                    icon={<IconWalk size="1.2rem" />}
+                    label={`A pie hasta ${plan.pickup.stationName}`}
+                    route={plan.walkToPickupRoute}
+                  />
+                )}
+                <RouteSummary
+                  icon={<IconBike size="1.2rem" />}
+                  label={plan.dropoff ? `En bici hasta ${plan.dropoff.stationName}` : 'En bici'}
+                  route={plan.bikeRoute}
+                />
+                <RouteSummary
+                  icon={<IconWalk size="1.2rem" />}
+                  label="A pie hasta el evento"
+                  route={plan.walkRoute}
+                  note={
+                    plan.dropoff?.distanceMeters != null && plan.dropoff.distanceMeters <= NEXT_TO_EVENT_METERS
+                      ? `Estación ${plan.dropoff.stationName} a ${plan.dropoff.distanceMeters} m del evento`
+                      : undefined
+                  }
+                />
+              </Stack>
+            </Grid.Col>
+          </Grid>
         </Box>
       )}
     </Box>
