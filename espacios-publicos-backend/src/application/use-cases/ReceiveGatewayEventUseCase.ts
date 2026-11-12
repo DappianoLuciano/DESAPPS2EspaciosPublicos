@@ -132,12 +132,11 @@ export const GATEWAY_SUBSCRIPTION_TOPICS: readonly string[] = [
   // su propio topico. El sobre trae igual eventType = "com.citypass.reclamos.ReclamoCreado".
   "com.citypass.reclamos.ReclamoCreado.v3",
   OBSTRUCTION_EVALUATED_EVENT_TYPE,
-  CLAIM_RECLASSIFIED_EVENT_TYPE,
-  EMERGENCY_STATE_UPDATED_EVENT_TYPE,
-  EMERGENCY_CLOSED_EVENT_TYPE,
-  // Van ultimos: si G6 todavia no los registro, el script falla despues de suscribir los demas.
-  EMERGENCY_CANCELLED_EVENT_TYPE,
-  EMERGENCY_RESOLVED_EVENT_TYPE
+  CLAIM_RECLASSIFIED_EVENT_TYPE
+  // Emergencias publica solo EmergenciaCreada y EmergenciaActualizada (ya incluidas en INCIDENT_TYPES):
+  // la resolucion, el cierre y la falsa alarma llegan como estadoNuevo. EmergenciaResuelta, Cerrada,
+  // Cancelada y EstadoActualizado se siguen aceptando en el webhook, pero no se suscriben porque no
+  // estan registradas en el gateway y el script fallaria.
 ];
 
 export class ReceiveGatewayEventUseCase {

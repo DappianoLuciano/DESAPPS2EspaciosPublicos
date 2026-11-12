@@ -14,6 +14,7 @@ import { RegisterCitizenToCommunityEventInput } from "../dtos/RegisterCitizenToC
 import { QrGenerator } from "../../domain/services/QrGenerator";
 import { PublicSpaceRepository } from "../../domain/repositories/PublicSpaceRepository";
 import { buildCommunityEventPublishedEvent } from "../events/communityEventPublished";
+import { EmergencyImpactRepository } from "../../domain/repositories/EmergencyImpactRepository";
 
 export class RegisterCitizenToCommunityEventUseCase {
   constructor(
@@ -23,7 +24,9 @@ export class RegisterCitizenToCommunityEventUseCase {
     private readonly eventBus: EventBus,
     private readonly qrGenerator: QrGenerator,
     private readonly emailSender: EmailSender,
-    private readonly publicSpaceRepository: Pick<PublicSpaceRepository, "findById">
+    private readonly publicSpaceRepository: Pick<PublicSpaceRepository, "findById">,
+    // CU-01: opcional para no cambiar los usos existentes. Sin el, no se controla la emergencia.
+    private readonly emergencyHolds?: Pick<EmergencyImpactRepository, "isEventOnHold">
   ) {}
 
   async execute(input: RegisterCitizenToCommunityEventInput): Promise<CommunityEventRegistration> {
@@ -39,6 +42,10 @@ export class RegisterCitizenToCommunityEventUseCase {
 
     if (communityEvent.status !== "ACTIVE") {
       throw new ValidationError("El evento no esta abierto a inscripciones.");
+    }
+
+    if (this.emergencyHolds && (await this.emergencyHolds.isEventOnHold(communityEvent.id))) {
+      throw new ValidationError("El evento esta suspendido por una emergencia cercana y no acepta inscripciones.");
     }
 
     if (!communityEvent.requiresRegistration) {

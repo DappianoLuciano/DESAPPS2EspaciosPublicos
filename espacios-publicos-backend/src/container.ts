@@ -171,6 +171,7 @@ export function createContainer() {
   );
   const listCommunityEventsUseCase = new ListCommunityEventsUseCase(communityEventRepository);
   const getCommunityEventUseCase = new GetCommunityEventUseCase(communityEventRepository);
+  const emergencyImpactRepository = new PrismaEmergencyImpactRepository();
   const registerCitizenToCommunityEventUseCase = new RegisterCitizenToCommunityEventUseCase(
     communityEventRepository,
     communityEventRegistrationRepository,
@@ -178,7 +179,8 @@ export function createContainer() {
     eventBus,
     qrGenerator,
     emailSender,
-    publicSpaceRepository
+    publicSpaceRepository,
+    emergencyImpactRepository
   );
   const listCommunityEventRegistrationsUseCase = new ListCommunityEventRegistrationsUseCase(
     communityEventRepository,
@@ -205,7 +207,6 @@ export function createContainer() {
 
   const cityIncidentRepository = new PrismaCityIncidentRepository();
   const destinationRecommendationRepository = new PrismaDestinationRecommendationRepository();
-  const emergencyImpactRepository = new PrismaEmergencyImpactRepository();
   const findNearbyBookingsUseCase = new FindNearbyBookingsUseCase(
     publicSpaceRepository,
     reservationRepository,

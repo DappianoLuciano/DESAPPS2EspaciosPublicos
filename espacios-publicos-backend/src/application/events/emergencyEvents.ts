@@ -28,13 +28,17 @@ function coordinate(value: unknown, limit: number): number | null {
   return typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= limit ? value : null;
 }
 
-/** ubicacion {lat, lng} del CU-01; tambien latitud/longitud sueltos y ubicacion.barrio. */
+/**
+ * ubicacion {lat, lng} del CU-01, ubicacion {latitud, longitud} (como lo manda Movilidad), latitud/longitud
+ * sueltos y ubicacion.barrio. Emergencias hoy cifra latitud y longitud: un texto cifrado no es un numero,
+ * asi que se ignora y queda el barrio.
+ */
 function parseLocation(data: Record<string, unknown>): EmergencyLocation {
   const ubicacion = typeof data.ubicacion === "object" && data.ubicacion !== null
     ? (data.ubicacion as Record<string, unknown>)
     : {};
-  const latitude = coordinate(ubicacion.lat ?? data.latitud, 90);
-  const longitude = coordinate(ubicacion.lng ?? data.longitud, 180);
+  const latitude = coordinate(ubicacion.lat ?? ubicacion.latitud ?? data.latitud, 90);
+  const longitude = coordinate(ubicacion.lng ?? ubicacion.longitud ?? data.longitud, 180);
   const hasBoth = latitude !== null && longitude !== null;
 
   return {
