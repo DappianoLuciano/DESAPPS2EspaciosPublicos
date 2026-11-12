@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { cancelCommunityEvent, changeCommunityEventSuspension, listCommunityEvents, listWeatherAlerts } from '../lib/api';
 import type { CancellationCauseType, CommunityEventCatalogItem, WeatherAlert } from '../lib/api';
+import EmergencyStatusBadge from '../components/EmergencyStatusBadge';
+import { activeEmergencyNotice } from '../lib/emergencyHold';
+import { useEmergencyNotices } from '../lib/useEmergencyNotices';
 
 const CAUSE_TYPE_OPTIONS: Array<{ value: CancellationCauseType; label: string }> = [
   { value: 'EVENTO_CLIMATICO', label: 'Evento climático' },
@@ -46,6 +49,7 @@ export default function EventManagement() {
     [events]
   );
 
+  const notices = useEmergencyNotices();
   const activeEvents = events.filter((event) => event.status === 'ACTIVE').length;
 
   const openCancelModal = (event: CommunityEventCatalogItem, nextAction: 'cancel' | 'suspend' | 'resume' = 'cancel') => {
@@ -294,7 +298,9 @@ export default function EventManagement() {
                   <Table.Td>{formatDate(event.startDate)}</Table.Td>
                   <Table.Td>{event.registeredCount}/{event.capacity}</Table.Td>
                   <Table.Td>
-                    {getStatusBadge(event.status)}
+                    {activeEmergencyNotice(event, notices)
+                      ? <EmergencyStatusBadge notice={activeEmergencyNotice(event, notices)} />
+                      : getStatusBadge(event.status)}
                     {event.statusReason && <Text size="xs" mt={6} maw={220}>{event.statusReason}</Text>}
                   </Table.Td>
                   <Table.Td>
