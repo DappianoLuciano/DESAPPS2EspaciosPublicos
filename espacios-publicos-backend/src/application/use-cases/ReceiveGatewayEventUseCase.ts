@@ -34,7 +34,7 @@ interface IncidentTypeConfig {
 }
 
 const INCIDENT_TYPES: Record<string, IncidentTypeConfig> = {
-  "com.citypass.reclamos.ReclamoCreado": {
+  "com.citypass.reclamos.ReclamoCreado.v3": {
     kind: "created",
     source: "RECLAMOS",
     idField: "reclamoId",

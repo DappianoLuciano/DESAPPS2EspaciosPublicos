@@ -73,7 +73,7 @@ constante (si la variable esta vacia se rechaza todo) y la entrega es idempotent
 - `com.citypass.movilidad.RecomendacionDestinoActualizada`: se guarda en `destination_recommendations`
   (una fila por evento). Si llega una con `calculadaEn` mas vieja que la guardada se descarta; si el
   evento no existe se loguea y se ignora. `estacionId` llega como numero y se guarda como string.
-- `com.citypass.reclamos.ReclamoCreado`: con `afectaCirculacion === true` y coordenadas, alta en
+- `com.citypass.reclamos.ReclamoCreado.v3`: con `afectaCirculacion === true` y coordenadas, alta en
   `city_incidents`.
 - `com.citypass.emergencias.EmergenciaCreada`: Emergencias no publica coordenadas ni `afectaCirculacion`;
   manda `emergenciaId`, `estado`, `ubicacion.barrio` (puede ser `null`), `tipo`, `severity`,

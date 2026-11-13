@@ -14,7 +14,7 @@ describe("topicos de suscripcion", () => {
     expect([...GATEWAY_SUBSCRIPTION_TOPICS]).toEqual([
       "com.citypass.movilidad.RecomendacionDestinoActualizada",
       "com.citypass.movilidad.MovilidadObstruccionEvaluada",
-      "com.citypass.reclamos.ReclamoCreado",
+      "com.citypass.reclamos.ReclamoCreado.v3",
       "com.citypass.reclamos.ReclamoActualizado",
       "com.citypass.emergencias.EmergenciaCreada",
       "com.citypass.emergencias.EmergenciaActualizada"
