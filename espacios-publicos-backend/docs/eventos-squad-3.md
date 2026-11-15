@@ -24,6 +24,7 @@ bus, asi que los reintentos los maneja el outbox (ver `eventos-cu-int-01.md`).
 | `espacioNombre` | `string` | nombre del espacio |
 | `actorSub` | `["null","string"]`, default `null` | `sub` del token del organizador |
 | `categoria` | `["null","string"]`, default `null` | categoria del evento tal cual se cargo (`communityEvent.category`, texto de `EVENT_CATEGORIES` del frontend; no se mapea a otro enum) |
+| `organizadorTipo` | `string` (obligatorio) | `CIUDAD` si lo crea un `municipal_admin`, `CIUDADANO` si no. Lo completa el controller con el rol del token |
 
 - El payload lo arma `buildActivityCreatedPayload` (exportada desde el use case).
 - `actorSub` lo completa el controller con `request.user.id`; el cliente no lo puede mandar en el body.
@@ -34,6 +35,9 @@ bus, asi que los reintentos los maneja el outbox (ver `eventos-cu-int-01.md`).
   (schemaId 61, topico `com.citypass.espacios.ActividadCreada.v2`). La v1 (schemaId 60, topico
   `com.citypass.espacios.ActividadCreada`) no tenia suscripciones. Quien consuma `ActividadCreada`
   tiene que suscribirse a la v2.
+- **Version 3** (schemaId 91, topico `com.citypass.espacios.ActividadCreada.v3`): suma `organizadorTipo`
+  obligatorio, pedido por Analitica. Desde que se registro, el gateway rechaza con 400 cualquier
+  `ActividadCreada` sin ese campo. Quien consuma `ActividadCreada` tiene que suscribirse a la v3.
 
 ## Demo
 

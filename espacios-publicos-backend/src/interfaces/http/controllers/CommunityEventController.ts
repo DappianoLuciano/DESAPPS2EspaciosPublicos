@@ -30,7 +30,8 @@ export class CommunityEventController {
       ...request.body,
       organizerName: request.user?.name,
       organizerProfileEnabled: request.user?.role === "municipal_admin",
-      organizerSub: request.user?.id ?? null
+      organizerSub: request.user?.id ?? null,
+      organizerType: request.user?.role === "municipal_admin" ? "CIUDAD" : "CIUDADANO"
     });
     response.status(201).json(communityEvent);
   };
