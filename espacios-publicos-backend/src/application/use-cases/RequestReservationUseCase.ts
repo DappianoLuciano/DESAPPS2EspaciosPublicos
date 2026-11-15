@@ -19,6 +19,10 @@ import { EmailSender } from "../../domain/services/EmailSender";
 import { QrGenerator } from "../../domain/services/QrGenerator";
 import { WeatherRestrictionRepository } from "../../domain/repositories/WeatherRestrictionRepository";
 import { ReservationLifecyclePublisher } from "../events/ReservationLifecyclePublisher";
+import { PublicSpace } from "../../domain/entities/PublicSpace";
+import { hasCoordinates } from "../../shared/geo/distance";
+import { logger } from "../../shared/logging/logger";
+import { buildActivityCreatedFromReservation } from "./CreateCommunityEventUseCase";
 
 export class RequestReservationUseCase {
   constructor(
@@ -144,6 +148,9 @@ export class RequestReservationUseCase {
       createdAt: reservation.createdAt
     });
 
+    // E1 del squad 3: la reserva de un espacio tambien es una actividad (ActividadCreada v3).
+    await this.publishActivityCreated(reservation, publicSpace, input.actorSub);
+
     const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
     const verificationUrl = `${frontendUrl}/reservations/verify/${reservation.id}`;
     const qrCodeDataUri = await this.qrGenerator.generate(verificationUrl);
@@ -166,5 +173,40 @@ export class RequestReservationUseCase {
     );
 
     return reservation;
+  }
+
+  /**
+   * Nunca hace fallar la reserva. Sin coordenadas no se publica: la v3 exige ubicacion.
+   * Si el bus falla, la fila queda en el outbox y la reintenta el worker (OutboxTrackingEventBus).
+   */
+  private async publishActivityCreated(
+    reservation: Reservation,
+    publicSpace: PublicSpace,
+    actorSub?: string | null
+  ): Promise<void> {
+    if (!hasCoordinates(publicSpace)) {
+      logger.warn(
+        { reservaId: reservation.id, espacioId: publicSpace.id, eventName: eventNames.activityCreated() },
+        "ActividadCreada no se publica: el espacio no tiene coordenadas"
+      );
+      return;
+    }
+
+    const event: DomainEvent = {
+      id: randomUUID(),
+      name: eventNames.activityCreated(),
+      payload: buildActivityCreatedFromReservation(reservation, publicSpace, actorSub),
+      occurredAt: new Date()
+    };
+
+    try {
+      await this.eventOutboxRepository.save(event);
+      await this.eventBus.publish(event);
+    } catch (error) {
+      logger.warn(
+        { err: error, reservaId: reservation.id, eventId: event.id, eventName: event.name },
+        "No se pudo publicar ActividadCreada de la reserva"
+      );
+    }
   }
 }
