@@ -49,7 +49,7 @@ describe("registro unificado de contratos EDA", () => {
     const actividad = definitions.find(item => item.name === "ActividadCreada")!;
     expect(actividad.fields.map(field => field.name)).toEqual([
       "correlationId", "actividadId", "titulo", "estado", "capacidad", "fechaHoraInicio",
-      "fechaHoraFinalizacion", "ubicacion", "direccion", "espacioNombre", "actorSub", "categoria"
+      "fechaHoraFinalizacion", "ubicacion", "direccion", "espacioNombre", "actorSub", "categoria", "organizadorTipo"
     ]);
     expect(actividad.fields).toContainEqual({ name: "actorSub", type: ["null", "string"], default: null });
   });
@@ -61,7 +61,12 @@ describe("registro unificado de contratos EDA", () => {
 
   it("agrega categoria a ActividadCreada como opcional, para ser compatible hacia atras", () => {
     const actividad = definitions.find(item => item.name === "ActividadCreada")!;
-    expect(actividad.fields.at(-1)).toEqual({ name: "categoria", type: ["null", "string"], default: null });
+    expect(actividad.fields).toContainEqual({ name: "categoria", type: ["null", "string"], default: null });
+  });
+
+  it("ActividadCreada v3 exige organizadorTipo, igual que el contrato registrado en EDA", () => {
+    const actividad = definitions.find(item => item.name === "ActividadCreada")!;
+    expect(actividad.fields.at(-1)).toEqual({ name: "organizadorTipo", type: "string", doc: "CIUDAD | CIUDADANO" });
   });
 
   it("registra ActividadModificada con el contrato exacto pedido por Analitica", () => {

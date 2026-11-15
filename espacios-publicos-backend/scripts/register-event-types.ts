@@ -93,7 +93,9 @@ const spacesDefinitions: EventTypeDefinition[] = [
     { name: "direccion", type: "string" },
     { name: "espacioNombre", type: "string" },
     { name: "actorSub", type: nullable("string"), default: null },
-    { name: "categoria", type: nullable("string"), default: null }
+    { name: "categoria", type: nullable("string"), default: null },
+    // v3 (schemaId 91): obligatorio, pedido por Analitica para separar actividades de ciudadanos y de la ciudad.
+    { name: "organizadorTipo", type: "string", doc: "CIUDAD | CIUDADANO" }
   ]),
   record("ActividadModificada", "Cambio el estado de una actividad (evento comunitario).", [
     { name: "correlationId", type: "string", doc: "act-<actividadId>" },

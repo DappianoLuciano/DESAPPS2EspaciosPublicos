@@ -18,7 +18,7 @@ import {
   requirePositiveInteger,
   requireText
 } from "../../shared/validation/inputValidation";
-import { CreateCommunityEventInput } from "../dtos/CreateCommunityEventInput";
+import { CreateCommunityEventInput, OrganizerType } from "../dtos/CreateCommunityEventInput";
 import { WeatherRestrictionRepository } from "../../domain/repositories/WeatherRestrictionRepository";
 import { buildCommunityEventPublishedEvent } from "../events/communityEventPublished";
 
@@ -136,7 +136,7 @@ export class CreateCommunityEventUseCase {
     const activityCreated: DomainEvent = {
       id: randomUUID(),
       name: eventNames.activityCreated(),
-      payload: buildActivityCreatedPayload(communityEvent, publicSpace, input.organizerSub),
+      payload: buildActivityCreatedPayload(communityEvent, publicSpace, input.organizerSub, input.organizerType),
       occurredAt: new Date()
     };
 
@@ -154,7 +154,9 @@ export class CreateCommunityEventUseCase {
 export function buildActivityCreatedPayload(
   communityEvent: CommunityEvent,
   publicSpace: PublicSpace & Coordinates,
-  organizerSub?: string | null
+  organizerSub?: string | null,
+  // Hoy solo los admins municipales crean eventos: sin dato, se asume CIUDAD.
+  organizerType: OrganizerType = "CIUDAD"
 ): Record<string, unknown> {
   return {
     correlationId: `act-${communityEvent.id}`,
@@ -168,6 +170,7 @@ export function buildActivityCreatedPayload(
     direccion: publicSpace.address,
     espacioNombre: publicSpace.name,
     actorSub: organizerSub ?? null,
-    categoria: communityEvent.category
+    categoria: communityEvent.category,
+    organizadorTipo: organizerType
   };
 }

@@ -279,7 +279,8 @@ describe("CreateCommunityEventUseCase", () => {
       direccion: "CABA",
       espacioNombre: "Parque Centenario",
       actorSub: "sub-organizador-1",
-      categoria: communityEvent.category
+      categoria: communityEvent.category,
+      organizadorTipo: "CIUDAD"
     });
     expect(activityCreated?.payload.categoria).toBe(validInput.category);
   });
@@ -291,6 +292,14 @@ describe("CreateCommunityEventUseCase", () => {
 
     expect(eventBus.events[1].name).toBe("com.citypass.espacios.ActividadCreada");
     expect(eventBus.events[1].payload.actorSub).toBeNull();
+  });
+
+  it("ActividadCreada lleva el organizadorTipo que indica el controller", async () => {
+    const { useCase, eventBus } = createUseCase();
+
+    await useCase.execute({ ...validInput, organizerType: "CIUDADANO" });
+
+    expect(eventBus.events[1].payload.organizadorTipo).toBe("CIUDADANO");
   });
 
   it("publica ActividadCreada para una actividad que empieza en 1 minuto y termina a los 10", async () => {
