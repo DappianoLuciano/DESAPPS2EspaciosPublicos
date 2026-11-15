@@ -1,4 +1,8 @@
-import { CreateCommunityEventUseCase } from "../../src/application/use-cases/CreateCommunityEventUseCase";
+import {
+  buildActivityCreatedPayload,
+  CreateCommunityEventUseCase,
+  MASIVO_UMBRAL
+} from "../../src/application/use-cases/CreateCommunityEventUseCase";
 import {
   CommunityEvent,
   CommunityEventStatus,
@@ -280,9 +284,47 @@ describe("CreateCommunityEventUseCase", () => {
       espacioNombre: "Parque Centenario",
       actorSub: "sub-organizador-1",
       categoria: communityEvent.category,
-      organizadorTipo: "CIUDAD"
+      organizadorTipo: "CIUDAD",
+      masivo: false,
+      tipoActividad: "CULTURAL",
+      espacioId: "space-1",
+      organizadorId: "sub-organizador-1",
+      createdAt: communityEvent.createdAt.toISOString()
     });
     expect(activityCreated?.payload.categoria).toBe(validInput.category);
+    expect(activityCreated?.payload.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  });
+
+  it("ActividadCreada mapea la categoria a tipoActividad", async () => {
+    const { useCase, eventBus } = createUseCase();
+
+    await useCase.execute({ ...validInput, category: "Gastronomía" });
+
+    expect(eventBus.events[1].payload.tipoActividad).toBe("RECREATIVO");
+  });
+
+  it("ActividadCreada es masiva desde MASIVO_UMBRAL (1000) de cupo", () => {
+    expect(MASIVO_UMBRAL).toBe(1000);
+    const space = {
+      id: "space-1", name: "Plaza", description: "", address: "CABA", capacity: 6000,
+      latitude: -34.6, longitude: -58.4, status: "ENABLED" as const, createdAt: new Date()
+    };
+    const event = (capacity: number): CommunityEvent => ({
+      id: "event-1", title: "Festival", category: "Música", tags: [], description: "", requirements: [],
+      publicSpaceId: "space-1", organizerName: "Comuna", capacity, requiresRegistration: false,
+      startDate: EVENT_START, endDate: EVENT_END, status: "ACTIVE", createdAt: new Date()
+    });
+
+    expect(buildActivityCreatedPayload(event(999), space).masivo).toBe(false);
+    expect(buildActivityCreatedPayload(event(1000), space).masivo).toBe(true);
+  });
+
+  it("ActividadCreada sin organizador autenticado manda organizadorId null", async () => {
+    const { useCase, eventBus } = createUseCase();
+
+    await useCase.execute(validInput);
+
+    expect(eventBus.events[1].payload.organizadorId).toBeNull();
   });
 
   it("ActividadCreada lleva actorSub null si no hay organizador autenticado", async () => {

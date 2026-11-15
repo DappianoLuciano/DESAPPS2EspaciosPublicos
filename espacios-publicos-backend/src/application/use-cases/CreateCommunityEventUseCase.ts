@@ -21,6 +21,10 @@ import {
 import { CreateCommunityEventInput, OrganizerType } from "../dtos/CreateCommunityEventInput";
 import { WeatherRestrictionRepository } from "../../domain/repositories/WeatherRestrictionRepository";
 import { buildCommunityEventPublishedEvent } from "../events/communityEventPublished";
+import { mapCategoriaToTipoActividad } from "../../domain/services/tipoActividad";
+
+/** Desde este cupo una actividad es masiva (campo `masivo` de ActividadCreada). */
+export const MASIVO_UMBRAL = 1000;
 
 export class CreateCommunityEventUseCase {
   constructor(
@@ -171,6 +175,11 @@ export function buildActivityCreatedPayload(
     espacioNombre: publicSpace.name,
     actorSub: organizerSub ?? null,
     categoria: communityEvent.category,
-    organizadorTipo: organizerType
+    organizadorTipo: organizerType,
+    masivo: communityEvent.capacity >= MASIVO_UMBRAL,
+    tipoActividad: mapCategoriaToTipoActividad(communityEvent.category),
+    espacioId: communityEvent.publicSpaceId,
+    organizadorId: organizerSub ?? null,
+    createdAt: communityEvent.createdAt.toISOString()
   };
 }

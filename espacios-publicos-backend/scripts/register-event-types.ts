@@ -95,7 +95,14 @@ const spacesDefinitions: EventTypeDefinition[] = [
     { name: "actorSub", type: nullable("string"), default: null },
     { name: "categoria", type: nullable("string"), default: null },
     // v3 (schemaId 91): obligatorio, pedido por Analitica para separar actividades de ciudadanos y de la ciudad.
-    { name: "organizadorTipo", type: "string", doc: "CIUDAD | CIUDADANO" }
+    { name: "organizadorTipo", type: "string", doc: "CIUDAD | CIUDADANO" },
+    // Contrato Parte 2 de Analitica: campos nuevos, opcionales y al final para que la evolucion sea
+    // compatible. El codigo los manda siempre.
+    { name: "masivo", type: nullable("boolean"), default: null, doc: "capacidad >= 1000" },
+    { name: "tipoActividad", type: nullable("string"), default: null, doc: "CULTURAL | DEPORTIVO | RECREATIVO" },
+    { name: "espacioId", type: nullable("string"), default: null },
+    { name: "organizadorId", type: nullable("string"), default: null, doc: "Mismo valor que actorSub" },
+    { name: "createdAt", type: nullable("string"), default: null, doc: "ISO 8601 UTC" }
   ]),
   record("ActividadModificada", "Cambio el estado de una actividad (evento comunitario).", [
     { name: "correlationId", type: "string", doc: "act-<actividadId>" },

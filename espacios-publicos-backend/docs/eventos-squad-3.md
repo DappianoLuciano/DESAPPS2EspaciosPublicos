@@ -25,6 +25,11 @@ bus, asi que los reintentos los maneja el outbox (ver `eventos-cu-int-01.md`).
 | `actorSub` | `["null","string"]`, default `null` | `sub` del token del organizador |
 | `categoria` | `["null","string"]`, default `null` | categoria del evento tal cual se cargo (`communityEvent.category`, texto de `EVENT_CATEGORIES` del frontend; no se mapea a otro enum) |
 | `organizadorTipo` | `string` (obligatorio) | `CIUDAD` si lo crea un `municipal_admin`, `CIUDADANO` si no. Lo completa el controller con el rol del token |
+| `masivo` | `["null","boolean"]`, default `null` | `true` si `capacidad >= 1000` (`MASIVO_UMBRAL`, exportada desde el use case) |
+| `tipoActividad` | `["null","string"]`, default `null` | `CULTURAL`, `DEPORTIVO` o `RECREATIVO`, mapeado desde `categoria` con `mapCategoriaToTipoActividad`; `null` si la categoria no se reconoce |
+| `espacioId` | `["null","string"]`, default `null` | id del espacio publico (`communityEvent.publicSpaceId`) |
+| `organizadorId` | `["null","string"]`, default `null` | mismo valor que `actorSub` |
+| `createdAt` | `["null","string"]`, default `null` | alta del evento, ISO-8601 en UTC (`2026-11-20T15:00:00.000Z`) |
 
 - El payload lo arma `buildActivityCreatedPayload` (exportada desde el use case).
 - `actorSub` lo completa el controller con `request.user.id`; el cliente no lo puede mandar en el body.
@@ -38,6 +43,26 @@ bus, asi que los reintentos los maneja el outbox (ver `eventos-cu-int-01.md`).
 - **Version 3** (schemaId 91, topico `com.citypass.espacios.ActividadCreada.v3`): suma `organizadorTipo`
   obligatorio, pedido por Analitica. Desde que se registro, el gateway rechaza con 400 cualquier
   `ActividadCreada` sin ese campo. Quien consuma `ActividadCreada` tiene que suscribirse a la v3.
+- **Contrato Parte 2 de Analitica**: suma `masivo`, `tipoActividad`, `espacioId`, `organizadorId` y
+  `createdAt` al final del record, todos `["null", tipo]` con default `null`, asi que la evolucion es
+  compatible y ningun campo existente cambia de nombre ni de formato (las fechas `timestamp-millis` quedan
+  igual). El codigo los manda siempre. Se registra con `npm run eda:register-events -- --update-compatible`.
+  Si el gateway lo toma como una version nueva y crea un topico `.vN`, los consumidores tienen que
+  suscribirse a esa version.
+
+### Mapeo de `categoria` a `tipoActividad`
+
+`mapCategoriaToTipoActividad` (`src/domain/services/tipoActividad.ts`) compara sin mayusculas ni tildes:
+
+| `categoria` | `tipoActividad` |
+| --- | --- |
+| Juegos, Infancias, Gastronomía | `RECREATIVO` |
+| Cultura, Música, Arte, Tecnología, Ciencia, Teatro, Danza, Literatura, Cine, Charlas, Talleres | `CULTURAL` |
+| desconocida o `null` | `null` |
+
+Hoy ninguna categoria es deportiva, asi que no sale `DEPORTIVO`. El mapeo es un `Record` exhaustivo sobre
+las categorias de `EVENT_CATEGORIES` del frontend: un test compara las dos listas, y sumar una categoria
+obliga a decidir su tipo.
 
 ## Demo
 

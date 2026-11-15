@@ -49,7 +49,8 @@ describe("registro unificado de contratos EDA", () => {
     const actividad = definitions.find(item => item.name === "ActividadCreada")!;
     expect(actividad.fields.map(field => field.name)).toEqual([
       "correlationId", "actividadId", "titulo", "estado", "capacidad", "fechaHoraInicio",
-      "fechaHoraFinalizacion", "ubicacion", "direccion", "espacioNombre", "actorSub", "categoria", "organizadorTipo"
+      "fechaHoraFinalizacion", "ubicacion", "direccion", "espacioNombre", "actorSub", "categoria", "organizadorTipo",
+      "masivo", "tipoActividad", "espacioId", "organizadorId", "createdAt"
     ]);
     expect(actividad.fields).toContainEqual({ name: "actorSub", type: ["null", "string"], default: null });
   });
@@ -66,7 +67,27 @@ describe("registro unificado de contratos EDA", () => {
 
   it("ActividadCreada v3 exige organizadorTipo, igual que el contrato registrado en EDA", () => {
     const actividad = definitions.find(item => item.name === "ActividadCreada")!;
-    expect(actividad.fields.at(-1)).toEqual({ name: "organizadorTipo", type: "string", doc: "CIUDAD | CIUDADANO" });
+    expect(actividad.fields).toContainEqual({ name: "organizadorTipo", type: "string", doc: "CIUDAD | CIUDADANO" });
+  });
+
+  // Contrato Parte 2 de Analitica: los campos nuevos van al final del record, como ["null", tipo] con
+  // default null, para que la evolucion sea compatible con lo que ya esta registrado.
+  const PARTE_2: Record<string, Array<[string, string]>> = {
+    ActividadCreada: [
+      ["masivo", "boolean"], ["tipoActividad", "string"], ["espacioId", "string"],
+      ["organizadorId", "string"], ["createdAt", "string"]
+    ]
+  };
+
+  it.each(Object.entries(PARTE_2))("%s: los campos nuevos de la Parte 2 son nullable con default null y van al final", (name, added) => {
+    const fields = definitions.find(item => item.name === name)!.fields;
+    const tail = fields.slice(-added.length);
+    expect(tail.map(field => field.name)).toEqual(added.map(([field]) => field));
+    for (const [field, type] of added) {
+      const definition = tail.find(item => item.name === field)!;
+      expect(definition.type).toEqual(["null", type]);
+      expect(definition).toHaveProperty("default", null);
+    }
   });
 
   it("registra ActividadModificada con el contrato exacto pedido por Analitica", () => {
