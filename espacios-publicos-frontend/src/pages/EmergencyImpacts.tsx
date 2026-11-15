@@ -58,7 +58,7 @@ export default function EmergencyImpacts() {
   return (
     <Box p={{ base: 'md', sm: 40 }}>
       <Title order={1} fz={32}>Emergencias</Title>
-      <Text c="dimmed" mb="xl">Reservas afectadas por emergencias cercanas y problemáticas del espacio público.</Text>
+      <Text c="dimmed" mb="xl">Reservas afectadas por emergencias cercanas.</Text>
 
       {error && <Alert color="red" mb="md">{error}</Alert>}
 
@@ -93,30 +93,7 @@ export default function EmergencyImpacts() {
           </Table.Tbody>
         </Table>
       </Table.ScrollContainer>
-      {data?.impacts.length === 0 && <Text c="dimmed" mb="xl">No hay reservas afectadas.</Text>}
-
-      <Title order={2} fz="lg" mb="sm">Problemáticas</Title>
-      <Table.ScrollContainer minWidth={640}>
-        <Table>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Emergencia</Table.Th>
-              <Table.Th>Tipo</Table.Th>
-              <Table.Th>Registrada</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {data?.problems.map((problem) => (
-              <Table.Tr key={problem.id}>
-                <Table.Td>{problem.emergenciaId}</Table.Td>
-                <Table.Td>{problem.type}</Table.Td>
-                <Table.Td>{formatDate(problem.createdAt)}</Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      </Table.ScrollContainer>
-      {data?.problems.length === 0 && <Text c="dimmed">No hay problemáticas registradas.</Text>}
+      {data?.impacts.length === 0 && <Text c="dimmed">No hay reservas afectadas.</Text>}
 
       <Modal opened={rescheduling !== null} onClose={closeReschedule} title="Reprogramar reserva">
         <Stack>

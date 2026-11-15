@@ -28,12 +28,11 @@ export default function ModuleDashboard() {
     { label: 'Reservas', value: summary.reservations },
     { label: 'Reservas afectadas', value: summary.affectedBookings },
     { label: 'Espacios liberados', value: summary.releasedSpaces },
-    { label: 'Problemáticas', value: summary.problems },
   ];
 
   return (
     <Box px={{ base: 'md', sm: 40 }} py="lg">
-      <SimpleGrid cols={{ base: 2, md: 4 }}>
+      <SimpleGrid cols={{ base: 2, md: 3 }}>
         {stats.map((stat) => (
           <Card key={stat.label} withBorder padding="sm">
             <Text size="xs" c="dimmed">{stat.label}</Text>

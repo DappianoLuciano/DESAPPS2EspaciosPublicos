@@ -121,7 +121,7 @@ function setup(
     emailSender,
     attendees,
     created: new HandleEmergencyCreatedUseCase(store, finder, eventBus, emailSender, attendees),
-    resolved: new HandleEmergencyResolvedUseCase(store, spaceRepository, eventBus, emailSender, attendees)
+    resolved: new HandleEmergencyResolvedUseCase(store, eventBus, emailSender, attendees)
   };
 }
 
@@ -227,44 +227,23 @@ describe("CU-01: al resolverse la emergencia", () => {
     expect(eventBus.publish).not.toHaveBeenCalled();
   });
 
-  it("registra la problematica solo con ESPACIO_PUBLICO (A6)", async () => {
-    const { created: createdHandler, resolved, eventBus, store } = setup([space()], []);
+  it("no registra ni deriva problematicas aunque la causa sea ESPACIO_PUBLICO", async () => {
+    const { created: createdHandler, resolved, eventBus } = setup([space()], []);
 
     await createdHandler.execute(created);
     await resolved.execute(resolvedWith(["ESPACIO_PUBLICO"]));
 
-    expect(published(eventBus)).toEqual(["ProblematicaRegistrada"]);
-    expect(store.outbox[0].payload).toMatchObject({ espacioId: "plaza", tipo: "SIN_CLASIFICAR", latitud: -34.6037 });
+    expect(eventBus.publish).not.toHaveBeenCalled();
   });
 
-  it("sin coordenadas registra la problematica sin adivinar el espacio", async () => {
-    const { resolved, store } = setup([space()], []);
-    store.cases.set(EMERGENCY, {
-      emergenciaId: EMERGENCY, latitude: null, longitude: null, zone: "San Nicolás", occurredAt: new Date(NOW), resolvedAt: null
-    });
-
-    await resolved.execute(resolvedWith(["ESPACIO_PUBLICO"]));
-
-    expect(store.outbox[0].payload).toMatchObject({ espacioId: null, latitud: null, tipo: "SIN_CLASIFICAR" });
-  });
-
-  it("no libera ni registra dos veces (RNI-04)", async () => {
+  it("no libera dos veces (RNI-04)", async () => {
     const { created: createdHandler, resolved, eventBus } = setup();
 
     await createdHandler.execute(created);
     await resolved.execute(resolvedWith(["ESPACIO_PUBLICO"]));
     await resolved.execute(resolvedWith(["ESPACIO_PUBLICO"]));
 
-    expect(published(eventBus)).toEqual(["ReservaAfectada", "EspacioLiberado", "ProblematicaRegistrada"]);
-  });
-
-  it("la actualizacion transitoria sin causas no impide registrar la problematica despues", async () => {
-    const { resolved, eventBus } = setup([space()], []);
-
-    await resolved.execute(resolvedWith([]));
-    await resolved.execute(resolvedWith(["ESPACIO_PUBLICO"]));
-
-    expect(published(eventBus)).toEqual(["ProblematicaRegistrada"]);
+    expect(published(eventBus)).toEqual(["ReservaAfectada", "EspacioLiberado"]);
   });
 
   it("una falsa alarma confirma la reserva y una EmergenciaCreada tardia no la vuelve a suspender", async () => {
