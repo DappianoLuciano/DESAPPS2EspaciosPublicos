@@ -38,7 +38,7 @@ const LOW_TRAFFIC_IMPACT = /^(BAJO|LEVE|LOW|MENOR)$/i;
 
 // El gateway usa el FQN como topico; el documento del CU-01 los nombra con puntos. Se aceptan los
 // dos. Emergencias publica hoy EmergenciaEstadoActualizado y EmergenciaCerrada, sin causas ni
-// ubicacion: esos cierres liberan lo afectado, pero no pueden registrar una problematica.
+// ubicacion: esos cierres tambien liberan lo afectado.
 const EMERGENCY_CREATED_TYPES: readonly string[] = [
   "emergencia.creada",
   "com.citypass.emergencias.EmergenciaCreada"

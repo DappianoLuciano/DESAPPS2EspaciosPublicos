@@ -231,7 +231,6 @@ export function createContainer() {
   );
   const handleEmergencyResolvedUseCase = new HandleEmergencyResolvedUseCase(
     emergencyImpactRepository,
-    publicSpaceRepository,
     eventBus,
     emailSender,
     communityEventRegistrationRepository

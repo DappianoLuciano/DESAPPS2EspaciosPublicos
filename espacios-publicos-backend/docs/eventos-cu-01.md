@@ -30,11 +30,12 @@ cifrada. Es lo unico que hace falta: el webhook acepta tambien `EmergenciaResuel
 
 - **A10**, aunque la causa sea otra: por espacio afectado, confirma las reservas cuyo horario sigue
   vigente, deja `A_REPROGRAMAR` las que ya pasaron y publica `EspacioLiberado`.
-- **A6**, solo con `ESPACIO_PUBLICO` en `causasRelacionadas`: registra la problematica y publica
-  `ProblematicaRegistrada`. El tipo sale de `tipoProblematica`; si falta, queda `SIN_CLASIFICAR`. El contrato de Emergencias todavia no lo trae.
-- Sin reservas afectadas y sin esa causa, no hace nada.
+- **A6** (problematica del espacio publico): Espacios no la registra ni la deriva, aunque llegue
+  `ESPACIO_PUBLICO` en `causasRelacionadas`. El modulo solo gestiona espacios y reservas; la problematica le
+  corresponde a otro modulo (Reclamos). No se publica `ProblematicaRegistrada`.
+- Sin reservas afectadas, no hace nada.
 
-Una falsa alarma (A1) tambien libera lo suspendido y nunca registra problematicas. Se reconoce por
+Una falsa alarma (A1) tambien libera lo suspendido. Se reconoce por
 `EmergenciaCancelada`, `emergencia.cancelada` o los estados `CANCELADA` y `DESCARTADA`. El documento no lista
 a Espacios entre los consumidores de `emergencia.cancelada`; se agrego para no dejar reservas suspendidas.
 
@@ -47,7 +48,7 @@ de la resolucion no suspende nada.
 | --- | --- |
 | `com.citypass.espacios.ReservaAfectada` (`RESERVATION_AFFECTED_EVENT_FQN`) | `correlationId`, `emergenciaId`, `espacioId`, `reservaId`, `tipoReserva` (`ESPACIO`/`EVENTO`), `horario {inicio, fin}`, `accion` (`SUSPENDIDA`/`REPROGRAMADA`), `afectadaEn` |
 | `com.citypass.espacios.EspacioLiberado` (`SPACE_RELEASED_EVENT_FQN`) | `correlationId`, `emergenciaId`, `espacioId`, `reservasConfirmadas`, `reservasReprogramadas`, `liberadoEn` |
-| `com.citypass.espacios.ProblematicaRegistrada` (`PROBLEM_REGISTERED_EVENT_FQN`) | `correlationId`, `emergenciaId`, `problematicaId`, `espacioId?`, `tipo`, `latitud?`, `longitud?`, `registradaEn` |
+| `com.citypass.espacios.ProblematicaRegistrada` (`PROBLEM_REGISTERED_EVENT_FQN`), sin uso | `correlationId`, `emergenciaId`, `problematicaId`, `espacioId?`, `tipo`, `latitud?`, `longitud?`, `registradaEn` |
 
 El documento los nombra `espacios.reserva.afectada`, `espacios.espacio.liberado` y
 `espacios.problematica.registrada`. El gateway no admite esos nombres: el FQN es el topico, el evento va en
@@ -59,7 +60,7 @@ nombres con puntos y el sobre estilo CloudEvents.
 Requieren rol administrador y las acciones quedan auditadas.
 
 - `GET /api/espacios/cercanos?lat&lng&desde&hasta`
-- `GET /api/emergency-impacts`: resumen, reservas afectadas y problematicas.
+- `GET /api/emergency-impacts`: resumen y reservas afectadas.
 - `POST /api/emergency-impacts/:id/reschedule` con `{ startDate, endDate }`: valida cupo y solapamientos
   y publica `ReservaAfectada` con `accion = REPROGRAMADA`.
 
@@ -73,13 +74,13 @@ con un mail individual. Un envio que falla se loguea y no frena la emergencia ni
 
 ## Limitaciones conocidas
 
-- El documento dice que Espacios "registra y deriva" la problematica, pero no define a quien. Hoy se registra,
-  se publica `ProblematicaRegistrada` y se ve en el backoffice; no hay una accion de derivar.
+- El documento dice que Espacios "registra y deriva" la problematica. Se decidio no hacerlo: no es
+  responsabilidad de Espacios Publicos y Reservas. La tabla `public_space_problems` y el contrato de
+  `ProblematicaRegistrada` quedan sin uso, para no tocar la base ni el registro en EDA.
 - La suspension vive en `emergency_booking_impacts`: `Reservation.status` y `CommunityEvent.status` no
   cambian, para no mezclarla con la suspension por clima. Mientras un evento esta suspendido o pendiente de
   reprogramar por una emergencia, no acepta inscripciones nuevas.
-- Emergencias cifra latitud y longitud. Sin coordenadas, la busqueda de cercanos usa el barrio, y la
-  problematica se registra sin espacio: con el barrio no se puede saber cual es.
+- Emergencias cifra latitud y longitud. Sin coordenadas, la busqueda de cercanos usa el barrio.
 - Una emergencia no bloquea reservas nuevas en el espacio.
 - Los eventos comunitarios no guardan el mail del organizador: el aviso va a
   `EMERGENCY_NOTIFICATIONS_EMAIL`, si esta definido, y siempre se ve en el backoffice.
