@@ -47,7 +47,8 @@ describe("ActividadModificada en la suspensión y reanudación manual", () => {
       causaId: null,
       causaTipo: null,
       modificadaEn: expect.any(Number),
-      actorSub: "admin-sub"
+      actorSub: "admin-sub",
+      tipoActividad: "CULTURAL"
     });
     expect(payload.modificadaEn).toBeGreaterThanOrEqual(before);
     expect(saved[0].occurredAt.getTime()).toBe(payload.modificadaEn);
@@ -68,7 +69,8 @@ describe("ActividadModificada en la suspensión y reanudación manual", () => {
       causaId: null,
       causaTipo: null,
       modificadaEn: expect.any(Number),
-      actorSub: "admin-sub"
+      actorSub: "admin-sub",
+      tipoActividad: "CULTURAL"
     });
   });
 

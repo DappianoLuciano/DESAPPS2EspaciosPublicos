@@ -100,7 +100,8 @@ describe("CancelCommunityEventUseCase", () => {
         causaId: "alert-7",
         causaTipo: "EVENTO_CLIMATICO",
         modificadaEn: saved[1].occurredAt.getTime(),
-        actorSub: "sub-admin"
+        actorSub: "sub-admin",
+        tipoActividad: "CULTURAL"
       });
     });
 

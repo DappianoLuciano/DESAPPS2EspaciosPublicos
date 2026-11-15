@@ -7,7 +7,7 @@ function setup() {
   const alert = { id: "a1", status: "CONFIRMED", latitude: -34.611, longitude: -58.383,
     validFrom: new Date(Date.now() + 3600_000), validUntil: new Date(Date.now() + 7200_000), evidence: {} };
   const space = { id: "s1", name: "Plaza", status: "ENABLED", exposure: "OUTDOOR", latitude: -34.611, longitude: -58.383 };
-  const event = { id: "e1", title: "Feria", publicSpaceId: "s1", status: "ACTIVE", capacity: 10, requiresRegistration: true,
+  const event = { id: "e1", title: "Feria", category: "Juegos", publicSpaceId: "s1", status: "ACTIVE", capacity: 10, requiresRegistration: true,
     startDate: alert.validFrom, endDate: alert.validUntil, weatherRestrictions: [], publicSpace: { status: "ENABLED" }, _count: { registrations: 10 } };
   const tx = {
     weatherAlert: { findUnique: jest.fn().mockResolvedValue(alert) },
@@ -109,7 +109,8 @@ describe("Medidas climáticas manuales", () => {
         causaId: "a1",
         causaTipo: "EVENTO_CLIMATICO",
         modificadaEn: expect.any(Number),
-        actorSub: "admin-sub"
+        actorSub: "admin-sub",
+        tipoActividad: "RECREATIVO"
       });
       expect(rows[0].payload.modificadaEn).toBeGreaterThanOrEqual(before);
       expect(rows[0].occurredAt.getTime()).toBe(rows[0].payload.modificadaEn);
@@ -134,7 +135,8 @@ describe("Medidas climáticas manuales", () => {
         causaId: "a1",
         causaTipo: "EVENTO_CLIMATICO",
         modificadaEn: expect.any(Number),
-        actorSub: "admin-sub"
+        actorSub: "admin-sub",
+        tipoActividad: "RECREATIVO"
       });
       expect(bus.publish).toHaveBeenCalledTimes(1);
       expect(timeline).toEqual(["outbox:tx", "bus:despues"]);

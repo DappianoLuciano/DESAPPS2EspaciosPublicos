@@ -37,7 +37,7 @@ export class ChangeCommunityEventSuspensionUseCase {
       await this.snapshots?.publish([eventId]);
       await this.activityModified?.publish({
         activityId: eventId, previousStatus: event.status, newStatus: suspended.status,
-        reason: suspensionReason, cause: NO_CAUSE, modifiedAt: suspendedAt, actorSub
+        reason: suspensionReason, cause: NO_CAUSE, modifiedAt: suspendedAt, actorSub, category: event.category
       });
       return suspended;
     }
@@ -51,7 +51,7 @@ export class ChangeCommunityEventSuspensionUseCase {
     await this.snapshots?.publish([eventId]);
     await this.activityModified?.publish({
       activityId: eventId, previousStatus: event.status, newStatus: resumed.status,
-      reason: null, cause: NO_CAUSE, modifiedAt: resumedAt, actorSub
+      reason: null, cause: NO_CAUSE, modifiedAt: resumedAt, actorSub, category: event.category
     });
     return resumed;
   }

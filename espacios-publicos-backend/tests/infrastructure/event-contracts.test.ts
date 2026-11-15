@@ -76,7 +76,8 @@ describe("registro unificado de contratos EDA", () => {
     ActividadCreada: [
       ["masivo", "boolean"], ["tipoActividad", "string"], ["espacioId", "string"],
       ["organizadorId", "string"], ["createdAt", "string"]
-    ]
+    ],
+    ActividadModificada: [["tipoActividad", "string"]]
   };
 
   it.each(Object.entries(PARTE_2))("%s: los campos nuevos de la Parte 2 son nullable con default null y van al final", (name, added) => {
@@ -102,7 +103,8 @@ describe("registro unificado de contratos EDA", () => {
       { name: "causaId", type: ["null", "string"], default: null },
       { name: "causaTipo", type: ["null", "string"], default: null, doc: "EVENTO_CLIMATICO | RECLAMO | INCIDENTE_VIAL" },
       { name: "modificadaEn", type: { type: "long", logicalType: "timestamp-millis" } },
-      { name: "actorSub", type: ["null", "string"], default: null }
+      { name: "actorSub", type: ["null", "string"], default: null },
+      { name: "tipoActividad", type: ["null", "string"], default: null, doc: "CULTURAL | DEPORTIVO | RECREATIVO" }
     ]);
   });
 

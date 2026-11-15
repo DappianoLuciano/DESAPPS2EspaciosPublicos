@@ -4,6 +4,7 @@ import { DomainEvent } from "../../domain/entities/DomainEvent";
 import { EventOutboxRepository } from "../../domain/repositories/EventOutboxRepository";
 import { EventBus } from "../../domain/services/EventBus";
 import { eventNames } from "../../shared/events/eventTypes";
+import { mapCategoriaToTipoActividad } from "../../domain/services/tipoActividad";
 
 // Al ser un Record exhaustivo, un estado nuevo no compila hasta que se decida como viaja.
 export const ACTIVITY_STATES: Record<CommunityEventStatus, string> = {
@@ -26,6 +27,8 @@ export interface ActivityModification {
   cause: ActivityCause;
   modifiedAt: Date;
   actorSub?: string | null;
+  /** Categoria del evento comunitario; viaja mapeada como tipoActividad. Obligatoria para no olvidarla. */
+  category: string | null;
 }
 
 export const NO_CAUSE: ActivityCause = { causaTipo: null, causaId: null };
@@ -76,6 +79,7 @@ export function buildActivityModifiedPayload(input: ActivityModification): Recor
     causaId: input.cause.causaId,
     causaTipo: input.cause.causaTipo,
     modificadaEn: input.modifiedAt.getTime(),
-    actorSub: input.actorSub ?? null
+    actorSub: input.actorSub ?? null,
+    tipoActividad: mapCategoriaToTipoActividad(input.category)
   };
 }

@@ -128,7 +128,8 @@ export class PrismaWeatherRestrictionRepository implements WeatherRestrictionRep
       const suspendedAt = new Date();
       const activityEvents = suspendedEvents.map(event => buildActivityModifiedEvent({
         activityId: event.id, previousStatus: event.status, newStatus: "SUSPENDED",
-        reason, cause: weatherAlertCause(alertId), modifiedAt: suspendedAt, actorSub: appliedBy
+        reason, cause: weatherAlertCause(alertId), modifiedAt: suspendedAt, actorSub: appliedBy,
+        category: event.category ?? null
       }));
       await this.saveInOutbox(tx, activityEvents);
       const affectations = newSpaceRestrictions.map((row): PublicSpaceAffectation => ({
@@ -175,7 +176,8 @@ export class PrismaWeatherRestrictionRepository implements WeatherRestrictionRep
           resumed.push(eventId);
           activityEvents.push(buildActivityModifiedEvent({
             activityId: eventId, previousStatus: event.status, newStatus: status,
-            reason: null, cause: weatherAlertCause(alertId), modifiedAt: resumedAt, actorSub: releasedBy
+            reason: null, cause: weatherAlertCause(alertId), modifiedAt: resumedAt, actorSub: releasedBy,
+            category: event.category
           }));
         }
       }

@@ -54,6 +54,9 @@ maneja el outbox (ver `eventos-cu-int-01.md`):
 | `causaTipo` | `["null","string"]`, default `null` | `EVENTO_CLIMATICO`, `RECLAMO` o `INCIDENTE_VIAL` |
 | `modificadaEn` | `long` (`timestamp-millis`) | momento del cambio (`date.getTime()`, no ISO) |
 | `actorSub` | `["null","string"]`, default `null` | `sub` del token del admin que hizo la accion; `null` si no hay |
+| `tipoActividad` | `["null","string"]`, default `null` | Contrato Parte 2: `CULTURAL`, `DEPORTIVO` o `RECREATIVO`, mapeado desde la categoria del evento con `mapCategoriaToTipoActividad` (ver `eventos-squad-3.md`); `null` si la categoria no se reconoce. Se manda en los cinco origenes de la tabla de arriba |
+
+`tipoActividad` se agrego al final del record como opcional, para que la evolucion sea compatible.
 
 ### Mapeo de estados
 

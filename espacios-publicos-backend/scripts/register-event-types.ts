@@ -113,7 +113,9 @@ const spacesDefinitions: EventTypeDefinition[] = [
     { name: "causaId", type: nullable("string"), default: null },
     { name: "causaTipo", type: nullable("string"), default: null, doc: "EVENTO_CLIMATICO | RECLAMO | INCIDENTE_VIAL" },
     { name: "modificadaEn", type: { type: "long", logicalType: "timestamp-millis" } },
-    { name: "actorSub", type: nullable("string"), default: null }
+    { name: "actorSub", type: nullable("string"), default: null },
+    // Contrato Parte 2 de Analitica: opcional y al final para que la evolucion sea compatible.
+    { name: "tipoActividad", type: nullable("string"), default: null, doc: "CULTURAL | DEPORTIVO | RECREATIVO" }
   ]),
   record("EventoCancelado", "Un administrador cancelo un evento comunitario.", [
     { name: "eventoId", type: "string" },

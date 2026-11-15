@@ -2,7 +2,7 @@ import { WeatherAlert } from "../entities/WeatherAlert";
 import { resolveWeatherNeighborhoods } from "./resolveWeatherNeighborhoods";
 
 export type ImpactSpace = { id: string; name: string; zone?: string; status: string; exposure?: string; latitude?: number | null; longitude?: number | null };
-export type ImpactEvent = { id: string; title: string; publicSpaceId: string; status: string; startDate: Date; endDate: Date; weatherRestrictions?: { alertId: string; releasedAt: Date | null }[] };
+export type ImpactEvent = { id: string; title: string; publicSpaceId: string; status: string; startDate: Date; endDate: Date; category?: string | null; weatherRestrictions?: { alertId: string; releasedAt: Date | null }[] };
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
 
 export function weatherImpactCandidates(alert: WeatherAlert, spaces: ImpactSpace[], events: ImpactEvent[], now = new Date()) {

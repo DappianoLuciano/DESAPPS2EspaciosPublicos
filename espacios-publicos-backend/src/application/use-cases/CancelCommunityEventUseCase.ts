@@ -106,7 +106,8 @@ export class CancelCommunityEventUseCase {
         reason: cancellationReason,
         cause,
         modifiedAt: cancelledAt,
-        actorSub: options.actorSub
+        actorSub: options.actorSub,
+        category: communityEvent.category
       }),
       occurredAt: cancelledAt
     };
