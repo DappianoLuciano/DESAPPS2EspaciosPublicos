@@ -39,6 +39,32 @@ bus, asi que los reintentos los maneja el outbox (ver `eventos-cu-int-01.md`).
   obligatorio, pedido por Analitica. Desde que se registro, el gateway rechaza con 400 cualquier
   `ActividadCreada` sin ese campo. Quien consuma `ActividadCreada` tiene que suscribirse a la v3.
 
+### Tambien al reservar un espacio
+
+`ActividadCreada` tambien se publica cuando un ciudadano confirma la reserva de un espacio
+(`POST /api/reservations`, `RequestReservationUseCase`). Sale despues de `ReservaConfirmada`,
+`ReservaCreada` y `ReservaActualizada`, que no cambian, con el mismo patron de outbox. El payload lo arma
+`buildActivityCreatedFromReservation`:
+
+| Campo | Valor en una reserva |
+| --- | --- |
+| `actividadId` | el `reservaId`. Asi se cruza con `ReservaCreada` y se evita el doble conteo |
+| `correlationId` | `"act-" + reservaId` |
+| `titulo` | `"Reserva de <nombre del espacio>"` |
+| `estado` | `"PROGRAMADA"` |
+| `capacidad` | cantidad estimada de asistentes de la reserva |
+| `fechaHoraInicio` / `fechaHoraFinalizacion` | inicio y fin de la reserva, en `timestamp-millis` |
+| `ubicacion`, `direccion`, `espacioNombre` | los del espacio reservado |
+| `actorSub` | `sub` del ciudadano que reservo (lo completa el controller con `request.user.id`), o `null` |
+| `categoria` | `null` |
+| `organizadorTipo` | `"CIUDADANO"` |
+
+- No viaja el nombre ni el email del solicitante, ni otro dato personal.
+- **No se publica si el espacio no tiene coordenadas**: la v3 exige `ubicacion`. Se loguea un warning y la
+  reserva y sus otros eventos salen igual.
+- Si falla la publicacion, la reserva no falla: el evento queda en `event_outbox` para reintento.
+- **No hubo cambio de schema**: sigue la v3 (schemaId 91). No hay que registrar nada en el gateway.
+
 ## Demo
 
 `prisma/seed.js` agrega el espacio **Plaza Houssay** (`seed-space-plaza-houssay`, Av. Córdoba 2100,
