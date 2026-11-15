@@ -1,4 +1,46 @@
 import { definitions } from "../../scripts/register-event-types";
+import {
+  buildActivityCreatedFromReservation,
+  buildActivityCreatedPayload
+} from "../../src/application/use-cases/CreateCommunityEventUseCase";
+import { avroErrors } from "../helpers/avroValidate";
+
+describe("payloads de ActividadCreada contra el schema v3 registrado", () => {
+  // La definicion local es la v3 registrada (schemaId 91); este PR no la cambia.
+  const v3 = definitions.find(item => item.name === "ActividadCreada")!;
+  const space = {
+    id: "space-1", name: "Plaza Houssay", description: "", address: "Av. Córdoba 2100", capacity: 6000,
+    latitude: -34.5994, longitude: -58.3988, status: "ENABLED" as const, createdAt: new Date()
+  };
+  const start = new Date("2026-11-20T15:00:00.000Z");
+  const end = new Date("2026-11-20T18:00:00.000Z");
+  const reservation = {
+    id: "res-1", publicSpaceId: "space-1", requesterName: "Ana Perez", requesterEmail: "ana@test.com",
+    estimatedAttendees: 80, startDate: start, endDate: end, status: "CONFIRMED" as const, createdAt: new Date()
+  };
+
+  it("la reserva de un espacio valida contra la v3, con y sin actorSub", () => {
+    expect(avroErrors(v3, buildActivityCreatedFromReservation(reservation, space, "sub-ciudadano"))).toEqual([]);
+    expect(avroErrors(v3, buildActivityCreatedFromReservation(reservation, space, null))).toEqual([]);
+  });
+
+  it("el evento comunitario sigue validando contra la v3", () => {
+    const communityEvent = {
+      id: "event-1", title: "Festival", category: "Música", tags: [], description: "", requirements: [],
+      publicSpaceId: "space-1", organizerName: "Comuna", capacity: 5000, requiresRegistration: false,
+      startDate: start, endDate: end, status: "ACTIVE" as const, createdAt: new Date()
+    };
+    expect(avroErrors(v3, buildActivityCreatedPayload(communityEvent, space, "sub-admin"))).toEqual([]);
+  });
+
+  it("el validador es estricto: rechaza campos extra, tipos incorrectos y faltantes", () => {
+    const payload = buildActivityCreatedFromReservation(reservation, space, "sub-ciudadano");
+    expect(avroErrors(v3, { ...payload, masivo: true })).toEqual(["$.masivo: campo no declarado"]);
+    expect(avroErrors(v3, { ...payload, fechaHoraInicio: start.toISOString() })).toHaveLength(1);
+    const { organizadorTipo: _omitted, ...withoutOrganizer } = payload;
+    expect(avroErrors(v3, withoutOrganizer)).toEqual(["$.organizadorTipo: falta el campo obligatorio"]);
+  });
+});
 
 describe("registro unificado de contratos EDA", () => {
   it("conserva los contratos, sin duplicar el catalogo climatico", () => {
