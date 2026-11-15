@@ -196,6 +196,24 @@ npm run eda:register-events -- --update-compatible
   registrado difiere del local" y deja de procesar los contratos que siguen.
 - Quienes consuman `ActividadModificada` necesitan su propia suscripcion en el gateway.
 
+### Contrato Parte 2 de Analitica
+
+`ActividadCreada` (`masivo`, `tipoActividad`, `espacioId`, `organizadorId`, `createdAt`),
+`ActividadModificada` (`tipoActividad`) y `CriticidadClimaticaConfirmada` (`correlationId`, `occurredAt`,
+`descripcion`) suman campos nuevos al final del record, todos `["null", tipo]` con default `null`. No
+cambia ningun nombre de evento ni de campo, ni el formato de las fechas que ya existian.
+
+Como esos tres contratos ya estan registrados, **hay que correr**:
+
+```bash
+npm run eda:register-events -- --update-compatible
+```
+
+antes de desplegar el backend: sin el flag, el script corta con "El esquema registrado difiere del local".
+Si el gateway toma la evolucion como una version nueva y crea un topico `.vN` (como paso con
+`ActividadCreada.v2` y `.v3`), los consumidores tienen que suscribirse a esa version: las suscripciones al
+topico anterior dejan de recibir eventos.
+
 ## Tablero de Analítica embebido en el admin
 
 Analítica (Grupo 8) arma un tablero HTML por módulo con los indicadores que calcula a partir de nuestros eventos
