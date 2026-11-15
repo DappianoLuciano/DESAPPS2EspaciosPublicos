@@ -48,18 +48,48 @@ El payload confirmado contiene solamente datos de negocio:
   "barrios": ["BELGRANO", "SAN NICOLAS"],
   "vigenciaDesde": 1792594800000,
   "vigenciaHasta": 1792616400000,
-  "actorSub": "admin-1"
+  "temperaturaMinC": null,
+  "temperaturaMaxC": null,
+  "actorSub": "admin-1",
+  "correlationId": "alerta-uuid",
+  "occurredAt": "2026-10-20T13:05:12.345Z",
+  "descripcion": "Tormenta fuerte en CABA"
 }
 ```
 
 `eventId`, `source`, `receivedAt`, `schemaId` y `payloadHash` no se envian: los agrega el gateway.
+
+### Campos del contrato Parte 2 de Analitica
+
+Se agregaron al final del record como `["null","string"]` con default `null`, asi que la evolucion es
+compatible y los campos existentes no cambian (`vigenciaDesde` y `vigenciaHasta` siguen en
+`timestamp-millis`). El codigo los manda siempre.
+
+| Campo | Tipo Avro | Origen |
+| --- | --- | --- |
+| `correlationId` | `["null","string"]`, default `null` | `"alerta-" + alertaId` |
+| `occurredAt` | `["null","string"]`, default `null` | momento de la confirmacion, ISO-8601 UTC. Es el mismo instante que se guarda como `confirmedAt` de la alerta |
+| `descripcion` | `["null","string"]`, default `null` | fenomeno y zona de la alerta, por ejemplo `"Tormenta fuerte en Palermo"`; sin zona, solo el fenomeno |
+
+Textos de `fenomeno` en `descripcion` (`WEATHER_PHENOMENON_LABELS`, los mismos que muestra el panel):
+`TORMENTA_FUERTE` Tormenta fuerte, `LLUVIA_INTENSA` Lluvia intensa, `VIENTO_FUERTE` Viento fuerte,
+`OLA_DE_CALOR` Ola de calor, `OLA_DE_FRIO` Ola de frío, `GRANIZO` Granizo, `TORMENTA_ELECTRICA` Tormenta
+eléctrica, `HURACAN` Huracán, `NIEVE` Nieve.
+
+**No se manda `radioAfectacionKm`.** No tenemos el dato, y en el contrato de Analitica `null` significa
+"toda la ciudad", asi que mandarlo en `null` seria incorrecto.
+
+Para registrar la evolucion: `npm run eda:register-events -- --update-compatible` (o
+`npm run eda:register-weather -- --update-compatible`). Si el gateway crea un topico nuevo (`.vN`), los
+consumidores tienen que suscribirse a esa version.
 
 ### Acuerdo para los consumidores
 
 - Confirmación incluye `ubicaciones: [{latitud, longitud}]` y `vigenciaDesde`.
   No representan un polígono ni radio de afectación. `barrios` enumera los barrios
   que contienen esos puntos usando polígonos oficiales, no los barrios vecinos de la tormenta.
-  La zona interna se conserva para las reglas actuales de reservas, pero no se envía al gateway.
+  La zona interna se conserva para las reglas actuales de reservas. Solo viaja como texto dentro de
+  `descripcion`, no como un campo propio.
 - Configurar `WEATHER_LOCATIONS` como un array JSON de objetos `latitude/longitude`
   para consultar múltiples puntos en una petición. Sin esa variable se mantiene el punto configurado.
   Se agrupan solo puntos con igual fenómeno, nivel sugerido y período exacto.

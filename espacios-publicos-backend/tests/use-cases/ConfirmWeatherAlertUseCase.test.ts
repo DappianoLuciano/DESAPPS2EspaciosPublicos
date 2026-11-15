@@ -2,6 +2,7 @@ import { ConfirmWeatherAlertUseCase } from "../../src/application/use-cases/Conf
 import { PublishPendingOutboxEventsUseCase } from "../../src/application/use-cases/PublishPendingOutboxEventsUseCase";
 import { WeatherAlert } from "../../src/domain/entities/WeatherAlert";
 import { WeatherAlertRepository } from "../../src/domain/repositories/WeatherAlertRepository";
+import { describeWeatherAlert, WEATHER_PHENOMENON_LABELS } from "../../src/domain/services/weatherDescription";
 
 const current: WeatherAlert = {
   id: "alert-1",
@@ -69,8 +70,29 @@ describe("ConfirmWeatherAlertUseCase", () => {
       vigenciaHasta: validUntil.getTime(),
       temperaturaMinC: null,
       temperaturaMaxC: null,
-      actorSub: "admin-espacios"
+      actorSub: "admin-espacios",
+      correlationId: "alerta-alert-1",
+      occurredAt: event.occurredAt.toISOString(),
+      descripcion: "Tormenta fuerte en CABA"
     });
+    expect(event.payload).not.toHaveProperty("radioAfectacionKm");
+    expect(event.payload.occurredAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
     expect(result.delivery).toEqual({ processed: 1, published: 1, failed: 0 });
+  });
+});
+
+describe("descripcion de CriticidadClimaticaConfirmada", () => {
+  it.each([
+    ["TORMENTA_FUERTE", "Tormenta fuerte"], ["LLUVIA_INTENSA", "Lluvia intensa"], ["VIENTO_FUERTE", "Viento fuerte"],
+    ["OLA_DE_CALOR", "Ola de calor"], ["OLA_DE_FRIO", "Ola de frío"], ["GRANIZO", "Granizo"],
+    ["TORMENTA_ELECTRICA", "Tormenta eléctrica"], ["HURACAN", "Huracán"], ["NIEVE", "Nieve"]
+  ] as const)("%s se lee como %s", (phenomenon, label) => {
+    expect(WEATHER_PHENOMENON_LABELS[phenomenon]).toBe(label);
+    expect(describeWeatherAlert(phenomenon, "Palermo")).toBe(`${label} en Palermo`);
+  });
+
+  it("sin zona describe solo el fenomeno", () => {
+    expect(describeWeatherAlert("GRANIZO", "  ")).toBe("Granizo");
+    expect(describeWeatherAlert("GRANIZO", null)).toBe("Granizo");
   });
 });

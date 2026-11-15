@@ -77,7 +77,8 @@ describe("registro unificado de contratos EDA", () => {
       ["masivo", "boolean"], ["tipoActividad", "string"], ["espacioId", "string"],
       ["organizadorId", "string"], ["createdAt", "string"]
     ],
-    ActividadModificada: [["tipoActividad", "string"]]
+    ActividadModificada: [["tipoActividad", "string"]],
+    CriticidadClimaticaConfirmada: [["correlationId", "string"], ["occurredAt", "string"], ["descripcion", "string"]]
   };
 
   it.each(Object.entries(PARTE_2))("%s: los campos nuevos de la Parte 2 son nullable con default null y van al final", (name, added) => {
@@ -106,6 +107,11 @@ describe("registro unificado de contratos EDA", () => {
       { name: "actorSub", type: ["null", "string"], default: null },
       { name: "tipoActividad", type: ["null", "string"], default: null, doc: "CULTURAL | DEPORTIVO | RECREATIVO" }
     ]);
+  });
+
+  it("CriticidadClimaticaConfirmada no manda radioAfectacionKm (null significa toda la ciudad)", () => {
+    const confirmed = definitions.find(item => item.name === "CriticidadClimaticaConfirmada")!;
+    expect(confirmed.fields.map(field => field.name)).not.toContain("radioAfectacionKm");
   });
 
   it("incluye barrios y temperaturas en el unico contrato de confirmacion", () => {

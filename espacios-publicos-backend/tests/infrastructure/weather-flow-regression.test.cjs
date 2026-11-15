@@ -61,6 +61,9 @@ test("confirmacion incluye barrios calculados, no inferidos de un nombre arbitra
     validUntil: new Date(now + 3600000).toISOString() });
   assert.deepEqual(event.payload.barrios, ["SAN NICOLAS"]);
   assert.equal(event.payload.alertaId, "test");
+  assert.equal(event.payload.correlationId, "alerta-test");
+  assert.equal(event.payload.occurredAt, event.occurredAt.toISOString());
+  assert.equal(event.payload.descripcion, "Ola de calor");
 });
 
 test("el ciclo EDA solo selecciona vencidas confirmadas para ese canal", async () => {

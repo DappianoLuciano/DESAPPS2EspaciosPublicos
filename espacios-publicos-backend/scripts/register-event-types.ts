@@ -50,7 +50,11 @@ const weatherDefinitions: EventTypeDefinition[] = [
     { name: "vigenciaHasta", type: { type: "long", logicalType: "timestamp-millis" } },
     { name: "temperaturaMinC", type: nullable("double"), default: null },
     { name: "temperaturaMaxC", type: nullable("double"), default: null },
-    { name: "actorSub", type: "string" }
+    { name: "actorSub", type: "string" },
+    // Contrato Parte 2 de Analitica: opcionales y al final para que la evolucion sea compatible.
+    { name: "correlationId", type: nullable("string"), default: null, doc: "alerta-<alertaId>" },
+    { name: "occurredAt", type: nullable("string"), default: null, doc: "ISO 8601 UTC, momento de la confirmacion" },
+    { name: "descripcion", type: nullable("string"), default: null, doc: "Fenomeno y zona, p. ej. Tormenta fuerte en Palermo" }
   ]),
   record("CriticidadClimaticaFinalizada", "Una alerta climatica confirmada termino.", [
     { name: "alertaId", type: "string" },

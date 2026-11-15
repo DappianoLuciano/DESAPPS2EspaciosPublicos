@@ -6,6 +6,7 @@ import { NotFoundError } from "../../shared/errors/NotFoundError";
 import { ValidationError } from "../../shared/errors/ValidationError";
 import { requireText } from "../../shared/validation/inputValidation";
 import { resolveWeatherNeighborhoods } from "../../domain/services/resolveWeatherNeighborhoods";
+import { describeWeatherAlert } from "../../domain/services/weatherDescription";
 import { PublishPendingOutboxEventsUseCase } from "./PublishPendingOutboxEventsUseCase";
 
 const validCriticalities: WeatherCriticality[] = ["BAJA", "MEDIA", "ALTA", "CRITICA"];
@@ -39,6 +40,7 @@ export class ConfirmWeatherAlertUseCase {
     if (validUntil <= current.validFrom) {
       throw new ValidationError("La vigencia debe terminar despues del inicio del riesgo detectado.");
     }
+    // Es tambien el confirmedAt que guarda el repositorio (confirmWithEvent usa event.occurredAt).
     const occurredAt = new Date();
     const event: DomainEvent = {
       id: randomUUID(),
@@ -57,7 +59,12 @@ export class ConfirmWeatherAlertUseCase {
         vigenciaHasta: validUntil.getTime(),
         temperaturaMinC: current.evidence.temperatureMinC ?? null,
         temperaturaMaxC: current.evidence.temperatureMaxC ?? null,
-        actorSub
+        actorSub,
+        // Contrato Parte 2 de Analitica. No se manda radioAfectacionKm: no hay dato y en el contrato
+        // null significa "toda la ciudad".
+        correlationId: `alerta-${current.id}`,
+        occurredAt: occurredAt.toISOString(),
+        descripcion: describeWeatherAlert(current.phenomenon, current.zone)
       },
       occurredAt
     };
