@@ -72,6 +72,12 @@ enum OutboxStatus {
   FAILED
 }
 
+enum TowInterventionStatus {
+  PENDING
+  TOW_REQUESTED
+  COMPLETED
+}
+
 enum UserRole {
   CITIZEN
   MUNICIPAL_ADMIN
@@ -262,6 +268,34 @@ model InboundEvent {
   receivedAt DateTime @default(now())
 
   @@map("inbound_events")
+}
+
+// Intervenciones evaluadas por Movilidad. Se persisten porque el webhook puede
+// ejecutarse en una instancia distinta de la que atiende el panel administrativo.
+model TowIntervention {
+  id                            String                @id @default(uuid())
+  reclamoId                     String                @unique
+  correlationId                 String
+  latitud                       Float
+  longitud                      Float
+  direccion                     String
+  barrio                        String
+  afectaCiclovia                Boolean
+  estacionesAfectadasIds        Int[]                 @default([])
+  impactoCirculacion            String
+  desvioSugerido                String
+  requiereIntervencionInmediata Boolean
+  requiereGrua                  Boolean
+  patente                       String?
+  status                        TowInterventionStatus @default(PENDING)
+  evaluadoAt                    DateTime
+  solicitadoAt                  DateTime?
+  resueltoAt                    DateTime?
+  createdAt                     DateTime              @default(now())
+  updatedAt                     DateTime              @updatedAt
+
+  @@index([status, updatedAt])
+  @@map("tow_interventions")
 }
 
 // Un incidente ya avisado para un evento no se vuelve a avisar, aunque llegue

@@ -128,10 +128,9 @@ export class CreateCommunityEventUseCase {
     });
 
     // Recien creado: todavia no hay inscriptos.
-    const event = buildCommunityEventPublishedEvent(communityEvent, publicSpace, 0);
-
-    await this.eventOutboxRepository.save(event);
-    await this.eventBus.publish(event);
+    const publishedEvent = buildCommunityEventPublishedEvent(communityEvent, publicSpace, 0);
+    await this.eventOutboxRepository.save(publishedEvent);
+    await this.eventBus.publish(publishedEvent);
 
     // E1 del squad 3: se publica ademas de EventoComunitarioPublicado, con el mismo patron.
     const activityCreated: DomainEvent = {
