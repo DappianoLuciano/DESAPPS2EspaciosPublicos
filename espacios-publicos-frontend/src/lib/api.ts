@@ -740,13 +740,14 @@ export function getEventRoutePlan(
 // Movilidad elige la estacion de retiro segun la ubicacion del ciudadano. La consulta el navegador y no nuestro
 // backend, porque los backends de los modulos solo se comunican por eventos.
 const MOBILITY_API_URL = (
-  import.meta.env.VITE_MOBILITY_API_URL?.trim() || 'https://daii-grupo-8-backend-m4uf.onrender.com'
+  import.meta.env.VITE_MOBILITY_API_URL?.trim() || 'https://movilidad-backend.onrender.com'
 ).replace(/\/+$/, '');
 // Movilidad corre en Render y puede estar dormido: no se espera mas que esto.
 const PICKUP_TIMEOUT_MS = 8_000;
 
 export type PickupLookup =
-  | { kind: 'station'; station: PickupStation }
+  // message: la explicacion de Movilidad (por ejemplo, por que no es la estacion mas cercana).
+  | { kind: 'station'; station: PickupStation; message: string | null }
   | { kind: 'none'; message: string }
   | { kind: 'unavailable' };
 
@@ -776,6 +777,7 @@ export async function findPickupStation(from: { latitude: number; longitude: num
           longitude,
           availableBikes: typeof body.station.availableBikes === 'number' ? body.station.availableBikes : null,
         },
+        message: body.message?.trim() || null,
       };
     }
 
@@ -954,6 +956,18 @@ export interface IntegrationOverview {
     byName: Array<{ name: string; published: number; pending: number; failed: number; lastCreatedAt: string | null }>;
     problems: Array<{ id: string; name: string; status: 'PENDING' | 'FAILED'; attempts: number; lastError: string | null; createdAt: string }>;
   };
+  metrics: IntegrationMetrics;
+}
+
+export interface IntegrationMetrics {
+  windowDays: number;
+  published: { current: number; previous: number };
+  received: { current: number; previous: number };
+  delivery: { rate: number | null; published: number; failed: number; pending: number; recoveredByRetry: number };
+  latencySeconds: { median: number | null; p95: number | null };
+  receivedByModule: Array<{ module: string; count: number }>;
+  mobility: { upcoming: number; withRecommendation: number; fresh: number; coverage: number | null };
+  daily: Array<{ date: string; published: number; received: number }>;
 }
 
 export function getIntegrationOverview() {

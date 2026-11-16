@@ -1,4 +1,46 @@
 import { definitions } from "../../scripts/register-event-types";
+import {
+  buildActivityCreatedFromReservation,
+  buildActivityCreatedPayload
+} from "../../src/application/use-cases/CreateCommunityEventUseCase";
+import { avroErrors } from "../helpers/avroValidate";
+
+describe("payloads de ActividadCreada contra el schema v3 registrado", () => {
+  // La definicion local es la v3 registrada (schemaId 91); este PR no la cambia.
+  const v3 = definitions.find(item => item.name === "ActividadCreada")!;
+  const space = {
+    id: "space-1", name: "Plaza Houssay", description: "", address: "Av. Córdoba 2100", capacity: 6000,
+    latitude: -34.5994, longitude: -58.3988, status: "ENABLED" as const, createdAt: new Date()
+  };
+  const start = new Date("2026-11-20T15:00:00.000Z");
+  const end = new Date("2026-11-20T18:00:00.000Z");
+  const reservation = {
+    id: "res-1", publicSpaceId: "space-1", requesterName: "Ana Perez", requesterEmail: "ana@test.com",
+    estimatedAttendees: 80, startDate: start, endDate: end, status: "CONFIRMED" as const, createdAt: new Date()
+  };
+
+  it("la reserva de un espacio valida contra la v3, con y sin actorSub", () => {
+    expect(avroErrors(v3, buildActivityCreatedFromReservation(reservation, space, "sub-ciudadano"))).toEqual([]);
+    expect(avroErrors(v3, buildActivityCreatedFromReservation(reservation, space, null))).toEqual([]);
+  });
+
+  it("el evento comunitario sigue validando contra la v3", () => {
+    const communityEvent = {
+      id: "event-1", title: "Festival", category: "Música", tags: [], description: "", requirements: [],
+      publicSpaceId: "space-1", organizerName: "Comuna", capacity: 5000, requiresRegistration: false,
+      startDate: start, endDate: end, status: "ACTIVE" as const, createdAt: new Date()
+    };
+    expect(avroErrors(v3, buildActivityCreatedPayload(communityEvent, space, "sub-admin"))).toEqual([]);
+  });
+
+  it("el validador es estricto: rechaza campos extra, tipos incorrectos y faltantes", () => {
+    const payload = buildActivityCreatedFromReservation(reservation, space, "sub-ciudadano");
+    expect(avroErrors(v3, { ...payload, masivo: true })).toEqual(["$.masivo: campo no declarado"]);
+    expect(avroErrors(v3, { ...payload, fechaHoraInicio: start.toISOString() })).toHaveLength(1);
+    const { organizadorTipo: _omitted, ...withoutOrganizer } = payload;
+    expect(avroErrors(v3, withoutOrganizer)).toEqual(["$.organizadorTipo: falta el campo obligatorio"]);
+  });
+});
 
 describe("registro unificado de contratos EDA", () => {
   it("conserva los contratos, sin duplicar el catalogo climatico", () => {
@@ -6,6 +48,7 @@ describe("registro unificado de contratos EDA", () => {
       "CriticidadClimaticaConfirmada", "CriticidadClimaticaFinalizada",
       "EventoComunitarioPublicado", "ActividadCreada", "ActividadModificada", "EventoCancelado",
       "EspacioEstadoCambiado", "EspacioPublicoAfectado", "EspacioPublicoRestaurado", "ReservaConfirmada",
+      "ReservaCreada", "ReservaActualizada",
       "ReservaAfectada", "EspacioLiberado", "ProblematicaRegistrada", "IntervencionFinalizada"
     ]);
   });
@@ -48,7 +91,7 @@ describe("registro unificado de contratos EDA", () => {
     const actividad = definitions.find(item => item.name === "ActividadCreada")!;
     expect(actividad.fields.map(field => field.name)).toEqual([
       "correlationId", "actividadId", "titulo", "estado", "capacidad", "fechaHoraInicio",
-      "fechaHoraFinalizacion", "ubicacion", "direccion", "espacioNombre", "actorSub", "categoria"
+      "fechaHoraFinalizacion", "ubicacion", "direccion", "espacioNombre", "actorSub", "categoria", "organizadorTipo"
     ]);
     expect(actividad.fields).toContainEqual({ name: "actorSub", type: ["null", "string"], default: null });
   });
@@ -60,7 +103,12 @@ describe("registro unificado de contratos EDA", () => {
 
   it("agrega categoria a ActividadCreada como opcional, para ser compatible hacia atras", () => {
     const actividad = definitions.find(item => item.name === "ActividadCreada")!;
-    expect(actividad.fields.at(-1)).toEqual({ name: "categoria", type: ["null", "string"], default: null });
+    expect(actividad.fields).toContainEqual({ name: "categoria", type: ["null", "string"], default: null });
+  });
+
+  it("ActividadCreada v3 exige organizadorTipo, igual que el contrato registrado en EDA", () => {
+    const actividad = definitions.find(item => item.name === "ActividadCreada")!;
+    expect(actividad.fields.at(-1)).toEqual({ name: "organizadorTipo", type: "string", doc: "CIUDAD | CIUDADANO" });
   });
 
   it("registra ActividadModificada con el contrato exacto pedido por Analitica", () => {

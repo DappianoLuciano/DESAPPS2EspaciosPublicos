@@ -2,25 +2,58 @@
 
 ## `com.citypass.espacios.ActividadModificada`
 
-Se publica al cancelar un evento comunitario (`PATCH /api/community-events/:id/cancel`), desde
-`CancelCommunityEventUseCase`. El FQN se puede sobrescribir con `ACTIVITY_MODIFIED_EVENT_FQN`.
+Se publica cada vez que una actividad (evento comunitario) cambia de estado. El payload lo arma
+`buildActivityModifiedPayload` (`src/application/events/activityModified.ts`). El FQN se puede
+sobrescribir con `ACTIVITY_MODIFIED_EVENT_FQN`. Lo consumen Analitica y Reclamos: con `CANCELADA` o
+`SUSPENDIDA`, Reclamos deja de relacionar reclamos nuevos de la zona con la actividad, y con
+`PROGRAMADA` vuelve a hacerlo.
 
-**Convive con `EventoCancelado`** (CU-INT-01): ese evento no cambia y se sigue publicando primero.
-Los dos se guardan en `event_outbox` y se publican por el bus, asi que los reintentos los maneja el
-outbox (ver `eventos-cu-int-01.md`). Comparten el instante de la cancelacion, pero cada uno tiene su
-propio id de evento.
+### Cuando se publica
+
+| Accion | Origen | `estadoAnterior` → `estadoNuevo` | `motivo` | Causa |
+| --- | --- | --- | --- | --- |
+| Cancelar (`PATCH /api/community-events/:id/cancel`) | `CancelCommunityEventUseCase` | estado real → `CANCELADA` | `reason` del body | la del body (opcional, ver abajo) |
+| Suspender a mano (`PATCH /:id/suspend`) | `ChangeCommunityEventSuspensionUseCase` | `PROGRAMADA` → `SUSPENDIDA` | `reason` del body | `null` |
+| Reanudar a mano (`PATCH /:id/resume`) | `ChangeCommunityEventSuspensionUseCase` | `SUSPENDIDA` → `PROGRAMADA` | `null` | `null` |
+| Aplicar medidas de una alerta (`POST /api/admin/weather-alerts/:id/restrictions`) | `PrismaWeatherRestrictionRepository.apply` | `PROGRAMADA` → `SUSPENDIDA` | `reason` de las medidas | `EVENTO_CLIMATICO` + id de la alerta |
+| Levantar las medidas (`POST .../restrictions/release`) | `PrismaWeatherRestrictionRepository.release` | `SUSPENDIDA` → `PROGRAMADA` | `null` | `EVENTO_CLIMATICO` + id de la alerta |
+
+**Solo cuando el estado cambia.** No se publica nada si la accion no cambia el estado de la actividad:
+
+- Aplicar medidas a un evento que ya estaba suspendido por otra alerta (la medida se registra igual).
+- Levantar medidas de un evento que sigue suspendido: por otra alerta todavia activa, porque el espacio
+  esta deshabilitado, porque el evento ya termino o porque fue cancelado.
+- Medidas que solo afectan espacios, sin eventos seleccionados.
+- Una operacion rechazada (validacion, evento inexistente o estado cambiado mientras tanto).
+
+En las medidas climaticas se publica un evento por actividad que cambio, todos con el mismo
+`modificadaEn` (el instante de la operacion).
+
+**Convive con otros eventos.** La cancelacion publica primero `EventoCancelado` (CU-INT-01), que no
+cambia. La suspension y la reanudacion, manuales o por medidas, siguen publicando el snapshot de
+`EventoComunitarioPublicado` para Movilidad. Cada evento tiene su propio id. El orden entre ellos no
+esta garantizado (el bus no lo asegura) y los consumidores no lo asumen.
+
+**Outbox.** Todos se guardan en `event_outbox` y se publican por el bus, asi que los reintentos los
+maneja el outbox (ver `eventos-cu-int-01.md`):
+
+- Cancelacion y suspension/reanudacion manual: se guarda la fila y se publica enseguida, como el resto
+  de los casos de uso.
+- Medidas climaticas: la fila se guarda dentro de la transaccion `Serializable` que cambia los estados
+  (si la transaccion falla, no queda nada) y se publica en el bus despues del commit. Si esa
+  publicacion falla, el worker del outbox la reintenta.
 
 | Campo | Tipo Avro | Origen |
 | --- | --- | --- |
 | `correlationId` | `string` | `"act-" + actividadId` |
 | `actividadId` | `string` | id del evento comunitario |
-| `estadoAnterior` | `string` | estado antes de cancelar, mapeado |
-| `estadoNuevo` | `string` | `PROGRAMADA`, `SUSPENDIDA` o `CANCELADA`; hoy siempre `CANCELADA` |
-| `motivo` | `["null","string"]`, default `null` | `reason` del body, igual que en `EventoCancelado` |
-| `causaId` | `["null","string"]`, default `null` | `causaId` del body |
-| `causaTipo` | `["null","string"]`, default `null` | `causaTipo` del body: `EVENTO_CLIMATICO`, `RECLAMO` o `INCIDENTE_VIAL` |
-| `modificadaEn` | `long` (`timestamp-millis`) | momento de la cancelacion (`date.getTime()`, no ISO) |
-| `actorSub` | `["null","string"]`, default `null` | `sub` del token de quien cancela |
+| `estadoAnterior` | `string` | estado real antes del cambio, mapeado |
+| `estadoNuevo` | `string` | `PROGRAMADA`, `SUSPENDIDA` o `CANCELADA` |
+| `motivo` | `["null","string"]`, default `null` | ver tabla de arriba |
+| `causaId` | `["null","string"]`, default `null` | ver tabla de arriba |
+| `causaTipo` | `["null","string"]`, default `null` | `EVENTO_CLIMATICO`, `RECLAMO` o `INCIDENTE_VIAL` |
+| `modificadaEn` | `long` (`timestamp-millis`) | momento del cambio (`date.getTime()`, no ISO) |
+| `actorSub` | `["null","string"]`, default `null` | `sub` del token del admin que hizo la accion; `null` si no hay |
 
 ### Mapeo de estados
 
@@ -36,7 +69,15 @@ compila hasta sumarlo.
 
 ### Causa
 
-El endpoint acepta `causaTipo` y `causaId` opcionales en el body:
+**Automatica por alerta.** Cuando la suspension o la reanudacion vienen de las medidas de una alerta
+climatica, la causa la pone el backend: `causaTipo = "EVENTO_CLIMATICO"` y `causaId` = id de la alerta
+(el mismo `alertaId` de `CriticidadClimaticaConfirmada`). Es la misma alerta al suspender y al
+reanudar, asi que se puede unir con ese id.
+
+**Manual (suspender y reanudar).** Los endpoints `/suspend` y `/resume` no reciben causa: viaja en
+`null`.
+
+**Cancelacion.** El endpoint de cancelacion acepta `causaTipo` y `causaId` opcionales en el body:
 
 - Van los dos o ninguno. Un valor vacio o en blanco cuenta como ausente.
 - `causaTipo` tiene que ser uno de los tres valores exactos y `causaId` es texto de hasta 128 caracteres.
@@ -159,11 +200,12 @@ y su informe semanal. El admin lo ve en **Admin → Analítica** (`/admin/analyt
 
 1. El front llama a `GET /api/admin/analytics` con el token del admin, igual que el resto del admin. No usamos
    cookies, así que un `<iframe src>` apuntando al backend no podría autenticarse.
-2. El backend verifica el permiso `analytics.view` y llama a `GET {ANALITICA_URL}/embed/espacios` con nuestro
-   token de servicio (client credentials, el mismo cliente que usamos para el EDA) y el token del admin. Mientras
-   Analítica no cierre el nombre del header, el token del admin va en `X-User-Token` y en `X-Usuario-Token`.
-3. Acepta la respuesta como JSON `{ modulo, generado_en, html }` o como HTML directo, y devuelve
-   `{ html, generatedAt }` con `Cache-Control: no-store`.
+2. El backend verifica el permiso `analytics.view` y llama a `GET {ANALITICA_URL}/embed/espacios` con el token
+   de CityPass del admin en `Authorization: Bearer`. Analítica exige un token humano (`token_use = human`):
+   rechaza el token de servicio, y un admin que entró sin el login de CityPass no lo puede ver.
+   `ANALITICA_URL` en producción: `https://citypass-backend-prod-becqetepcjbqa8c7.brazilsouth-01.azurewebsites.net`.
+3. Analítica devuelve el HTML directo (~1 MB, autocontenido). Se acepta también JSON `{ modulo, generado_en, html }`.
+   El backend devuelve `{ html, generatedAt }` con `Cache-Control: no-store`.
 4. El front muestra el HTML en un iframe con `srcdoc` y `sandbox="allow-scripts"`, sin `allow-same-origin`: el
    tablero no puede leer la sesión ni el DOM del admin. Ajusta la altura con el mensaje `citypass-tablero-altura`.
 
@@ -171,5 +213,28 @@ Sin `ANALITICA_URL` en el entorno del backend, la pantalla avisa que Analítica 
 
 **Por qué el backend llama a otro módulo acá.** La integración entre módulos es por eventos y el backend no llama
 a la API de otros módulos. Este tablero es la excepción: no entra ningún dato de negocio a nuestro sistema, solo
-se trae una vista para mostrar. Analítica pidió hacerlo servidor a servidor para validar nuestro token de servicio
-y no exponer su URL ni necesitar CORS.
+se trae una vista para mostrar. Se pide servidor a servidor para no necesitar CORS ni exponer su URL en el front.
+
+## Ciclo de vida de la reserva (Parte 2)
+
+Analitica procesa `ReservaCreada` y `ReservaActualizada` (`CONTRATO_ESPACIOS.md`). Se publican **ademas** de
+`ReservaConfirmada`, que sigue saliendo igual porque la consume Movilidad (CU-INT-01).
+
+| Momento | Eventos |
+| --- | --- |
+| Reserva de un espacio o inscripcion a un evento | `ReservaConfirmada`, `ReservaCreada` (PENDIENTE) y `ReservaActualizada` (PENDIENTE a CONFIRMADA) |
+| El ciudadano cancela su inscripcion | `ReservaActualizada` (CONFIRMADA a CANCELADA) |
+
+`ReservaCreada` (`RESERVATION_CREATED_EVENT_FQN`): `reservaId`, `tipoReserva` (`ESPACIO`/`EVENTO`), `recursoId`,
+`espacioId`, `categoria`, `zona`, `latitud`, `longitud`, `fechaHora` (inicio), `fechaFin`, `cantidadPersonas`,
+`cupoMaximo`, `organizadorId` (por ahora `null`), `createdAt` y `correlationId` (= `reservaId`).
+
+`ReservaActualizada` (`RESERVATION_UPDATED_EVENT_FQN`): `reservaId`, `estadoAnterior`, `estadoNuevo`, `motivo`,
+`updatedAt` y `correlationId`.
+
+- `categoria` es la del evento en una inscripcion, y la del espacio (`PLAZA`, `SALON`, ...) en una reserva de espacio.
+- Se mandan `zona` y tambien `latitud`/`longitud`: hoy Analitica lee `zona` y el contrato de la Parte 2 la reemplaza.
+- No viaja `ciudadanoId` ni otro dato personal. `organizadorId` va en `null` porque los eventos no guardan un id
+  de organizador.
+- Si la publicacion falla, la reserva sigue igual: se loguea y no se reintenta fuera del outbox.
+- Las reservas de espacio no tienen hoy un flujo de cancelacion, asi que solo las inscripciones publican `CANCELADA`.

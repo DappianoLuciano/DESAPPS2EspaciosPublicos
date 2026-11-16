@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { CommunityEvent } from "../../domain/entities/CommunityEvent";
 import { DomainEvent } from "../../domain/entities/DomainEvent";
 import { PublicSpace } from "../../domain/entities/PublicSpace";
+import { Reservation } from "../../domain/entities/Reservation";
 import { CommunityEventRepository } from "../../domain/repositories/CommunityEventRepository";
 import { EventOutboxRepository } from "../../domain/repositories/EventOutboxRepository";
 import { PublicSpaceRepository } from "../../domain/repositories/PublicSpaceRepository";
@@ -18,7 +19,7 @@ import {
   requirePositiveInteger,
   requireText
 } from "../../shared/validation/inputValidation";
-import { CreateCommunityEventInput } from "../dtos/CreateCommunityEventInput";
+import { CreateCommunityEventInput, OrganizerType } from "../dtos/CreateCommunityEventInput";
 import { WeatherRestrictionRepository } from "../../domain/repositories/WeatherRestrictionRepository";
 import { buildCommunityEventPublishedEvent } from "../events/communityEventPublished";
 
@@ -136,7 +137,7 @@ export class CreateCommunityEventUseCase {
     const activityCreated: DomainEvent = {
       id: randomUUID(),
       name: eventNames.activityCreated(),
-      payload: buildActivityCreatedPayload(communityEvent, publicSpace, input.organizerSub),
+      payload: buildActivityCreatedPayload(communityEvent, publicSpace, input.organizerSub, input.organizerType),
       occurredAt: new Date()
     };
 
@@ -154,7 +155,9 @@ export class CreateCommunityEventUseCase {
 export function buildActivityCreatedPayload(
   communityEvent: CommunityEvent,
   publicSpace: PublicSpace & Coordinates,
-  organizerSub?: string | null
+  organizerSub?: string | null,
+  // Hoy solo los admins municipales crean eventos: sin dato, se asume CIUDAD.
+  organizerType: OrganizerType = "CIUDAD"
 ): Record<string, unknown> {
   return {
     correlationId: `act-${communityEvent.id}`,
@@ -168,6 +171,34 @@ export function buildActivityCreatedPayload(
     direccion: publicSpace.address,
     espacioNombre: publicSpace.name,
     actorSub: organizerSub ?? null,
-    categoria: communityEvent.category
+    categoria: communityEvent.category,
+    organizadorTipo: organizerType
+  };
+}
+
+/**
+ * ActividadCreada (v3) para la reserva de un espacio por un ciudadano. Mismo contrato que el de un
+ * evento comunitario, sin cambiar el schema: actividadId es el reservaId (asi se cruza con ReservaCreada
+ * y no se cuenta dos veces), no hay categoria y no viajan datos personales del solicitante.
+ */
+export function buildActivityCreatedFromReservation(
+  reservation: Reservation,
+  publicSpace: PublicSpace & Coordinates,
+  actorSub?: string | null
+): Record<string, unknown> {
+  return {
+    correlationId: `act-${reservation.id}`,
+    actividadId: reservation.id,
+    titulo: `Reserva de ${publicSpace.name}`,
+    estado: "PROGRAMADA",
+    capacidad: reservation.estimatedAttendees,
+    fechaHoraInicio: reservation.startDate.getTime(),
+    fechaHoraFinalizacion: reservation.endDate.getTime(),
+    ubicacion: { lat: publicSpace.latitude, lng: publicSpace.longitude },
+    direccion: publicSpace.address,
+    espacioNombre: publicSpace.name,
+    actorSub: actorSub ?? null,
+    categoria: null,
+    organizadorTipo: "CIUDADANO"
   };
 }

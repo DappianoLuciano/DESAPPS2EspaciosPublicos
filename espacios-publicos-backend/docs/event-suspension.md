@@ -6,7 +6,7 @@ Decisión manual en Gestión de Eventos, con el mismo permiso administrativo de 
 - `PATCH /api/community-events/:id/resume`, body `{}`: solo un suspendido no terminado. Limpia el motivo y recupera ACTIVE o ACTIVE_FULL según los inscriptos actuales. La administración debe revisar clima y habilitación del espacio antes de confirmar.
 - Cancelación definitiva: endpoint existente `/:id/cancel`, ahora guarda el motivo para mostrarlo también a los ciudadanos. No permite reanudar.
 
-El catálogo y el detalle mantienen visibles los eventos no disponibles. El filtro `availableOnly=true` sigue excluyéndolos. Inscripciones directas rechazan SUSPENDED y CANCELLED. Una suspensión no publica EventoCancelado: ese contrato sigue reservado a la cancelación definitiva. No se agregaron contratos EDA ni correos automáticos.
+El catálogo y el detalle mantienen visibles los eventos no disponibles. El filtro `availableOnly=true` sigue excluyéndolos. Inscripciones directas rechazan SUSPENDED y CANCELLED. Una suspensión no publica EventoCancelado: ese contrato sigue reservado a la cancelación definitiva. No se agregaron contratos EDA ni correos automáticos. Suspender y reanudar publican el snapshot de EventoComunitarioPublicado y `ActividadModificada` (`SUSPENDIDA` con el motivo, o `PROGRAMADA`; sin causa): ver `eventos-analitica.md`.
 
 ## Base de datos / despliegue
 

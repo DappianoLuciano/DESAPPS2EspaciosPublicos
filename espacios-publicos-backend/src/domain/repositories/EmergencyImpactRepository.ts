@@ -39,4 +39,6 @@ export interface EmergencyImpactRepository {
   getSummary(): Promise<EmergencyImpactSummary>;
   /** Eventos suspendidos, pendientes de reprogramar o reprogramados que todavia no terminaron. */
   listEventNotices(now: Date): Promise<EmergencyEventNotice[]>;
+  /** true si el evento comunitario esta suspendido o pendiente de reprogramar por una emergencia. */
+  isEventOnHold(eventId: string): Promise<boolean>;
 }

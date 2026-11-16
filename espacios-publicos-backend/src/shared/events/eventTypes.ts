@@ -26,6 +26,11 @@ export const eventNames = {
   reservationConfirmed: () =>
     fromEnv("RESERVATION_CONFIRMED_EVENT_FQN", "com.citypass.espacios.ReservaConfirmada"),
   // CU-01: emergencia durante un viaje en bicicleta.
+  // Analitica (Parte 2): ciclo de vida de la reserva. Se suman a ReservaConfirmada, que consume Movilidad.
+  reservationCreated: () =>
+    fromEnv("RESERVATION_CREATED_EVENT_FQN", "com.citypass.espacios.ReservaCreada"),
+  reservationUpdated: () =>
+    fromEnv("RESERVATION_UPDATED_EVENT_FQN", "com.citypass.espacios.ReservaActualizada"),
   reservationAffected: () =>
     fromEnv("RESERVATION_AFFECTED_EVENT_FQN", "com.citypass.espacios.ReservaAfectada"),
   spaceReleased: () =>
@@ -55,6 +60,8 @@ export function dispatchableEventNames(): string[] {
     eventNames.publicSpaceAffected(),
     eventNames.publicSpaceRestored(),
     eventNames.reservationConfirmed(),
+    eventNames.reservationCreated(),
+    eventNames.reservationUpdated(),
     eventNames.reservationAffected(),
     eventNames.spaceReleased(),
     eventNames.problemRegistered(),

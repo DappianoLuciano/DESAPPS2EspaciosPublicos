@@ -1,16 +1,20 @@
 import { Alert, Box, Button, Card, Flex, SimpleGrid, Table, Text, Title, Badge } from '@mantine/core';
-import { IconChartBar, IconUsers } from '@tabler/icons-react';
+import { IconAlertTriangle, IconChartBar, IconUsers } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { listCommunityEvents } from '../lib/api';
 import type { CommunityEventCatalogItem } from '../lib/api';
 import DashboardWeatherAlerts from '../components/DashboardWeatherAlerts';
+import EmergencyStatusBadge from '../components/EmergencyStatusBadge';
+import { activeEmergencyNotice } from '../lib/emergencyHold';
+import { useEmergencyNotices } from '../lib/useEmergencyNotices';
 
 export default function AdminDashboard() {
   const [events, setEvents] = useState<CommunityEventCatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const notices = useEmergencyNotices();
 
   useEffect(() => {
     listCommunityEvents()
@@ -25,6 +29,10 @@ export default function AdminDashboard() {
     [events]
   );
   const recentEvents = events.slice(0, 5);
+  const eventsOnHold = events.filter((event) => {
+    const status = notices.get(event.id)?.status;
+    return event.status !== 'CANCELLED' && (status === 'SUSPENDIDA' || status === 'A_REPROGRAMAR');
+  });
 
   const formatDate = (date: string) => (
     new Intl.DateTimeFormat('es-AR', {
@@ -42,6 +50,8 @@ export default function AdminDashboard() {
         return <Badge color="blue" variant="light">Completo</Badge>;
       case 'CANCELLED':
         return <Badge color="red" variant="light">Cancelado</Badge>;
+      case 'SUSPENDED':
+        return <Badge color="orange" variant="light">Suspendido</Badge>;
       default:
         return <Badge color="gray" variant="light">Sin estado</Badge>;
     }
@@ -66,6 +76,22 @@ export default function AdminDashboard() {
       )}
 
       <DashboardWeatherAlerts />
+
+      {eventsOnHold.length > 0 && (
+        <Alert
+          color="orange"
+          icon={<IconAlertTriangle size="1rem" />}
+          title={eventsOnHold.length === 1
+            ? '1 evento afectado por una emergencia cercana'
+            : `${eventsOnHold.length} eventos afectados por una emergencia cercana`}
+          mb="lg"
+        >
+          <Text size="sm">{eventsOnHold.map((event) => event.title).join(', ')}</Text>
+          <Button component={Link} to="/admin/emergencies" variant="light" color="orange" size="xs" mt="sm">
+            Ver emergencias
+          </Button>
+        </Alert>
+      )}
 
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg" mb={40}>
         <Card shadow="sm" radius="md" withBorder p="xl">
@@ -118,7 +144,11 @@ export default function AdminDashboard() {
                   <Table.Td fw={600}>{event.title}</Table.Td>
                   <Table.Td>{event.category}</Table.Td>
                   <Table.Td>{formatDate(event.startDate)}</Table.Td>
-                  <Table.Td>{getStatusBadge(event.status)}</Table.Td>
+                  <Table.Td>
+                    {activeEmergencyNotice(event, notices)
+                      ? <EmergencyStatusBadge notice={activeEmergencyNotice(event, notices)} />
+                      : getStatusBadge(event.status)}
+                  </Table.Td>
                 </Table.Tr>
               ))}
             </Table.Tbody>

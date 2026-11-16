@@ -24,6 +24,7 @@ bus, asi que los reintentos los maneja el outbox (ver `eventos-cu-int-01.md`).
 | `espacioNombre` | `string` | nombre del espacio |
 | `actorSub` | `["null","string"]`, default `null` | `sub` del token del organizador |
 | `categoria` | `["null","string"]`, default `null` | categoria del evento tal cual se cargo (`communityEvent.category`, texto de `EVENT_CATEGORIES` del frontend; no se mapea a otro enum) |
+| `organizadorTipo` | `string` (obligatorio) | `CIUDAD` si lo crea un `municipal_admin`, `CIUDADANO` si no. Lo completa el controller con el rol del token |
 
 - El payload lo arma `buildActivityCreatedPayload` (exportada desde el use case).
 - `actorSub` lo completa el controller con `request.user.id`; el cliente no lo puede mandar en el body.
@@ -34,6 +35,35 @@ bus, asi que los reintentos los maneja el outbox (ver `eventos-cu-int-01.md`).
   (schemaId 61, topico `com.citypass.espacios.ActividadCreada.v2`). La v1 (schemaId 60, topico
   `com.citypass.espacios.ActividadCreada`) no tenia suscripciones. Quien consuma `ActividadCreada`
   tiene que suscribirse a la v2.
+- **Version 3** (schemaId 91, topico `com.citypass.espacios.ActividadCreada.v3`): suma `organizadorTipo`
+  obligatorio, pedido por Analitica. Desde que se registro, el gateway rechaza con 400 cualquier
+  `ActividadCreada` sin ese campo. Quien consuma `ActividadCreada` tiene que suscribirse a la v3.
+
+### Tambien al reservar un espacio
+
+`ActividadCreada` tambien se publica cuando un ciudadano confirma la reserva de un espacio
+(`POST /api/reservations`, `RequestReservationUseCase`). Sale despues de `ReservaConfirmada`,
+`ReservaCreada` y `ReservaActualizada`, que no cambian, con el mismo patron de outbox. El payload lo arma
+`buildActivityCreatedFromReservation`:
+
+| Campo | Valor en una reserva |
+| --- | --- |
+| `actividadId` | el `reservaId`. Asi se cruza con `ReservaCreada` y se evita el doble conteo |
+| `correlationId` | `"act-" + reservaId` |
+| `titulo` | `"Reserva de <nombre del espacio>"` |
+| `estado` | `"PROGRAMADA"` |
+| `capacidad` | cantidad estimada de asistentes de la reserva |
+| `fechaHoraInicio` / `fechaHoraFinalizacion` | inicio y fin de la reserva, en `timestamp-millis` |
+| `ubicacion`, `direccion`, `espacioNombre` | los del espacio reservado |
+| `actorSub` | `sub` del ciudadano que reservo (lo completa el controller con `request.user.id`), o `null` |
+| `categoria` | `null` |
+| `organizadorTipo` | `"CIUDADANO"` |
+
+- No viaja el nombre ni el email del solicitante, ni otro dato personal.
+- **No se publica si el espacio no tiene coordenadas**: la v3 exige `ubicacion`. Se loguea un warning y la
+  reserva y sus otros eventos salen igual.
+- Si falla la publicacion, la reserva no falla: el evento queda en `event_outbox` para reintento.
+- **No hubo cambio de schema**: sigue la v3 (schemaId 91). No hay que registrar nada en el gateway.
 
 ## Demo
 

@@ -1,12 +1,13 @@
+import { ReservationLifecyclePublisher } from "./application/events/ReservationLifecyclePublisher";
 import { GetIntegrationOverviewUseCase } from "./application/use-cases/GetIntegrationOverviewUseCase";
 import { PrismaIntegrationStatusRepository } from "./infrastructure/database/PrismaIntegrationStatusRepository";
 import { FinishInterventionUseCase, ListPendingInterventionsUseCase } from "./application/use-cases/FinishInterventionUseCase";
 import { InterventionController } from "./interfaces/http/controllers/InterventionController";
 import { CommunityEventSnapshotPublisher } from "./application/events/communityEventPublished";
 import { PublicSpaceAffectedPublisher } from "./application/events/publicSpaceAffected";
+import { ActivityModifiedPublisher } from "./application/events/activityModified";
 import { GetAnalyticsDashboardUseCase } from "./application/use-cases/GetAnalyticsDashboardUseCase";
 import { AnalyticsEmbedClient } from "./infrastructure/analytics/AnalyticsEmbedClient";
-import { OAuthServiceTokenProvider, resolveEventAuthTokenUrl } from "./infrastructure/auth/OAuthServiceTokenProvider";
 import { PrismaPublicSpaceAffectationRepository } from "./infrastructure/database/PrismaPublicSpaceAffectationRepository";
 import { CancelCommunityEventRegistrationUseCase } from "./application/use-cases/CancelCommunityEventRegistrationUseCase";
 import { ChangeCommunityEventSuspensionUseCase } from "./application/use-cases/ChangeCommunityEventSuspensionUseCase";
@@ -91,14 +92,7 @@ import { CreateManualWeatherAlertUseCase } from "./application/use-cases/CreateM
 // Tablero de Analitica: sin ANALITICA_URL (o sin credenciales de servicio) la pantalla avisa que no esta configurada.
 function createAnalyticsDashboardSource(): AnalyticsEmbedClient | undefined {
   const baseUrl = process.env.ANALITICA_URL?.trim();
-  const clientId = process.env.EVENT_CLIENT_ID?.trim();
-  const clientSecret = process.env.EVENT_CLIENT_SECRET?.trim();
-
-  if (!baseUrl || !clientId || !clientSecret) {
-    return undefined;
-  }
-
-  return new AnalyticsEmbedClient(baseUrl, new OAuthServiceTokenProvider(resolveEventAuthTokenUrl(), clientId, clientSecret));
+  return baseUrl ? new AnalyticsEmbedClient(baseUrl) : undefined;
 }
 
 export function createContainer() {
@@ -126,7 +120,11 @@ export function createContainer() {
     eventOutboxRepository,
     eventBus
   );
-  const weatherRestrictions = new PrismaWeatherRestrictionRepository(publicSpaceAffectedPublisher, communityEventSnapshotPublisher);
+  // El bus publica ActividadModificada apenas se confirma la transaccion: Reclamos lo necesita en
+  // el momento. El worker del outbox solo cubre los fallos de esa publicacion.
+  const weatherRestrictions = new PrismaWeatherRestrictionRepository(
+    publicSpaceAffectedPublisher, communityEventSnapshotPublisher, eventBus
+  );
   const storageService = new SupabaseStorageService();
   const qrGenerator = new NodeQrGenerator();
   const emailSender = new NodemailerEmailSender();
@@ -148,6 +146,7 @@ export function createContainer() {
   );
   const deletePublicSpaceUseCase = new DeletePublicSpaceUseCase(publicSpaceRepository);
 
+  const reservationLifecycle = new ReservationLifecyclePublisher(eventOutboxRepository, eventBus);
   const requestReservationUseCase = new RequestReservationUseCase(
     publicSpaceRepository,
     reservationRepository,
@@ -156,7 +155,8 @@ export function createContainer() {
     eventBus,
     qrGenerator,
     emailSender,
-    weatherRestrictions
+    weatherRestrictions,
+    reservationLifecycle
   );
   const listReservationsUseCase = new ListReservationsUseCase(reservationRepository);
   const getReservationUseCase = new GetReservationUseCase(reservationRepository);
@@ -171,6 +171,7 @@ export function createContainer() {
   );
   const listCommunityEventsUseCase = new ListCommunityEventsUseCase(communityEventRepository);
   const getCommunityEventUseCase = new GetCommunityEventUseCase(communityEventRepository);
+  const emergencyImpactRepository = new PrismaEmergencyImpactRepository();
   const registerCitizenToCommunityEventUseCase = new RegisterCitizenToCommunityEventUseCase(
     communityEventRepository,
     communityEventRegistrationRepository,
@@ -178,7 +179,9 @@ export function createContainer() {
     eventBus,
     qrGenerator,
     emailSender,
-    publicSpaceRepository
+    publicSpaceRepository,
+    emergencyImpactRepository,
+    reservationLifecycle
   );
   const listCommunityEventRegistrationsUseCase = new ListCommunityEventRegistrationsUseCase(
     communityEventRepository,
@@ -191,7 +194,8 @@ export function createContainer() {
     communityEventRegistrationRepository,
     publicSpaceRepository,
     eventOutboxRepository,
-    eventBus
+    eventBus,
+    reservationLifecycle
   );
   const getCommunityEventRegistrationUseCase = new GetCommunityEventRegistrationUseCase(
     communityEventRegistrationRepository
@@ -205,7 +209,6 @@ export function createContainer() {
 
   const cityIncidentRepository = new PrismaCityIncidentRepository();
   const destinationRecommendationRepository = new PrismaDestinationRecommendationRepository();
-  const emergencyImpactRepository = new PrismaEmergencyImpactRepository();
   const findNearbyBookingsUseCase = new FindNearbyBookingsUseCase(
     publicSpaceRepository,
     reservationRepository,
@@ -220,7 +223,6 @@ export function createContainer() {
   );
   const handleEmergencyResolvedUseCase = new HandleEmergencyResolvedUseCase(
     emergencyImpactRepository,
-    publicSpaceRepository,
     eventBus,
     emailSender,
     communityEventRegistrationRepository
@@ -353,7 +355,8 @@ export function createContainer() {
         communityEventRepository,
         communityEventRegistrationRepository,
         publicSpaceRepository,
-        communityEventSnapshotPublisher
+        communityEventSnapshotPublisher,
+        new ActivityModifiedPublisher(eventOutboxRepository, eventBus)
       )
     ),
     routePlanController: new RoutePlanController(getEventRoutePlanUseCase),

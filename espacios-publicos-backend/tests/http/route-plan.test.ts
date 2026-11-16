@@ -256,20 +256,12 @@ describe("GET /api/community-events/:id/route-plan", () => {
     expect(response.body.warnings).toEqual(["Todas las estaciones cercanas estan afectadas por incidentes"]);
   });
 
-  it("devuelve igual una recomendacion de hace mas de 30 minutos, con warning", async () => {
-    recommendationRecord = recommendation({ calculadaEn: new Date(Date.now() - 45 * 60_000 - 5_000) });
+  it("usa la ultima recomendacion de Movilidad aunque sea vieja, sin avisar la antigüedad", async () => {
+    recommendationRecord = recommendation({ calculadaEn: new Date(Date.now() - 3 * 24 * 60 * 60_000) });
 
     const response = await request(buildApp()).get("/api/community-events/event-1/route-plan").expect(200);
 
     expect(response.body.dropoff).not.toBeNull();
-    expect(response.body.warnings).toEqual(["La disponibilidad puede haber cambiado (calculada hace 45 min)"]);
-  });
-
-  it("no avisa antigüedad si la recomendacion tiene menos de 30 minutos", async () => {
-    recommendationRecord = recommendation({ calculadaEn: new Date(Date.now() - 29 * 60_000) });
-
-    const response = await request(buildApp()).get("/api/community-events/event-1/route-plan").expect(200);
-
     expect(response.body.warnings).toEqual([]);
   });
 

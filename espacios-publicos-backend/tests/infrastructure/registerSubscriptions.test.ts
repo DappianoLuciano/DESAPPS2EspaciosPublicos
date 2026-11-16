@@ -20,10 +20,6 @@ describe("topicos de suscripcion", () => {
       "com.citypass.reclamos.ReclamoCreado.v3",
       "com.citypass.movilidad.MovilidadObstruccionEvaluada",
       "com.citypass.reclamos.ReclamoReclasificado",
-      "com.citypass.emergencias.EmergenciaEstadoActualizado",
-      "com.citypass.emergencias.EmergenciaCerrada",
-      "com.citypass.emergencias.EmergenciaCancelada",
-      "com.citypass.emergencias.EmergenciaResuelta"
     ]);
   });
 });

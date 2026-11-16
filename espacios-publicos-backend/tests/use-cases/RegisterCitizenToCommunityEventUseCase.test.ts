@@ -155,7 +155,7 @@ EVENT_START.setUTCHours(13, 0, 0, 0);
 const EVENT_END = new Date(EVENT_START);
 EVENT_END.setUTCHours(20, 0, 0, 0);
 
-function createUseCase(capacity = 2, requiresRegistration = true) {
+function createUseCase(capacity = 2, requiresRegistration = true, onHold?: boolean) {
   const communityEventRepository = new FakeCommunityEventRepository();
   const communityEventRegistrationRepository = new FakeCommunityEventRegistrationRepository();
   const eventOutboxRepository = new FakeEventOutboxRepository();
@@ -186,7 +186,8 @@ function createUseCase(capacity = 2, requiresRegistration = true) {
     eventBus,
     new FakeQrGenerator(),
     emailSender,
-    { findById: async (id: string) => (id === SPACE.id ? SPACE : null) }
+    { findById: async (id: string) => (id === SPACE.id ? SPACE : null) },
+    onHold === undefined ? undefined : { isEventOnHold: async () => onHold }
   );
 
   return {
@@ -200,6 +201,25 @@ function createUseCase(capacity = 2, requiresRegistration = true) {
 }
 
 describe("RegisterCitizenToCommunityEventUseCase", () => {
+  it("CU-01: rechaza la inscripcion si el evento esta suspendido por una emergencia", async () => {
+    const { useCase, communityEventRegistrationRepository, eventBus } = createUseCase(2, true, true);
+
+    await expect(useCase.execute({
+      communityEventId: "event-1", citizenName: "Ana", citizenEmail: "ana@test.com"
+    })).rejects.toThrow("emergencia");
+
+    expect(communityEventRegistrationRepository.registrations).toHaveLength(0);
+    expect(eventBus.events).toHaveLength(0);
+  });
+
+  it("CU-01: sin emergencia activa la inscripcion sigue igual", async () => {
+    const { useCase } = createUseCase(2, true, false);
+
+    await expect(useCase.execute({
+      communityEventId: "event-1", citizenName: "Ana", citizenEmail: "ana@test.com"
+    })).resolves.toBeDefined();
+  });
+
   it.each(["SUSPENDED", "CANCELLED"] as const)("bloquea inscripción directa cuando el evento está %s", async status => {
     const { useCase, communityEventRepository, communityEventRegistrationRepository, eventBus } = createUseCase();
     communityEventRepository.events[0].status = status;

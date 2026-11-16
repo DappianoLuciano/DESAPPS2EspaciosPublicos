@@ -1,8 +1,9 @@
 import { Alert, Badge, Box, Button, Card, Group, SimpleGrid, Stack, Table, Tabs, Text, Title, Tooltip } from '@mantine/core';
-import { IconAlertTriangle, IconBike, IconRefresh, IconTransfer } from '@tabler/icons-react';
+import { IconAlertTriangle, IconBike, IconChartLine, IconRefresh, IconTransfer } from '@tabler/icons-react';
 import 'leaflet/dist/leaflet.css';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CircleMarker, MapContainer, TileLayer, Tooltip as MapTooltip } from 'react-leaflet';
+import IntegrationMetricsPanel from '../components/IntegrationMetricsPanel';
 import { getIntegrationOverview } from '../lib/api';
 import type { IntegrationOverview } from '../lib/api';
 
@@ -94,12 +95,17 @@ export default function Integrations() {
             <Stat label="Publicaciones fallidas" value={failed} hint="tras agotar los reintentos" color={failed ? 'red' : 'green'} />
           </SimpleGrid>
 
-          <Tabs defaultValue="movilidad">
+          <Tabs defaultValue="indicadores">
             <Tabs.List mb="md">
+              <Tabs.Tab value="indicadores" leftSection={<IconChartLine size="1rem" />}>Indicadores</Tabs.Tab>
               <Tabs.Tab value="movilidad" leftSection={<IconBike size="1rem" />}>Eventos y Movilidad</Tabs.Tab>
               <Tabs.Tab value="incidentes" leftSection={<IconAlertTriangle size="1rem" />}>Incidentes activos</Tabs.Tab>
               <Tabs.Tab value="mensajeria" leftSection={<IconTransfer size="1rem" />}>Mensajería</Tabs.Tab>
             </Tabs.List>
+
+            <Tabs.Panel value="indicadores">
+              <IntegrationMetricsPanel metrics={data.metrics} />
+            </Tabs.Panel>
 
             <Tabs.Panel value="movilidad">
               <Text c="dimmed" fz="sm" mb="sm">
