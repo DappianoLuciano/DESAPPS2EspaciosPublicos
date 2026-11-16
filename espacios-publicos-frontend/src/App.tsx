@@ -25,6 +25,7 @@ import EmergencyImpacts from './pages/EmergencyImpacts';
 import Interventions from './pages/Interventions';
 import Integrations from './pages/Integrations';
 import Analytics from './pages/Analytics';
+import TowInterventionManagement from './pages/TowInterventionManagement';
 import { isMockLoginEnabled } from './lib/api';
 
 const theme = {
@@ -66,6 +67,7 @@ function App() {
                   <Route path="/admin/interventions" element={<Interventions />} />
                   <Route path="/admin/integrations" element={<Integrations />} />
                   <Route path="/admin/analytics" element={<Analytics />} />
+                  <Route path="/admin/tow-interventions" element={<TowInterventionManagement />} />
                   <Route path="/admin/create-event" element={<CreateEvent />} />
                   <Route path="/admin/event/:id/edit" element={<CreateEvent />} />
                   <Route path="/admin/event/:id/attendees" element={<EventAttendees />} />
