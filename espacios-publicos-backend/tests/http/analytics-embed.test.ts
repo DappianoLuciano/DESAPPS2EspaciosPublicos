@@ -14,11 +14,11 @@ function respond(body: string, status = 200, contentType = "application/json") {
 }
 
 function client(fetchFn: jest.Mock) {
-  return new AnalyticsEmbedClient(ANALITICA, { getToken: async () => "token-servicio" }, fetchFn as never);
+  return new AnalyticsEmbedClient(ANALITICA, fetchFn as never);
 }
 
 describe("AnalyticsEmbedClient", () => {
-  it("pide el tablero de espacios con el token de servicio y el del usuario", async () => {
+  it("pide el tablero de espacios con el token del usuario en Authorization (Analitica exige un token humano)", async () => {
     const fetchFn = respond(JSON.stringify({ modulo: "espacios", generado_en: "2026-11-10T18:00:00Z", html: HTML }));
 
     const dashboard = await client(fetchFn).fetchDashboard("token-admin");
@@ -26,11 +26,7 @@ describe("AnalyticsEmbedClient", () => {
     expect(dashboard).toEqual({ html: HTML, generatedAt: "2026-11-10T18:00:00Z" });
     const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe(`${ANALITICA}/embed/espacios`);
-    expect(init.headers).toEqual(expect.objectContaining({
-      Authorization: "Bearer token-servicio",
-      "X-User-Token": "token-admin",
-      "X-Usuario-Token": "token-admin"
-    }));
+    expect(init.headers).toEqual(expect.objectContaining({ Authorization: "Bearer token-admin" }));
   });
 
   it("acepta tambien el HTML directo", async () => {

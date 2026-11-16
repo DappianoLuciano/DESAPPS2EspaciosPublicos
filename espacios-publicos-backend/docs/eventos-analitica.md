@@ -200,11 +200,12 @@ y su informe semanal. El admin lo ve en **Admin → Analítica** (`/admin/analyt
 
 1. El front llama a `GET /api/admin/analytics` con el token del admin, igual que el resto del admin. No usamos
    cookies, así que un `<iframe src>` apuntando al backend no podría autenticarse.
-2. El backend verifica el permiso `analytics.view` y llama a `GET {ANALITICA_URL}/embed/espacios` con nuestro
-   token de servicio (client credentials, el mismo cliente que usamos para el EDA) y el token del admin. Mientras
-   Analítica no cierre el nombre del header, el token del admin va en `X-User-Token` y en `X-Usuario-Token`.
-3. Acepta la respuesta como JSON `{ modulo, generado_en, html }` o como HTML directo, y devuelve
-   `{ html, generatedAt }` con `Cache-Control: no-store`.
+2. El backend verifica el permiso `analytics.view` y llama a `GET {ANALITICA_URL}/embed/espacios` con el token
+   de CityPass del admin en `Authorization: Bearer`. Analítica exige un token humano (`token_use = human`):
+   rechaza el token de servicio, y un admin que entró sin el login de CityPass no lo puede ver.
+   `ANALITICA_URL` en producción: `https://citypass-backend-prod-becqetepcjbqa8c7.brazilsouth-01.azurewebsites.net`.
+3. Analítica devuelve el HTML directo (~1 MB, autocontenido). Se acepta también JSON `{ modulo, generado_en, html }`.
+   El backend devuelve `{ html, generatedAt }` con `Cache-Control: no-store`.
 4. El front muestra el HTML en un iframe con `srcdoc` y `sandbox="allow-scripts"`, sin `allow-same-origin`: el
    tablero no puede leer la sesión ni el DOM del admin. Ajusta la altura con el mensaje `citypass-tablero-altura`.
 
@@ -212,8 +213,7 @@ Sin `ANALITICA_URL` en el entorno del backend, la pantalla avisa que Analítica 
 
 **Por qué el backend llama a otro módulo acá.** La integración entre módulos es por eventos y el backend no llama
 a la API de otros módulos. Este tablero es la excepción: no entra ningún dato de negocio a nuestro sistema, solo
-se trae una vista para mostrar. Analítica pidió hacerlo servidor a servidor para validar nuestro token de servicio
-y no exponer su URL ni necesitar CORS.
+se trae una vista para mostrar. Se pide servidor a servidor para no necesitar CORS ni exponer su URL en el front.
 
 ## Ciclo de vida de la reserva (Parte 2)
 
