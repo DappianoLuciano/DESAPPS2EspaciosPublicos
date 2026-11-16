@@ -14,20 +14,14 @@ function withoutTrailingSlashes(url: string): string {
   return url.slice(0, end);
 }
 
-interface TokenProvider {
-  getToken(): Promise<string>;
-}
-
 /**
- * Pide el tablero a Analitica servidor a servidor: GET {ANALITICA_URL}/embed/espacios con nuestro token de
- * servicio (client credentials) y el token del admin. Analitica todavia no cerro el contrato, asi que el token
- * del usuario va con los dos nombres de header propuestos y se acepta tanto JSON { html, generado_en } como
- * el HTML directo.
+ * Pide el tablero a Analitica servidor a servidor: GET {ANALITICA_URL}/embed/espacios con el token de CityPass
+ * del admin en Authorization. Analitica valida que sea un token humano (token_use = human) y rechaza el de
+ * servicio. Devuelve el HTML directo; se acepta tambien JSON { html, generado_en } por compatibilidad.
  */
 export class AnalyticsEmbedClient implements AnalyticsDashboardSource {
   constructor(
     private readonly baseUrl: string,
-    private readonly serviceTokens: TokenProvider,
     private readonly fetchFn: FetchFn = (input, init) => fetch(input, init)
   ) {}
 
@@ -35,13 +29,10 @@ export class AnalyticsEmbedClient implements AnalyticsDashboardSource {
     let response: Response;
 
     try {
-      const serviceToken = await this.serviceTokens.getToken();
       response = await this.fetchFn(`${withoutTrailingSlashes(this.baseUrl)}/embed/${ANALYTICS_MODULE}`, {
         headers: {
-          Authorization: `Bearer ${serviceToken}`,
-          "X-User-Token": userToken,
-          "X-Usuario-Token": userToken,
-          Accept: "application/json, text/html"
+          Authorization: `Bearer ${userToken}`,
+          Accept: "text/html, application/json"
         },
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
       });
