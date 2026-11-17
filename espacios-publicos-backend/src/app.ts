@@ -69,12 +69,10 @@ export function createApp() {
   );
   app.use("/api/admin", createAdminRoutes(container.adminController));
   app.use("/api/admin/weather-alerts", createWeatherAlertRoutes(container.weatherAlertController));
-  if (!isProductionRuntime()) {
-    app.use(
-      "/api/admin/tow-interventions",
-      createTowInterventionRoutes(container.towInterventionController)
-    );
-  }
+  app.use(
+    "/api/admin/tow-interventions",
+    createTowInterventionRoutes(container.towInterventionController)
+  );
   app.use("/api/internal", createInternalRoutes(container.internalWeatherController));
   app.use("/api/uploads", uploadRateLimiter, createUploadRoutes(container.storageService));
   app.use("/api/public-spaces", createPublicSpaceRoutes(container.publicSpaceController));
