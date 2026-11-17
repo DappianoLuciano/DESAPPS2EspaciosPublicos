@@ -5,6 +5,7 @@ import { asyncHandler } from "../middlewares/asyncHandler";
 import { requirePermission } from "../middlewares/mockIdentity";
 import { auditAction } from "../middlewares/securityAudit";
 import { allowBodyFields } from "../middlewares/validateRequest";
+import { isProductionRuntime } from "../../../shared/runtime/runtimeMode";
 
 const mobilityEventFields = [
   "reclamoId",
@@ -34,16 +35,18 @@ export function createTowInterventionRoutes(
     asyncHandler(controller.list)
   );
 
-  router.post(
-    "/simulate",
-    requirePermission(permissions.SIMULATE_MOBILITY_OBSTRUCTION),
-    auditAction(
-      permissions.SIMULATE_MOBILITY_OBSTRUCTION,
-      "tow-intervention-simulation"
-    ),
-    allowBodyFields(mobilityEventFields),
-    asyncHandler(controller.simulateMobilityEvent)
-  );
+  if (!isProductionRuntime()) {
+    router.post(
+      "/simulate",
+      requirePermission(permissions.SIMULATE_MOBILITY_OBSTRUCTION),
+      auditAction(
+        permissions.SIMULATE_MOBILITY_OBSTRUCTION,
+        "tow-intervention-simulation"
+      ),
+      allowBodyFields(mobilityEventFields),
+      asyncHandler(controller.simulateMobilityEvent)
+    );
+  }
 
   router.post(
     "/:id/request",
