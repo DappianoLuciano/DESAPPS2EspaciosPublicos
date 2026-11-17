@@ -50,6 +50,20 @@ describe("ProcessMobilityObstructionEvaluatedUseCase", () => {
     expect(outbox).toHaveLength(0);
   });
 
+  it("usa reclamoId como correlacion cuando Movilidad no la envia", async () => {
+    const { useCase } = createUseCase();
+    const { correlationId: _correlationId, ...inputWithoutCorrelationId } = input;
+
+    const intervention = await useCase.execute(inputWithoutCorrelationId);
+
+    expect(intervention).toMatchObject({
+      reclamoId: "reclamo-1",
+      correlationId: "reclamo-1",
+      requiereGrua: true,
+      status: "PENDING"
+    });
+  });
+
   it("finaliza automaticamente una intervencion que no requiere grua", async () => {
     const resolvedAt = new Date("2026-11-04T12:10:00.000Z");
     const { useCase, outbox, bus } = createUseCase(
