@@ -7,15 +7,16 @@ import type { EmergencyEventNotice } from '../lib/api';
 import { useEmergencyNotices } from '../lib/useEmergencyNotices';
 import EmergencyNotice from './EmergencyNotice';
 
-const VISIBLE_STATUSES = new Set(['SUSPENDIDA', 'EN_CURSO', 'A_REPROGRAMAR', 'REPROGRAMADA']);
+// A_REPROGRAMAR no entra: el horario original ya paso y todavia no hay fecha nueva.
+const VISIBLE_STATUSES = new Set(['SUSPENDIDA', 'EN_CURSO', 'REPROGRAMADA']);
 const NONE = new Set<string>();
 
 /**
- * Un evento que ya termino no necesita aviso: la emergencia puede seguir abierta del lado de Emergencias, pero
- * al ciudadano ya no le cambia nada. Excepcion: "pendiente de reprogramacion", que se resuelve despues.
+ * El Home muestra solo lo que todavia va a pasar: un evento que ya termino no aparece, aunque quede pendiente
+ * de reprogramacion (ese aviso sigue en la pagina del evento y en Mis Reservas).
  */
 function isStillRelevant(notice: EmergencyEventNotice, now: number) {
-  return notice.status === 'A_REPROGRAMAR' || new Date(notice.endDate).getTime() > now;
+  return new Date(notice.endDate).getTime() > now;
 }
 
 interface AffectedEvent {
