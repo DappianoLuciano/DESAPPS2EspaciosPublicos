@@ -1,4 +1,4 @@
-import { CreateEmergencyImpactData } from "../../domain/entities/EmergencyImpact";
+import { CreateEmergencyImpactData, EmergencyImpactInitialStatus } from "../../domain/entities/EmergencyImpact";
 import { EmergencyImpactRepository } from "../../domain/repositories/EmergencyImpactRepository";
 import { EmailSender } from "../../domain/services/EmailSender";
 import { EventBus } from "../../domain/services/EventBus";
@@ -6,7 +6,7 @@ import { logger } from "../../shared/logging/logger";
 import { buildReservationAffectedEvent } from "../events/emergencyEventBuilders";
 import { EmergencyCreated } from "../events/emergencyEvents";
 import { FindNearbyBookingsUseCase, NearbySpaceBookings } from "./FindNearbyBookingsUseCase";
-import { AttendeeSource, notifyImpact } from "./emergencyNotifications";
+import { AttendeeSource, EmergencyEmailBuilder, notifyImpact } from "./emergencyNotifications";
 
 const DEFAULT_WINDOW_HOURS = 2;
 
@@ -42,6 +42,23 @@ function toImpacts(emergenciaId: string, { space, reservations, events }: Nearby
   ];
 }
 
+const CREATED_MESSAGES: Record<EmergencyImpactInitialStatus, EmergencyEmailBuilder> = {
+  SUSPENDIDA: (noun) => ({
+    subject: `Tu ${noun} fue suspendida por una emergencia cercana`,
+    message: `Hubo una emergencia cerca del espacio y suspendimos tu ${noun}. Te avisamos cuando se resuelva.`
+  }),
+  // Ya hay gente en el lugar: Espacios no puede frenar el evento, lo decide el backoffice.
+  EN_CURSO: () => ({
+    subject: "Emergencia cerca de tu evento en curso",
+    message: "Se presentó una emergencia cerca durante el desarrollo del evento. Podría suspenderse; te avisamos por mail cualquier novedad."
+  })
+};
+
+/** La emergencia agarro la reserva ya empezada: no se suspende, queda en curso hasta que el backoffice decida. */
+export function initialStatus(startDate: Date, occurredAt: Date): EmergencyImpactInitialStatus {
+  return startDate <= occurredAt ? "EN_CURSO" : "SUSPENDIDA";
+}
+
 /** CU-01 A10. Devuelve true si la emergencia quedo procesada, aunque no afecte ninguna reserva. */
 export class HandleEmergencyCreatedUseCase {
   constructor(
@@ -72,19 +89,12 @@ export class HandleEmergencyCreatedUseCase {
     const nearby = await this.findNearbyBookings.execute(emergency, emergency.occurredAt, until);
 
     for (const impact of nearby.flatMap((space) => toImpacts(emergency.emergenciaId, space))) {
-      const event = buildReservationAffectedEvent({ ...impact, action: "SUSPENDIDA", occurredAt: new Date() });
+      const status = initialStatus(impact.startDate, emergency.occurredAt);
+      const event = buildReservationAffectedEvent({ ...impact, action: status, occurredAt: new Date() });
 
-      if (await this.impacts.createImpact(impact, event)) {
+      if (await this.impacts.createImpact(impact, event, status)) {
         await this.eventBus.publish(event);
-        await notifyImpact(
-          this.emailSender,
-          this.attendees,
-          impact,
-          (noun) => ({
-            subject: `Tu ${noun} fue suspendida por una emergencia cercana`,
-            message: `Hubo una emergencia cerca del espacio y suspendimos tu ${noun}. Te avisamos cuando se resuelva.`
-          })
-        );
+        await notifyImpact(this.emailSender, this.attendees, impact, CREATED_MESSAGES[status]);
       }
     }
 

@@ -7,7 +7,7 @@ import { listCommunityEvents } from '../lib/api';
 import type { CommunityEventCatalogItem } from '../lib/api';
 import DashboardWeatherAlerts from '../components/DashboardWeatherAlerts';
 import EmergencyStatusBadge from '../components/EmergencyStatusBadge';
-import { activeEmergencyNotice } from '../lib/emergencyHold';
+import { activeEmergencyNotice, isEmergencyHold } from '../lib/emergencyHold';
 import { useEmergencyNotices } from '../lib/useEmergencyNotices';
 
 export default function AdminDashboard() {
@@ -31,7 +31,7 @@ export default function AdminDashboard() {
   const recentEvents = events.slice(0, 5);
   const eventsOnHold = events.filter((event) => {
     const status = notices.get(event.id)?.status;
-    return event.status !== 'CANCELLED' && (status === 'SUSPENDIDA' || status === 'A_REPROGRAMAR');
+    return event.status !== 'CANCELLED' && isEmergencyHold(status);
   });
 
   const formatDate = (date: string) => (

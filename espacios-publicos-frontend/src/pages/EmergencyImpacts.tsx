@@ -1,14 +1,22 @@
-import { Alert, Badge, Box, Button, Group, Modal, Stack, Table, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Badge, Box, Button, Group, Modal, Stack, Table, Text, Textarea, TextInput, Title } from '@mantine/core';
 import { useCallback, useEffect, useState } from 'react';
-import { getEmergencyImpacts, rescheduleEmergencyImpact } from '../lib/api';
+import { cancelEmergencyImpact, getEmergencyImpacts, rescheduleEmergencyImpact } from '../lib/api';
 import type { EmergencyImpact, EmergencyImpactStatus, EmergencyImpactsResponse } from '../lib/api';
 
 const STATUS: Record<EmergencyImpactStatus, { label: string; color: string }> = {
   SUSPENDIDA: { label: 'Suspendida', color: 'orange' },
+  EN_CURSO: { label: 'Emergencia durante el evento', color: 'yellow' },
   CONFIRMADA: { label: 'Confirmada', color: 'green' },
   REPROGRAMADA: { label: 'Reprogramada', color: 'blue' },
   A_REPROGRAMAR: { label: 'A reprogramar', color: 'red' },
+  CANCELADA: { label: 'Cancelada', color: 'gray' },
 };
+
+const CLOSED: readonly EmergencyImpactStatus[] = ['CONFIRMADA', 'CANCELADA'];
+
+// Solo los eventos comunitarios se pueden cancelar: las reservas de espacio se reprograman.
+const canCancel = (impact: EmergencyImpact) =>
+  impact.bookingType === 'COMMUNITY_EVENT' && !CLOSED.includes(impact.status);
 
 const formatDate = (date: string) => new Intl.DateTimeFormat('es-AR', {
   dateStyle: 'short',
@@ -22,6 +30,8 @@ export default function EmergencyImpacts() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [saving, setSaving] = useState(false);
+  const [cancelling, setCancelling] = useState<EmergencyImpact | null>(null);
+  const [reason, setReason] = useState('');
 
   const load = useCallback(() => {
     getEmergencyImpacts()
@@ -47,6 +57,11 @@ export default function EmergencyImpacts() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const closeCancel = () => {
+    setCancelling(null);
+    setReason('');
   };
 
   const closeReschedule = () => {
@@ -84,9 +99,14 @@ export default function EmergencyImpacts() {
                 <Table.Td>{formatDate(impact.startDate)} a {formatDate(impact.endDate)}</Table.Td>
                 <Table.Td><Badge color={STATUS[impact.status].color} variant="light">{STATUS[impact.status].label}</Badge></Table.Td>
                 <Table.Td>
-                  {impact.status !== 'CONFIRMADA' && (
-                    <Button size="xs" variant="light" onClick={() => setRescheduling(impact)}>Reprogramar</Button>
-                  )}
+                  <Group gap="xs" wrap="nowrap">
+                    {!CLOSED.includes(impact.status) && (
+                      <Button size="xs" variant="light" onClick={() => setRescheduling(impact)}>Reprogramar</Button>
+                    )}
+                    {canCancel(impact) && (
+                      <Button size="xs" variant="light" color="red" onClick={() => setCancelling(impact)}>Cancelar</Button>
+                    )}
+                  </Group>
                 </Table.Td>
               </Table.Tr>
             ))}
@@ -109,6 +129,31 @@ export default function EmergencyImpacts() {
               )}
             >
               Guardar
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal opened={cancelling !== null} onClose={closeCancel} title="Cancelar evento">
+        <Stack>
+          <Text size="sm">
+            Se cancela el evento y se avisa por mail al organizador, a cada inscripto y a quienes pidieron enterarse.
+          </Text>
+          <Textarea
+            label="Motivo (opcional)"
+            placeholder="Cancelado por una emergencia cercana."
+            maxLength={500}
+            value={reason}
+            onChange={(event) => setReason(event.currentTarget.value)}
+          />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={closeCancel}>Volver</Button>
+            <Button
+              color="red"
+              loading={saving}
+              onClick={() => cancelling && save(() => cancelEmergencyImpact(cancelling.id, reason.trim()), closeCancel)}
+            >
+              Cancelar evento
             </Button>
           </Group>
         </Stack>

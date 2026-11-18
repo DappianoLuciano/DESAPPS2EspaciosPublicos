@@ -6,5 +6,10 @@ export function activeEmergencyNotice(
   notices: Map<string, EmergencyEventNotice>
 ): EmergencyEventNotice | undefined {
   const notice = notices.get(event.id);
-  return event.status !== 'CANCELLED' && notice && notice.status !== 'CONFIRMADA' ? notice : undefined;
+  return event.status !== 'CANCELLED' && notice && notice.status !== 'CONFIRMADA' && notice.status !== 'CANCELADA' ? notice : undefined;
+}
+
+/** El evento no acepta inscripciones nuevas por una emergencia. */
+export function isEmergencyHold(status?: EmergencyEventNotice['status']): boolean {
+  return status === 'SUSPENDIDA' || status === 'EN_CURSO' || status === 'A_REPROGRAMAR';
 }

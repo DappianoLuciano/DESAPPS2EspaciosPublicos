@@ -46,6 +46,8 @@ import { GetEventRoutePlanUseCase } from "./application/use-cases/GetEventRouteP
 import { ReceiveGatewayEventUseCase } from "./application/use-cases/ReceiveGatewayEventUseCase";
 import { FindNearbyBookingsUseCase } from "./application/use-cases/FindNearbyBookingsUseCase";
 import { GetEmergencyImpactsUseCase } from "./application/use-cases/GetEmergencyImpactsUseCase";
+import { CancelAffectedEventUseCase } from "./application/use-cases/CancelAffectedEventUseCase";
+import { WatchEmergencyEventUseCase } from "./application/use-cases/WatchEmergencyEventUseCase";
 import { HandleEmergencyCreatedUseCase } from "./application/use-cases/HandleEmergencyCreatedUseCase";
 import { HandleEmergencyResolvedUseCase } from "./application/use-cases/HandleEmergencyResolvedUseCase";
 import { RescheduleAffectedBookingUseCase } from "./application/use-cases/RescheduleAffectedBookingUseCase";
@@ -245,7 +247,9 @@ export function createContainer() {
     emergencyImpactRepository,
     eventBus,
     emailSender,
-    communityEventRegistrationRepository
+    communityEventRegistrationRepository,
+    emergencyImpactRepository,
+    communityEventRepository
   );
   const receiveGatewayEventUseCase = new ReceiveGatewayEventUseCase(
     new PrismaInboundEventRepository(),
@@ -283,8 +287,17 @@ export function createContainer() {
       communityEventRegistrationRepository,
       eventBus,
       eventOutboxRepository,
-      emailSender
-    )
+      emailSender,
+      emergencyImpactRepository
+    ),
+    new CancelAffectedEventUseCase(
+      emergencyImpactRepository,
+      cancelCommunityEventUseCase,
+      emailSender,
+      communityEventRegistrationRepository,
+      emergencyImpactRepository
+    ),
+    new WatchEmergencyEventUseCase(emergencyImpactRepository)
   );
   const getEventRoutePlanUseCase = new GetEventRoutePlanUseCase(
     communityEventRepository,

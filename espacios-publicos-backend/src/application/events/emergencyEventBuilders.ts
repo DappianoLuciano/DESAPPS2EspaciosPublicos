@@ -14,7 +14,8 @@ export function buildReservationAffectedEvent(input: {
   bookingType: EmergencyBookingType;
   startDate: Date;
   endDate: Date;
-  action: "SUSPENDIDA" | "REPROGRAMADA";
+  /** EN_CURSO: la reserva ya habia empezado cuando ocurrio la emergencia; no se suspende. */
+  action: "SUSPENDIDA" | "EN_CURSO" | "REPROGRAMADA";
   occurredAt: Date;
 }): DomainEvent {
   return domainEvent(eventNames.reservationAffected(), {

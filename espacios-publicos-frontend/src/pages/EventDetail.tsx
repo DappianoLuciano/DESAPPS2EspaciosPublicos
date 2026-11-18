@@ -9,6 +9,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import EmergencyNotice from '../components/EmergencyNotice';
+import EmergencyWatchButton from '../components/EmergencyWatchButton';
+import { isEmergencyHold } from '../lib/emergencyHold';
 import { useEmergencyNotices } from '../lib/useEmergencyNotices';
 import BikeRoutePlanner from '../components/BikeRoutePlanner';
 import { markerIconConfig } from '../components/LocationPicker';
@@ -136,13 +138,19 @@ export default function EventDetail() {
   const eventHasStarted = new Date(event.startDate) <= new Date();
   const availability = eventAvailability(event);
   const noticeStatus = notices.get(event.id)?.status;
-  const onEmergencyHold = noticeStatus === 'SUSPENDIDA' || noticeStatus === 'A_REPROGRAMAR';
+  const onEmergencyHold = isEmergencyHold(noticeStatus);
+  // Quien no esta inscripto puede pedir que le avisen si el evento sigue, se reprograma o se cancela.
+  const canWatchEmergency = !existingRegistrationId
+    && user?.role === 'citizen'
+    && event.requiresRegistration
+    && event.status !== 'CANCELLED'
+    && (noticeStatus === 'A_REPROGRAMAR' || (noticeStatus === 'SUSPENDIDA' && !eventHasStarted));
   const canRegister = !onEmergencyHold && event.requiresRegistration && !existingRegistrationId && !eventHasStarted && event.availableCapacity > 0 && event.status === 'ACTIVE';
 
   const getRegistrationLabel = () => {
     if (existingRegistrationId) return 'Ver mi reserva';
     if (availability.unavailable) return availability.label;
-    if (onEmergencyHold) return 'Suspendido por emergencia';
+    if (onEmergencyHold) return noticeStatus === 'EN_CURSO' ? 'Emergencia en curso' : 'Inscripciones pausadas';
     if (!event.requiresRegistration) return 'Acceso libre';
     if (eventHasStarted) return 'Inscripción cerrada';
     if (event.availableCapacity <= 0 || event.status === 'ACTIVE_FULL') return 'Sin cupos disponibles';
@@ -178,7 +186,9 @@ export default function EventDetail() {
       </Modal>
 
       <Container size="xl" py={40}>
-        <EmergencyNotice notice={notices.get(event.id)} />
+        <EmergencyNotice notice={notices.get(event.id)} audience={existingRegistrationId ? 'inscripto' : 'publico'}>
+          {canWatchEmergency && <EmergencyWatchButton eventId={event.id} email={user?.email} />}
+        </EmergencyNotice>
 
         {error && (
           <Alert color="red" mb="lg">
