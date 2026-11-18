@@ -326,6 +326,9 @@ model CityIncident {
   longitude  Float?
   zone       String?
   active     Boolean  @default(true)
+  // Cierre definitivo (resuelta, cerrada, cancelada). Un alta que llega despues, por desorden o
+  // reintento del bus, no lo reactiva. Una baja por reclasificacion no lo completa.
+  closedAt   DateTime?
   reportedAt DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

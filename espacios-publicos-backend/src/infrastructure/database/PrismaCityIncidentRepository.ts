@@ -10,6 +10,15 @@ import { prisma } from "./prismaClient";
 export class PrismaCityIncidentRepository implements CityIncidentRepository {
   async upsertActive(data: UpsertCityIncidentData): Promise<void> {
     const { source, externalId, ...fields } = data;
+    const existing = await prisma.cityIncident.findUnique({
+      where: { source_externalId: { source, externalId } },
+      select: { closedAt: true }
+    });
+
+    // Ya cerrado: el alta llego tarde (desorden o reintento del bus) y no lo reactiva.
+    if (existing?.closedAt) {
+      return;
+    }
 
     await prisma.cityIncident.upsert({
       where: { source_externalId: { source, externalId } },
@@ -19,6 +28,17 @@ export class PrismaCityIncidentRepository implements CityIncidentRepository {
   }
 
   async deactivate(source: CityIncidentSource, externalId: string): Promise<void> {
+    const closedAt = new Date();
+
+    // Si el cierre llega antes que el alta, queda anotado y el alta posterior no lo activa.
+    await prisma.cityIncident.upsert({
+      where: { source_externalId: { source, externalId } },
+      create: { source, externalId, active: false, closedAt },
+      update: { active: false, closedAt }
+    });
+  }
+
+  async deactivateUntilReactivated(source: CityIncidentSource, externalId: string): Promise<void> {
     await prisma.cityIncident.updateMany({
       where: { source, externalId },
       data: { active: false }
