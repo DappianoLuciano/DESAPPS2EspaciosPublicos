@@ -3,6 +3,7 @@ import { IconArrowRight, IconSearch } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import EventCard from '../components/EventCard';
+import HomeEmergencyAlerts from '../components/HomeEmergencyAlerts';
 import { listCommunityEvents } from '../lib/api';
 import type { CommunityEventCatalogItem } from '../lib/api';
 import { FEATURED_CATEGORIES } from '../lib/eventCategories';
@@ -70,6 +71,8 @@ export default function Home() {
           Encontrá actividades, reservá tu lugar y descubrí espacios culturales en distintos barrios.
         </Text>
       </Box>
+
+      <HomeEmergencyAlerts />
 
       <Title order={2} mt={40} mb={20}>Categorías</Title>
 
