@@ -12,7 +12,6 @@ import { InMemoryTowInterventionRepository } from "../../src/infrastructure/data
 
 const mobilityData = {
   reclamoId: "reclamo-integracion-1",
-  correlationId: "correlation-integracion-1",
   latitud: -34.6037,
   longitud: -58.3816,
   direccion: "Av. Corrientes 1000",

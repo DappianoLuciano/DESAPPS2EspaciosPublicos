@@ -4,7 +4,6 @@ import { DomainEvent } from "../../src/domain/entities/DomainEvent";
 
 const input = {
   reclamoId: "reclamo-1",
-  correlationId: "correlation-1",
   latitud: -34.6037,
   longitud: -58.3816,
   direccion: "Av. Corrientes 1000",
@@ -41,7 +40,6 @@ describe("ProcessMobilityObstructionEvaluatedUseCase", () => {
 
     expect(intervention).toMatchObject({
       reclamoId: "reclamo-1",
-      correlationId: "correlation-1",
       requiereGrua: true,
       status: "PENDING",
       solicitadoAt: null,

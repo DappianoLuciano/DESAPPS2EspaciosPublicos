@@ -579,7 +579,6 @@ function parseMobilityObstruction(
 ): MovilidadObstruccionEvaluadaInput {
   return {
     reclamoId: requiredString(data.reclamoId, "reclamoId"),
-    correlationId: requiredString(data.correlationId, "correlationId"),
     latitud: requiredCoordinate(data.latitud, "latitud", 90),
     longitud: requiredCoordinate(data.longitud, "longitud", 180),
     direccion: requiredString(data.direccion, "direccion"),

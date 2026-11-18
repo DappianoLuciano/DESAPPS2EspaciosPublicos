@@ -1,6 +1,5 @@
 export interface MovilidadObstruccionEvaluadaInput {
   reclamoId: string;
-  correlationId: string;
   latitud: number;
   longitud: number;
   direccion: string;

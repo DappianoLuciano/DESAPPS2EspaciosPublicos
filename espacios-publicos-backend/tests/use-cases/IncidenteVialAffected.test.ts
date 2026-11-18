@@ -29,7 +29,7 @@ function build() {
 const obstruction = (eventId: string, data: Record<string, unknown> = {}) => ({
   metadata: { eventId, eventType: "com.citypass.movilidad.MovilidadObstruccionEvaluada" },
   data: {
-    reclamoId: "rec-9", correlationId: "corr-9", latitud: -34.6070, longitud: -58.4360, direccion: "Av. Díaz Vélez 4800",
+    reclamoId: "rec-9", latitud: -34.6070, longitud: -58.4360, direccion: "Av. Díaz Vélez 4800",
     barrio: "Caballito", afectaCiclovia: false, estacionesAfectadasIds: [], impactoCirculacion: "ALTO",
     desvioSugerido: null, requiereIntervencionInmediata: false, requiereGrua: false, evaluadoAt: Date.now(), ...data
   }

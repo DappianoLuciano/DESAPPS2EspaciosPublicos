@@ -3,7 +3,6 @@ import { createApp } from "../../src/app";
 
 const mobilityEvent = {
   reclamoId: "reclamo-finalizacion-1",
-  correlationId: "correlation-finalizacion-1",
   latitud: -34.6037,
   longitud: -58.3816,
   direccion: "Av. Corrientes 1000",

@@ -443,7 +443,6 @@ describe("POST /webhooks/citypass", () => {
   describe("MovilidadObstruccionEvaluada", () => {
     const mobilityData = {
       reclamoId: "reclamo-movilidad-1",
-      correlationId: "correlation-movilidad-1",
       latitud: -34.6037,
       longitud: -58.3816,
       direccion: "Av. Corrientes 1000",
@@ -483,7 +482,6 @@ describe("POST /webhooks/citypass", () => {
           data: {
             ...mobilityData,
             reclamoId: "  reclamo-movilidad-2  ",
-            correlationId: "  correlation-movilidad-2  ",
             direccion: "  Av. Santa Fe 2000  ",
             barrio: "  Recoleta  "
           }
@@ -493,7 +491,6 @@ describe("POST /webhooks/citypass", () => {
       expect(processMobilityObstructionEvaluatedUseCase.execute).toHaveBeenCalledWith(
         expect.objectContaining({
           reclamoId: "reclamo-movilidad-2",
-          correlationId: "correlation-movilidad-2",
           direccion: "Av. Santa Fe 2000",
           barrio: "Recoleta"
         })

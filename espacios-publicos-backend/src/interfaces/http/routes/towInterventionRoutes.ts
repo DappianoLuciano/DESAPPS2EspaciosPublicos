@@ -9,7 +9,6 @@ import { isProductionRuntime } from "../../../shared/runtime/runtimeMode";
 
 const mobilityEventFields = [
   "reclamoId",
-  "correlationId",
   "latitud",
   "longitud",
   "direccion",
