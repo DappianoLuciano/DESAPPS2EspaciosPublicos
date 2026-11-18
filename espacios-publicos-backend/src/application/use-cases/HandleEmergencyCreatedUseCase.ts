@@ -49,8 +49,8 @@ const CREATED_MESSAGES: Record<EmergencyImpactInitialStatus, EmergencyEmailBuild
   }),
   // Ya hay gente en el lugar: Espacios no puede frenar el evento, lo decide el backoffice.
   EN_CURSO: () => ({
-    subject: "Emergencia cerca de tu evento en curso",
-    message: "Se presentó una emergencia cerca durante el desarrollo del evento. Podría suspenderse; te avisamos por mail cualquier novedad."
+    subject: "Emergencia durante el desarrollo del evento",
+    message: "Se presentó una emergencia en las cercanías durante el desarrollo del evento. Podría suspenderse; te avisamos por mail cualquier novedad."
   })
 };
 

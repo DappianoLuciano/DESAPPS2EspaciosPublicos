@@ -371,7 +371,7 @@ describe("CU-01: emergencia con el evento ya empezado", () => {
     expect(store.outbox[0].payload).toMatchObject({ accion: "EN_CURSO", tipoReserva: "EVENTO" });
     const [to, subject, html] = emailSender.send.mock.calls[0];
     expect(to).toBe("ana@test.com");
-    expect(subject).toBe("Emergencia cerca de tu evento en curso");
+    expect(subject).toBe("Emergencia durante el desarrollo del evento");
     expect(html).toContain("Podría suspenderse");
   });
 

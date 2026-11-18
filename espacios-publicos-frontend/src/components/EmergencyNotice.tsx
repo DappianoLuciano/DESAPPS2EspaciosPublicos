@@ -21,8 +21,8 @@ function describe(notice: EmergencyEventNotice, audience: EmergencyNoticeAudienc
         : { title: 'Inscripciones pausadas por una emergencia cercana', detail: 'El evento podría reprogramarse o cancelarse.', color: 'orange' };
     case 'EN_CURSO':
       return inscripto
-        ? { title: 'Emergencia cerca durante el evento', detail: 'Se presentó una emergencia cerca durante el desarrollo del evento. Podría suspenderse; te avisamos por mail cualquier novedad.', color: 'yellow' }
-        : { title: 'Emergencia cerca durante el evento', detail: 'Se presentó una emergencia cerca durante el desarrollo del evento. Podría suspenderse.', color: 'yellow' };
+        ? { title: 'Emergencia durante el desarrollo del evento', detail: 'Se presentó una emergencia en las cercanías durante el desarrollo del evento. Podría suspenderse; te avisamos por mail cualquier novedad.', color: 'yellow' }
+        : { title: 'Emergencia durante el desarrollo del evento', detail: 'Se presentó una emergencia en las cercanías durante el desarrollo del evento. Podría suspenderse.', color: 'yellow' };
     case 'A_REPROGRAMAR':
       return inscripto
         ? { title: 'Pendiente de reprogramación', detail: 'El horario pasó durante una emergencia. Vamos a informar la nueva fecha.', color: 'orange' }
