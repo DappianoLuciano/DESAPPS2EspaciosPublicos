@@ -24,6 +24,19 @@ export function createEmergencyImpactRoutes(controller: EmergencyImpactControlle
 
   // Publica, como el catalogo de eventos: los ciudadanos ven el aviso. No trae datos personales.
   router.get("/notices", asyncHandler(controller.notices));
+  // El ciudadano no inscripto pide que le avisen por mail si el evento sigue, se reprograma o se cancela.
+  router.get(
+    "/notices/:eventId/watch",
+    requirePermission(permissions.REGISTER_TO_EVENT),
+    asyncHandler(controller.watchStatus)
+  );
+  router.post(
+    "/notices/:eventId/watch",
+    requirePermission(permissions.REGISTER_TO_EVENT),
+    auditAction("emergency-impact.watch", "community-event"),
+    allowBodyFields([]),
+    asyncHandler(controller.watch)
+  );
   router.get("/", requirePermission(permissions.VIEW_EMERGENCY_IMPACTS), asyncHandler(controller.list));
   router.post(
     "/:id/reschedule",
@@ -31,6 +44,13 @@ export function createEmergencyImpactRoutes(controller: EmergencyImpactControlle
     auditAction(permissions.MANAGE_EMERGENCY_IMPACTS, "emergency-impact"),
     allowBodyFields(["startDate", "endDate"]),
     asyncHandler(controller.reschedule)
+  );
+  router.post(
+    "/:id/cancel",
+    requirePermission(permissions.MANAGE_EMERGENCY_IMPACTS),
+    auditAction(permissions.MANAGE_EMERGENCY_IMPACTS, "emergency-impact"),
+    allowBodyFields(["reason"]),
+    asyncHandler(controller.cancel)
   );
 
   return router;

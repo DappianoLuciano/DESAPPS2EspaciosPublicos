@@ -8,6 +8,8 @@ import {
   CreateEmergencyImpactData,
   CreateSpaceProblemData,
   EmergencyCaseRecord,
+  EmergencyEventWatcher,
+  EmergencyImpactInitialStatus,
   EmergencyImpactRecord
 } from "../../src/domain/entities/EmergencyImpact";
 import { PublicSpace } from "../../src/domain/entities/PublicSpace";
@@ -55,11 +57,18 @@ function createStore() {
   const impacts = new Map<string, EmergencyImpactRecord>();
   const problems = new Set<string>();
   const outbox: DomainEvent[] = [];
+  const watchers: Array<EmergencyEventWatcher & { notifiedAt: Date | null }> = [];
 
   return {
     cases,
     impacts,
     outbox,
+    watchers,
+    listPendingWatchers: async (eventId: string) =>
+      watchers.filter((watcher) => watcher.eventId === eventId && !watcher.notifiedAt),
+    markWatchersNotified: async (ids: string[], notifiedAt: Date) => {
+      watchers.filter((watcher) => ids.includes(watcher.id)).forEach((watcher) => { watcher.notifiedAt = notifiedAt; });
+    },
     findCase: async (id: string) => cases.get(id) ?? null,
     saveCase: async (emergency: EmergencyCaseRecord) => {
       if (!cases.has(emergency.emergenciaId)) cases.set(emergency.emergenciaId, emergency);
@@ -67,13 +76,17 @@ function createStore() {
     resolveCase: async (emergency: EmergencyCaseRecord) => {
       cases.set(emergency.emergenciaId, emergency);
     },
-    createImpact: async (data: CreateEmergencyImpactData, event: DomainEvent) => {
+    createImpact: async (
+      data: CreateEmergencyImpactData,
+      event: DomainEvent,
+      status: EmergencyImpactInitialStatus = "SUSPENDIDA"
+    ) => {
       const id = `${data.emergenciaId}/${data.bookingType}/${data.bookingId}`;
       if (impacts.has(id)) return false;
       impacts.set(id, {
         ...data,
         id,
-        status: "SUSPENDIDA",
+        status,
         rescheduledBy: null,
         rescheduledAt: null,
         releasedAt: null,
@@ -109,6 +122,7 @@ function setup(
   const emailSender = { send: jest.fn().mockResolvedValue(undefined) };
   const spaceRepository = { findAll: jest.fn().mockResolvedValue(spaces) };
   const attendees = { findByEventId: jest.fn().mockResolvedValue([]) };
+  const communityEvents = { findById: jest.fn().mockResolvedValue(null) };
   const finder = new FindNearbyBookingsUseCase(
     spaceRepository,
     { findOverlapping: jest.fn().mockResolvedValue(reservations) },
@@ -120,8 +134,9 @@ function setup(
     eventBus,
     emailSender,
     attendees,
+    communityEvents,
     created: new HandleEmergencyCreatedUseCase(store, finder, eventBus, emailSender, attendees),
-    resolved: new HandleEmergencyResolvedUseCase(store, eventBus, emailSender, attendees)
+    resolved: new HandleEmergencyResolvedUseCase(store, eventBus, emailSender, attendees, store, communityEvents)
   };
 }
 
@@ -337,6 +352,97 @@ describe("CU-01: avisos a inscriptos", () => {
 
     await expect(createdHandler.execute(created)).resolves.toBe(true);
     expect(eventBus.publish).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("CU-01: emergencia con el evento ya empezado", () => {
+  const running = {
+    id: "evento-1", title: "Festival", organizerName: "Cultura", startDate: hours(-1), endDate: hours(2), status: "ACTIVE"
+  } as CommunityEvent;
+  const inscriptos = [{ citizenName: "Ana", citizenEmail: "ana@test.com" }];
+
+  it("no lo suspende: queda en curso, avisa que podria suspenderse y publica ReservaAfectada EN_CURSO", async () => {
+    const { created: createdHandler, store, emailSender, attendees } = setup([space()], [], [running]);
+    attendees.findByEventId.mockResolvedValue(inscriptos);
+
+    await createdHandler.execute(created);
+
+    expect([...store.impacts.values()][0].status).toBe("EN_CURSO");
+    expect(store.outbox[0].payload).toMatchObject({ accion: "EN_CURSO", tipoReserva: "EVENTO" });
+    const [to, subject, html] = emailSender.send.mock.calls[0];
+    expect(to).toBe("ana@test.com");
+    expect(subject).toBe("Emergencia cerca de tu evento en curso");
+    expect(html).toContain("Podría suspenderse");
+  });
+
+  it("el que empieza despues de la emergencia sigue quedando suspendido", async () => {
+    const { created: createdHandler, store } = setup([space()], [], [{ ...running, startDate: hours(1) }]);
+
+    await createdHandler.execute(created);
+
+    expect([...store.impacts.values()][0].status).toBe("SUSPENDIDA");
+  });
+
+  it("al resolverse con el evento en horario avisa que continua", async () => {
+    const { created: createdHandler, resolved, store, emailSender, attendees } = setup([space()], [], [running]);
+    attendees.findByEventId.mockResolvedValue(inscriptos);
+
+    await createdHandler.execute(created);
+    await resolved.execute(resolvedWith([]));
+
+    expect([...store.impacts.values()][0].status).toBe("CONFIRMADA");
+    expect(emailSender.send.mock.calls[1][2]).toContain("el evento continúa con normalidad");
+  });
+
+  it("si se cancelo mientras tanto no lo confirma ni avisa", async () => {
+    const { created: createdHandler, resolved, store, emailSender, communityEvents, eventBus } = setup([space()], [], [running]);
+    communityEvents.findById.mockResolvedValue({ ...running, status: "CANCELLED" });
+
+    await createdHandler.execute(created);
+    emailSender.send.mockClear();
+    await resolved.execute(resolvedWith([]));
+
+    expect([...store.impacts.values()][0].status).toBe("CANCELADA");
+    expect(emailSender.send).not.toHaveBeenCalled();
+    expect(eventBus.publish.mock.calls[1][0].payload).toMatchObject({ reservasConfirmadas: [] });
+  });
+});
+
+describe("CU-01: interesados no inscriptos", () => {
+  const upcoming = {
+    id: "evento-1", title: "Festival", organizerName: "Cultura", startDate: hours(1), endDate: hours(3), status: "ACTIVE"
+  } as CommunityEvent;
+
+  it("al confirmarse les avisa una sola vez con el link al evento", async () => {
+    const { created: createdHandler, resolved, store, emailSender } = setup([space()], [], [upcoming]);
+    store.watchers.push({ id: "w1", eventId: "evento-1", email: "caro@test.com", name: "Caro", notifiedAt: null });
+
+    await createdHandler.execute(created);
+    await resolved.execute(resolvedWith([]));
+    await resolved.execute(resolvedWith([]));
+
+    const toCaro = emailSender.send.mock.calls.filter(([to]) => to === "caro@test.com");
+    expect(toCaro).toHaveLength(1);
+    expect(toCaro[0][1]).toBe("El evento sigue en pie");
+    expect(toCaro[0][2]).toContain("/event/evento-1");
+    expect(store.watchers[0].notifiedAt).not.toBeNull();
+  });
+
+  it("si queda para reprogramar todavia no les avisa", async () => {
+    const past = { ...upcoming, startDate: hours(-3), endDate: hours(-2) };
+    const { resolved, store, emailSender } = setup([space()], [], []);
+    store.impacts.set("x", {
+      id: "x", emergenciaId: EMERGENCY, bookingType: "COMMUNITY_EVENT", bookingId: past.id, publicSpaceId: "plaza",
+      bookingLabel: "Festival, Plaza", startDate: past.startDate, endDate: past.endDate, status: "SUSPENDIDA",
+      organizerName: "Cultura", organizerEmail: null, rescheduledBy: null, rescheduledAt: null, releasedAt: null,
+      createdAt: new Date()
+    });
+    store.watchers.push({ id: "w1", eventId: past.id, email: "caro@test.com", name: "Caro", notifiedAt: null });
+
+    await resolved.execute(resolvedWith([]));
+
+    expect(store.impacts.get("x")!.status).toBe("A_REPROGRAMAR");
+    expect(emailSender.send).not.toHaveBeenCalled();
   });
 });
 

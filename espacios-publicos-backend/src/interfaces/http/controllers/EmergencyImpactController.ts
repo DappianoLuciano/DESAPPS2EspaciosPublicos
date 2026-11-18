@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { FindNearbyBookingsUseCase } from "../../../application/use-cases/FindNearbyBookingsUseCase";
 import { GetEmergencyImpactsUseCase } from "../../../application/use-cases/GetEmergencyImpactsUseCase";
 import { RescheduleAffectedBookingUseCase } from "../../../application/use-cases/RescheduleAffectedBookingUseCase";
+import { CancelAffectedEventUseCase } from "../../../application/use-cases/CancelAffectedEventUseCase";
+import { WatchEmergencyEventUseCase } from "../../../application/use-cases/WatchEmergencyEventUseCase";
 import { ValidationError } from "../../../shared/errors/ValidationError";
 
 function coordinate(value: unknown, limit: number, field: string): number {
@@ -28,7 +30,9 @@ export class EmergencyImpactController {
   constructor(
     private readonly findNearbyBookings: FindNearbyBookingsUseCase,
     private readonly getImpacts: GetEmergencyImpactsUseCase,
-    private readonly rescheduleBooking: RescheduleAffectedBookingUseCase
+    private readonly rescheduleBooking: RescheduleAffectedBookingUseCase,
+    private readonly cancelAffectedEvent: CancelAffectedEventUseCase,
+    private readonly watchEvent: WatchEmergencyEventUseCase
   ) {}
 
   nearby = async (request: Request, response: Response): Promise<void> => {
@@ -72,6 +76,26 @@ export class EmergencyImpactController {
       startDate: request.body.startDate,
       endDate: request.body.endDate,
       actor: request.user?.name ?? "desconocido"
+    }));
+  };
+
+  cancel = async (request: Request, response: Response): Promise<void> => {
+    response.json(await this.cancelAffectedEvent.execute({
+      impactId: request.params.id,
+      reason: request.body?.reason,
+      actorSub: request.user?.id ?? null
+    }));
+  };
+
+  watchStatus = async (request: Request, response: Response): Promise<void> => {
+    response.json(await this.watchEvent.status(request.params.eventId, request.user?.email ?? ""));
+  };
+
+  watch = async (request: Request, response: Response): Promise<void> => {
+    response.status(201).json(await this.watchEvent.watch({
+      eventId: request.params.eventId,
+      email: request.user?.email ?? "",
+      name: request.user?.name ?? ""
     }));
   };
 }

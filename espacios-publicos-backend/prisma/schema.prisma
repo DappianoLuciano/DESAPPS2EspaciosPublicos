@@ -383,7 +383,7 @@ model EmergencyBookingImpact {
   bookingLabel   String
   startDate      DateTime
   endDate        DateTime
-  status         String // SUSPENDIDA | CONFIRMADA | REPROGRAMADA | A_REPROGRAMAR
+  status         String // SUSPENDIDA | EN_CURSO | CONFIRMADA | REPROGRAMADA | A_REPROGRAMAR | CANCELADA
   organizerName  String
   organizerEmail String?
   rescheduledBy  String?
@@ -396,6 +396,21 @@ model EmergencyBookingImpact {
   @@index([emergenciaId, releasedAt])
   @@index([status])
   @@map("emergency_booking_impacts")
+}
+
+// CU-01: ciudadano no inscripto que pidio que le avisen por mail que paso con un evento pausado por
+// una emergencia (sigue, se reprograma o se cancela).
+model EmergencyEventWatcher {
+  id         String    @id @default(uuid())
+  eventId    String
+  email      String
+  name       String
+  notifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@unique([eventId, email])
+  @@index([eventId, notifiedAt])
+  @@map("emergency_event_watchers")
 }
 
 // CU-01 (A6): problematica del espacio publico informada al resolver la emergencia.

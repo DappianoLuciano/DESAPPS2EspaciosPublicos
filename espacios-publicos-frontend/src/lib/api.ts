@@ -912,7 +912,7 @@ export function askChatbot(message: string, history?: ChatMessage[]) {
   });
 }
 
-export type EmergencyImpactStatus = 'SUSPENDIDA' | 'CONFIRMADA' | 'REPROGRAMADA' | 'A_REPROGRAMAR';
+export type EmergencyImpactStatus = 'SUSPENDIDA' | 'EN_CURSO' | 'CONFIRMADA' | 'REPROGRAMADA' | 'A_REPROGRAMAR' | 'CANCELADA';
 
 export interface EmergencyImpact {
   id: string;
@@ -958,6 +958,24 @@ export function rescheduleEmergencyImpact(id: string, startDate: string, endDate
   return request<EmergencyImpact>(`/api/emergency-impacts/${encodeURIComponent(id)}/reschedule`, {
     method: 'POST',
     body: JSON.stringify({ startDate, endDate }),
+  });
+}
+
+export function cancelEmergencyImpact(id: string, reason?: string) {
+  return request<EmergencyImpact>(`/api/emergency-impacts/${encodeURIComponent(id)}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify(reason ? { reason } : {}),
+  });
+}
+
+export function getEmergencyEventWatch(eventId: string) {
+  return request<{ watching: boolean }>(`/api/emergency-impacts/notices/${encodeURIComponent(eventId)}/watch`);
+}
+
+export function watchEmergencyEvent(eventId: string) {
+  return request<{ watching: boolean }>(`/api/emergency-impacts/notices/${encodeURIComponent(eventId)}/watch`, {
+    method: 'POST',
+    body: JSON.stringify({}),
   });
 }
 

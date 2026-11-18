@@ -1,5 +1,6 @@
 import { EmergencyImpactRecord } from "../../domain/entities/EmergencyImpact";
 import { CommunityEventRegistrationRepository } from "../../domain/repositories/CommunityEventRegistrationRepository";
+import { EmergencyImpactRepository } from "../../domain/repositories/EmergencyImpactRepository";
 import { EmailSender } from "../../domain/services/EmailSender";
 import { logger } from "../../shared/logging/logger";
 
@@ -111,5 +112,58 @@ export async function notifyImpact(
 
   if (impact.bookingType === "COMMUNITY_EVENT") {
     await notifyAttendees(emailSender, attendees, impact, build);
+  }
+}
+
+export type WatcherSource = Pick<EmergencyImpactRepository, "listPendingWatchers" | "markWatchersNotified">;
+
+/**
+ * Avisa a quienes pidieron enterarse (sin estar inscriptos) que paso con un evento pausado por una emergencia.
+ * Se marca como avisado a quien recibio el mail: si falla, queda pendiente para el proximo cambio.
+ */
+export async function notifyWatchers(
+  emailSender: EmailSender,
+  watchers: WatcherSource | undefined,
+  impact: NotifiableImpact,
+  email: EmergencyEmail
+): Promise<void> {
+  if (!watchers || impact.bookingType !== "COMMUNITY_EVENT") {
+    return;
+  }
+
+  try {
+    const pending = await watchers.listPendingWatchers(impact.bookingId);
+    const url = frontendUrl(`/event/${encodeURIComponent(impact.bookingId)}`);
+    const notified: string[] = [];
+
+    for (let index = 0; index < pending.length; index += EMAIL_BATCH_SIZE) {
+      const batch = pending.slice(index, index + EMAIL_BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map((watcher) =>
+          emailSender.send(
+            watcher.email,
+            email.subject,
+            emailBody(watcher.name, impact.bookingLabel, email.message, url, "Ver el evento")
+          )
+        )
+      );
+
+      results.forEach((result, position) => {
+        if (result.status === "fulfilled") {
+          notified.push(batch[position].id);
+        }
+      });
+    }
+
+    await watchers.markWatchersNotified(notified, new Date());
+
+    if (notified.length < pending.length) {
+      logger.warn(
+        { emergenciaId: impact.emergenciaId, bookingId: impact.bookingId, failed: pending.length - notified.length },
+        "CU-01: fallaron avisos a interesados"
+      );
+    }
+  } catch (error) {
+    logger.warn({ err: error, emergenciaId: impact.emergenciaId, bookingId: impact.bookingId }, "CU-01: no se pudo avisar a los interesados");
   }
 }

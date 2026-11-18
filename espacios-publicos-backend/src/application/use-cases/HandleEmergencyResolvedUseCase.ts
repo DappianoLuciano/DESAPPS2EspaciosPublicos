@@ -1,12 +1,18 @@
 import { EmergencyImpactRecord, EmergencyLocation } from "../../domain/entities/EmergencyImpact";
+import { CommunityEventRepository } from "../../domain/repositories/CommunityEventRepository";
 import { EmergencyImpactRepository, ImpactRelease } from "../../domain/repositories/EmergencyImpactRepository";
 import { EmailSender } from "../../domain/services/EmailSender";
 import { EventBus } from "../../domain/services/EventBus";
 import { buildSpaceReleasedEvent } from "../events/emergencyEventBuilders";
 import { EmergencyResolved } from "../events/emergencyEvents";
-import { AttendeeSource, notifyImpact } from "./emergencyNotifications";
+import { AttendeeSource, notifyImpact, notifyWatchers, WatcherSource } from "./emergencyNotifications";
 
-function releaseStatus(impact: EmergencyImpactRecord, now: Date): ImpactRelease["status"] {
+function releaseStatus(impact: EmergencyImpactRecord, now: Date, cancelled: boolean): ImpactRelease["status"] {
+  // Cancelado mientras tanto desde Gestion de Eventos: no se confirma ni se avisa.
+  if (cancelled) {
+    return "CANCELADA";
+  }
+
   if (impact.status === "REPROGRAMADA") {
     return "REPROGRAMADA";
   }
@@ -15,8 +21,12 @@ function releaseStatus(impact: EmergencyImpactRecord, now: Date): ImpactRelease[
   return impact.endDate > now ? "CONFIRMADA" : "A_REPROGRAMAR";
 }
 
-const RELEASE_MESSAGES: Record<ImpactRelease["status"], (noun: string) => string> = {
-  CONFIRMADA: (noun) => `La emergencia se resolvió y tu ${noun} quedó confirmada en el horario original.`,
+type NotifiedRelease = Exclude<ImpactRelease["status"], "CANCELADA">;
+
+const RELEASE_MESSAGES: Record<NotifiedRelease, (noun: string, impact: EmergencyImpactRecord) => string> = {
+  CONFIRMADA: (noun, impact) => impact.status === "EN_CURSO"
+    ? "La emergencia se resolvió y el evento continúa con normalidad."
+    : `La emergencia se resolvió y tu ${noun} quedó confirmada en el horario original.`,
   REPROGRAMADA: (noun) => `La emergencia se resolvió y tu ${noun} sigue en el nuevo horario.`,
   A_REPROGRAMAR: () => "La emergencia se resolvió, pero el horario ya pasó. Vamos a contactarte para reprogramarla."
 };
@@ -33,7 +43,10 @@ export class HandleEmergencyResolvedUseCase {
     >,
     private readonly eventBus: EventBus,
     private readonly emailSender: EmailSender,
-    private readonly attendees: AttendeeSource
+    private readonly attendees: AttendeeSource,
+    // Opcionales: sin ellos no se avisa a los interesados ni se detecta un evento cancelado mientras tanto.
+    private readonly watchers?: WatcherSource,
+    private readonly communityEvents?: Pick<CommunityEventRepository, "findById">
   ) {}
 
   async execute(emergency: EmergencyResolved): Promise<boolean> {
@@ -68,7 +81,11 @@ export class HandleEmergencyResolvedUseCase {
     }
 
     for (const [publicSpaceId, spaceImpacts] of bySpace) {
-      const releases = spaceImpacts.map((impact) => ({ id: impact.id, status: releaseStatus(impact, now) }));
+      const cancelled = await Promise.all(spaceImpacts.map((impact) => this.isCancelled(impact)));
+      const releases = spaceImpacts.map((impact, index) => ({
+        id: impact.id,
+        status: releaseStatus(impact, now, cancelled[index])
+      }));
       const withStatus = (status: ImpactRelease["status"]) =>
         spaceImpacts.filter((_, index) => releases[index].status === status).map((impact) => impact.bookingId);
       const event = buildSpaceReleasedEvent({
@@ -83,16 +100,40 @@ export class HandleEmergencyResolvedUseCase {
       await this.eventBus.publish(event);
 
       for (const [index, impact] of spaceImpacts.entries()) {
+        const status = releases[index].status;
+
+        if (status === "CANCELADA") {
+          continue;
+        }
+
         await notifyImpact(
           this.emailSender,
           this.attendees,
           impact,
           (noun) => ({
             subject: `Novedades de tu ${noun}`,
-            message: RELEASE_MESSAGES[releases[index].status](noun)
+            message: RELEASE_MESSAGES[status](noun, impact)
           })
         );
+
+        if (status === "CONFIRMADA") {
+          await notifyWatchers(this.emailSender, this.watchers, impact, {
+            subject: "El evento sigue en pie",
+            message: impact.startDate > now
+              ? "La emergencia cercana se resolvió y el evento sigue en pie. Si todavía hay cupo, ya podés inscribirte."
+              : "La emergencia cercana se resolvió y el evento sigue en pie."
+          });
+        }
       }
     }
+  }
+
+  private async isCancelled(impact: EmergencyImpactRecord): Promise<boolean> {
+    if (impact.bookingType !== "COMMUNITY_EVENT" || !this.communityEvents) {
+      return false;
+    }
+
+    const communityEvent = await this.communityEvents.findById(impact.bookingId);
+    return communityEvent?.status === "CANCELLED";
   }
 }

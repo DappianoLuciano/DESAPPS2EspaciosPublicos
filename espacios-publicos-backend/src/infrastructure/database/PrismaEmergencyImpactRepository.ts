@@ -6,6 +6,8 @@ import {
   EmergencyBookingType,
   EmergencyCaseRecord,
   EmergencyEventNotice,
+  EmergencyEventWatcher,
+  EmergencyImpactInitialStatus,
   EmergencyImpactRecord,
   EmergencyImpactStatus,
   EmergencyImpactSummary,
@@ -66,10 +68,14 @@ export class PrismaEmergencyImpactRepository implements EmergencyImpactRepositor
     });
   }
 
-  async createImpact(data: CreateEmergencyImpactData, event: DomainEvent): Promise<boolean> {
+  async createImpact(
+    data: CreateEmergencyImpactData,
+    event: DomainEvent,
+    status: EmergencyImpactInitialStatus = "SUSPENDIDA"
+  ): Promise<boolean> {
     try {
       await prisma.$transaction([
-        prisma.emergencyBookingImpact.create({ data: { ...data, status: "SUSPENDIDA" } }),
+        prisma.emergencyBookingImpact.create({ data: { ...data, status } }),
         prisma.eventOutbox.create({ data: outboxRow(event) })
       ]);
       return true;
@@ -117,6 +123,15 @@ export class PrismaEmergencyImpactRepository implements EmergencyImpactRepositor
     return toImpact(row);
   }
 
+  async cancelImpact(id: string, cancelledAt: Date): Promise<EmergencyImpactRecord> {
+    const row = await prisma.emergencyBookingImpact.update({
+      where: { id },
+      data: { status: "CANCELADA", releasedAt: cancelledAt }
+    });
+
+    return toImpact(row);
+  }
+
   async createProblem(data: CreateSpaceProblemData, event: DomainEvent): Promise<boolean> {
     try {
       await prisma.$transaction([
@@ -146,7 +161,7 @@ export class PrismaEmergencyImpactRepository implements EmergencyImpactRepositor
       where: {
         bookingType: "COMMUNITY_EVENT",
         OR: [
-          { status: "SUSPENDIDA", releasedAt: null },
+          { status: { in: ["SUSPENDIDA", "EN_CURSO"] }, releasedAt: null },
           { status: "A_REPROGRAMAR" },
           { status: "REPROGRAMADA", endDate: { gt: now } }
         ]
@@ -167,11 +182,40 @@ export class PrismaEmergencyImpactRepository implements EmergencyImpactRepositor
       where: {
         bookingType: "COMMUNITY_EVENT",
         bookingId: eventId,
-        OR: [{ status: "SUSPENDIDA", releasedAt: null }, { status: "A_REPROGRAMAR" }]
+        OR: [{ status: { in: ["SUSPENDIDA", "EN_CURSO"] }, releasedAt: null }, { status: "A_REPROGRAMAR" }]
       }
     });
 
     return count > 0;
+  }
+
+  async addWatcher(eventId: string, email: string, name: string): Promise<void> {
+    await prisma.emergencyEventWatcher.upsert({
+      where: { eventId_email: { eventId, email } },
+      create: { eventId, email, name },
+      update: { name, notifiedAt: null }
+    });
+  }
+
+  async isWatching(eventId: string, email: string): Promise<boolean> {
+    const count = await prisma.emergencyEventWatcher.count({ where: { eventId, email, notifiedAt: null } });
+    return count > 0;
+  }
+
+  async listPendingWatchers(eventId: string): Promise<EmergencyEventWatcher[]> {
+    return prisma.emergencyEventWatcher.findMany({
+      where: { eventId, notifiedAt: null },
+      select: { id: true, eventId: true, email: true, name: true },
+      orderBy: { createdAt: "asc" }
+    });
+  }
+
+  async markWatchersNotified(ids: string[], notifiedAt: Date): Promise<void> {
+    if (ids.length === 0) {
+      return;
+    }
+
+    await prisma.emergencyEventWatcher.updateMany({ where: { id: { in: ids } }, data: { notifiedAt } });
   }
 
   async getSummary(): Promise<EmergencyImpactSummary> {

@@ -12,9 +12,9 @@ import { ValidationError } from "../../shared/errors/ValidationError";
 import { requireText } from "../../shared/validation/inputValidation";
 import { buildCommunityEventPublishedEvent } from "../events/communityEventPublished";
 import { buildReservationAffectedEvent } from "../events/emergencyEventBuilders";
-import { notifyImpact } from "./emergencyNotifications";
+import { notifyImpact, notifyWatchers, WatcherSource } from "./emergencyNotifications";
 
-const REPROGRAMMABLE: readonly string[] = ["SUSPENDIDA", "A_REPROGRAMAR", "REPROGRAMADA"];
+const REPROGRAMMABLE: readonly string[] = ["SUSPENDIDA", "EN_CURSO", "A_REPROGRAMAR", "REPROGRAMADA"];
 
 function formatLocalDate(date: Date): string {
   return new Intl.DateTimeFormat("es-AR", {
@@ -44,7 +44,9 @@ export class RescheduleAffectedBookingUseCase {
     private readonly registrations: Pick<CommunityEventRegistrationRepository, "countByEventId" | "findByEventId">,
     private readonly eventBus: EventBus,
     private readonly eventOutboxRepository: EventOutboxRepository,
-    private readonly emailSender: EmailSender
+    private readonly emailSender: EmailSender,
+    // Opcional: sin el no se avisa a los interesados no inscriptos.
+    private readonly watchers?: WatcherSource
   ) {}
 
   async execute(input: RescheduleBookingInput): Promise<EmergencyImpactRecord> {
@@ -71,7 +73,9 @@ export class RescheduleAffectedBookingUseCase {
     }
 
     if (!REPROGRAMMABLE.includes(impact.status)) {
-      throw new ValidationError("La reserva ya fue confirmada y no se puede reprogramar desde aca.");
+      throw new ValidationError(impact.status === "CANCELADA"
+        ? "El evento fue cancelado y no se puede reprogramar."
+        : "La reserva ya fue confirmada y no se puede reprogramar desde aca.");
     }
 
     await this.assertAvailable(impact, startDate, endDate);
@@ -96,6 +100,10 @@ export class RescheduleAffectedBookingUseCase {
         message: `El nuevo horario es del ${formatLocalDate(startDate)} al ${formatLocalDate(endDate)}.`
       })
     );
+    await notifyWatchers(this.emailSender, this.watchers, updated, {
+      subject: "El evento fue reprogramado",
+      message: `Por una emergencia cercana, el evento pasó al ${formatLocalDate(startDate)} hasta el ${formatLocalDate(endDate)}. Si todavía hay cupo, ya podés inscribirte.`
+    });
 
     return updated;
   }

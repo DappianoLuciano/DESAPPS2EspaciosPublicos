@@ -1,5 +1,18 @@
 export type EmergencyBookingType = "RESERVATION" | "COMMUNITY_EVENT";
-export type EmergencyImpactStatus = "SUSPENDIDA" | "CONFIRMADA" | "REPROGRAMADA" | "A_REPROGRAMAR";
+/**
+ * SUSPENDIDA: la emergencia empezo antes que la reserva. EN_CURSO: la reserva ya habia empezado; puede
+ * seguir, y el backoffice decide si la cancela o la reprograma. CANCELADA: el backoffice cancelo el evento.
+ */
+export type EmergencyImpactStatus =
+  | "SUSPENDIDA"
+  | "EN_CURSO"
+  | "CONFIRMADA"
+  | "REPROGRAMADA"
+  | "A_REPROGRAMAR"
+  | "CANCELADA";
+
+/** Estado con el que nace la afectacion. */
+export type EmergencyImpactInitialStatus = "SUSPENDIDA" | "EN_CURSO";
 
 export interface EmergencyLocation {
   latitude: number | null;
@@ -72,4 +85,12 @@ export interface EmergencyEventNotice {
   status: EmergencyImpactStatus;
   startDate: Date;
   endDate: Date;
+}
+
+/** Ciudadano no inscripto que pidio que le avisen que paso con un evento pausado por una emergencia. */
+export interface EmergencyEventWatcher {
+  id: string;
+  eventId: string;
+  email: string;
+  name: string;
 }
