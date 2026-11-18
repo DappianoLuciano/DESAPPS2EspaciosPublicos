@@ -36,7 +36,9 @@ export function buildCommunityEventPublishedPayload(
     inscriptos,
     estado: event.status,
     categoria: event.category,
-    correlationId: `evento-${event.id}`
+    correlationId: `evento-${event.id}`,
+    // Mismo valor que zona: Emergencias lee el barrio de este campo.
+    barrio: space?.zone ?? null
   };
 }
 

@@ -77,7 +77,7 @@ describe("registro unificado de contratos EDA", () => {
 
   it("conserva los campos de los cuatro contratos de main", () => {
     const expected: Record<string, string[]> = {
-      EventoComunitarioPublicado: ["eventoId", "espacioId", "titulo", "zona", "direccion", "latitud", "longitud", "inicio", "fin", "capacidad", "cupoMaximo", "inscriptos", "estado", "categoria", "correlationId"],
+      EventoComunitarioPublicado: ["eventoId", "espacioId", "titulo", "zona", "direccion", "latitud", "longitud", "inicio", "fin", "capacidad", "cupoMaximo", "inscriptos", "estado", "categoria", "correlationId", "barrio"],
       EventoCancelado: ["eventoId", "espacioId", "motivo", "canceladoEn", "correlationId"],
       EspacioEstadoCambiado: ["espacioId", "estadoNuevo", "zona", "latitud", "longitud", "cambiadoEn"],
       ReservaConfirmada: ["reservaId", "tipoReserva", "recursoId", "espacioId", "cantidadPersonas", "inicio", "fin"]
