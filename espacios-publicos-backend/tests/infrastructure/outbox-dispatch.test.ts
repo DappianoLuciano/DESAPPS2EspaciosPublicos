@@ -20,10 +20,14 @@ const ESPACIOS_FQNS = [
   "com.citypass.espacios.EventoCancelado",
   "com.citypass.espacios.EspacioEstadoCambiado",
   "com.citypass.espacios.EspacioPublicoAfectado",
+  "com.citypass.espacios.EspacioPublicoRestaurado",
   "com.citypass.espacios.ReservaConfirmada",
+  "com.citypass.espacios.ReservaCreada",
+  "com.citypass.espacios.ReservaActualizada",
   "com.citypass.espacios.ReservaAfectada",
   "com.citypass.espacios.EspacioLiberado",
-  "com.citypass.espacios.ProblematicaRegistrada"
+  "com.citypass.espacios.ProblematicaRegistrada",
+  "com.citypass.espacios.IntervencionFinalizada"
 ];
 const WEATHER_FQNS = [
   "com.citypass.espacios.CriticidadClimaticaConfirmada",

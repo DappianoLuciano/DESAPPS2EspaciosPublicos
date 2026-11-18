@@ -14,4 +14,8 @@ export interface CreateCommunityEventInput {
   imageUrl?: string | null;
   // sub del token del organizador. Lo completa el controller, nunca el body.
   organizerSub?: string | null;
+  // CIUDAD si lo crea un admin municipal, CIUDADANO si no. Lo completa el controller, nunca el body.
+  organizerType?: OrganizerType;
 }
+
+export type OrganizerType = "CIUDAD" | "CIUDADANO";

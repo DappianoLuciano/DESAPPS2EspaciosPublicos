@@ -9,12 +9,14 @@ import { createWebhookRoutes } from "../../src/interfaces/http/routes/webhookRou
 
 const WEBHOOK_TOKEN = "token-de-prueba";
 const RECOMMENDATION_TYPE = "com.citypass.movilidad.RecomendacionDestinoActualizada";
+const MOBILITY_OBSTRUCTION_TYPE =
+  "com.citypass.movilidad.MovilidadObstruccionEvaluada";
 
 function envelope(overrides: { eventId?: string; eventType?: string; data?: unknown } = {}) {
   return {
     metadata: {
       eventId: overrides.eventId ?? "evt-1",
-      eventType: overrides.eventType ?? "com.citypass.reclamos.ReclamoCreado",
+      eventType: overrides.eventType ?? "com.citypass.reclamos.ReclamoCreado.v3",
       receivedAt: "2030-01-01T10:00:00.000Z"
     },
     data:
@@ -36,7 +38,9 @@ describe("POST /webhooks/citypass", () => {
     upsertActive: jest.fn().mockResolvedValue(undefined),
     deactivate: jest.fn().mockResolvedValue(undefined),
     findActiveInBounds: jest.fn(),
-    findActiveWithoutCoordinatesWithZone: jest.fn()
+    findActiveWithoutCoordinatesWithZone: jest.fn(),
+    findActiveBySource: jest.fn(),
+    findActive: jest.fn()
   };
   // Fake en memoria con la misma regla "solo si es mas nueva" que la implementacion Prisma.
   const stored = new Map<string, { calculadaEn: Date; mensaje: string }>();
@@ -57,6 +61,9 @@ describe("POST /webhooks/citypass", () => {
   const communityEventRepository = {
     findById: jest.fn(async (id: string) => (knownEvents.has(id) ? ({ id } as never) : null))
   };
+  const processMobilityObstructionEvaluatedUseCase = {
+    execute: jest.fn().mockResolvedValue({})
+  };
 
   function buildApp() {
     const app = express();
@@ -70,7 +77,11 @@ describe("POST /webhooks/citypass", () => {
             inboundRepository,
             cityIncidentRepository,
             recommendationRepository,
-            communityEventRepository
+            communityEventRepository,
+            undefined,
+            undefined,
+            undefined,
+            processMobilityObstructionEvaluatedUseCase
           )
         )
       )
@@ -86,6 +97,7 @@ describe("POST /webhooks/citypass", () => {
   beforeEach(() => {
     recorded.clear();
     stored.clear();
+    processMobilityObstructionEvaluatedUseCase.execute.mockClear();
     process.env.GATEWAY_WEBHOOK_TOKEN = WEBHOOK_TOKEN;
   });
 
@@ -135,7 +147,7 @@ describe("POST /webhooks/citypass", () => {
     const delivery = (receivedAt: string) => ({
       metadata: {
         eventId: "evt-gw-1",
-        eventType: "com.citypass.reclamos.ReclamoCreado",
+        eventType: "com.citypass.reclamos.ReclamoCreado.v3",
         receivedAt,
         source: "reclamos",
         schemaId: 7
@@ -149,7 +161,7 @@ describe("POST /webhooks/citypass", () => {
       expect(cityIncidentRepository.upsertActive).toHaveBeenCalledWith(
         expect.objectContaining({ source: "RECLAMOS", externalId: "rec-9" })
       );
-      expect(inboundRepository.record).toHaveBeenCalledWith("evt-gw-1", "com.citypass.reclamos.ReclamoCreado");
+      expect(inboundRepository.record).toHaveBeenCalledWith("evt-gw-1", "com.citypass.reclamos.ReclamoCreado.v3");
     });
 
     it("la reentrega at-least-once del mismo metadata.eventId se procesa una sola vez", async () => {
@@ -183,11 +195,59 @@ describe("POST /webhooks/citypass", () => {
       });
       expect(inboundRepository.record).toHaveBeenCalledWith(
         "evt-1",
-        "com.citypass.reclamos.ReclamoCreado"
+        "com.citypass.reclamos.ReclamoCreado.v3"
       );
     });
 
-    describe("Emergencias (contrato real: barrio, sin coordenadas ni afectaCirculacion)", () => {
+    it("acepta el payload completo de ReclamoCreado.v3 con sus 22 campos", async () => {
+      const fullV3Payload = {
+        reclamoId: "b1d4e8f2-6a30-4c99-8e71-0f5a2d6c3b84",
+        ciudadanoId: "ciudadano-uuid",
+        canal: "WEB",
+        titulo: "Vehiculo obstruyendo una ciclovia",
+        descripcion: "Un auto se encuentra detenido sobre la bicisenda.",
+        categoria: "TRANSITO",
+        prioridad: "ALTA",
+        estado: "CREADO",
+        origenClasificacion: "AUTOMATICA",
+        confianzaClasificacion: 0.94,
+        direccion: "Av. Corrientes 1000",
+        barrio: "San Nicolas",
+        latitud: -34.6037,
+        longitud: -58.3816,
+        objetoAfectado: "CICLOVIA",
+        alertaId: "03cb16ec-e2de-47f7-bc57-e826a272b177",
+        afectaCirculacion: true,
+        correlationId: "correlation-reclamo-v3",
+        createdAt: 1794499200000,
+        causaId: "causa-1",
+        causaTipo: "EVENTO_PUBLICO",
+        actividadId: "actividad-1"
+      };
+
+      await post(
+        envelope({
+          eventId: "evt-reclamo-v3-completo",
+          eventType: "com.citypass.reclamos.ReclamoCreado.v3",
+          data: fullV3Payload
+        })
+      ).expect(204);
+
+      expect(cityIncidentRepository.upsertActive).toHaveBeenCalledWith({
+        source: "RECLAMOS",
+        externalId: fullV3Payload.reclamoId,
+        category: "TRANSITO",
+        latitude: -34.6037,
+        longitude: -58.3816,
+        zone: null
+      });
+      expect(inboundRepository.record).toHaveBeenCalledWith(
+        "evt-reclamo-v3-completo",
+        "com.citypass.reclamos.ReclamoCreado.v3"
+      );
+    });
+
+    describe("Emergencias (contrato real: coordenadas en la raiz, barrio, sin afectaCirculacion)", () => {
       const CREADA = "com.citypass.emergencias.EmergenciaCreada";
       const ACTUALIZADA = "com.citypass.emergencias.EmergenciaActualizada";
 
@@ -216,6 +276,55 @@ describe("POST /webhooks/citypass", () => {
           zone: "Villa Pueyrredón"
         });
         expect(inboundRepository.record).toHaveBeenCalledWith("evt-1", CREADA);
+      });
+
+      it("guarda las coordenadas en claro de la raiz de data aunque las de ubicacion vengan cifradas", async () => {
+        await post(envelope({
+          eventType: CREADA,
+          data: emergencia({
+            latitud: -34.604,
+            longitud: -58.382,
+            ubicacion: { latitud: "enc:v1:9f3a...", longitud: "enc:v1:41c2...", barrio: "San Nicolás" }
+          })
+        })).expect(204);
+
+        expect(cityIncidentRepository.upsertActive).toHaveBeenCalledWith({
+          source: "EMERGENCIAS",
+          externalId: "emg-7",
+          category: "INCENDIO",
+          latitude: -34.604,
+          longitude: -58.382,
+          zone: "San Nicolás"
+        });
+      });
+
+      it("con coordenadas la da de alta aunque no venga el barrio", async () => {
+        await post(envelope({
+          eventType: CREADA,
+          data: emergencia({ latitud: -34.604, longitud: -58.382, ubicacion: null })
+        })).expect(204);
+
+        expect(cityIncidentRepository.upsertActive).toHaveBeenCalledWith(
+          expect.objectContaining({ latitude: -34.604, longitude: -58.382, zone: null })
+        );
+      });
+
+      it("toma la categoria del campo categoria del contrato", async () => {
+        await post(envelope({ eventType: CREADA, data: emergencia({ tipo: undefined, categoria: "ACCIDENTE" }) })).expect(204);
+
+        expect(cityIncidentRepository.upsertActive).toHaveBeenCalledWith(
+          expect.objectContaining({ category: "ACCIDENTE" })
+        );
+      });
+
+      it("una cobertura preventiva de un evento no es un incidente", async () => {
+        await post(envelope({
+          eventType: CREADA,
+          data: emergencia({ tipo: undefined, categoria: "PREVENTIVA", causaTipo: "EVENTO_PUBLICO", causaId: "evento-1" })
+        })).expect(204);
+
+        expect(cityIncidentRepository.upsertActive).not.toHaveBeenCalled();
+        expect(inboundRepository.record).not.toHaveBeenCalled();
       });
 
       it("no filtra por tipo", async () => {
@@ -328,6 +437,117 @@ describe("POST /webhooks/citypass", () => {
       await post(envelope()).expect(204);
 
       expect(cityIncidentRepository.upsertActive).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("MovilidadObstruccionEvaluada", () => {
+    const mobilityData = {
+      reclamoId: "reclamo-movilidad-1",
+      correlationId: "correlation-movilidad-1",
+      latitud: -34.6037,
+      longitud: -58.3816,
+      direccion: "Av. Corrientes 1000",
+      barrio: "San Nicolas",
+      afectaCiclovia: true,
+      estacionesAfectadasIds: [10, 11],
+      impactoCirculacion: "ALTO",
+      desvioSugerido: "Av. Cordoba",
+      requiereIntervencionInmediata: true,
+      requiereGrua: true,
+      evaluadoAt: 1793800000000
+    };
+
+    it("envia el payload al caso de uso de intervenciones y registra el evento", async () => {
+      await post(
+        envelope({
+          eventId: "evt-movilidad-1",
+          eventType: MOBILITY_OBSTRUCTION_TYPE,
+          data: mobilityData
+        })
+      ).expect(204);
+
+      expect(processMobilityObstructionEvaluatedUseCase.execute).toHaveBeenCalledWith(
+        mobilityData
+      );
+      expect(inboundRepository.record).toHaveBeenCalledWith(
+        "evt-movilidad-1",
+        MOBILITY_OBSTRUCTION_TYPE
+      );
+    });
+
+    it("normaliza los textos del payload antes de procesarlo", async () => {
+      await post(
+        envelope({
+          eventId: "evt-movilidad-normalizado",
+          eventType: MOBILITY_OBSTRUCTION_TYPE,
+          data: {
+            ...mobilityData,
+            reclamoId: "  reclamo-movilidad-2  ",
+            correlationId: "  correlation-movilidad-2  ",
+            direccion: "  Av. Santa Fe 2000  ",
+            barrio: "  Recoleta  "
+          }
+        })
+      ).expect(204);
+
+      expect(processMobilityObstructionEvaluatedUseCase.execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reclamoId: "reclamo-movilidad-2",
+          correlationId: "correlation-movilidad-2",
+          direccion: "Av. Santa Fe 2000",
+          barrio: "Recoleta"
+        })
+      );
+    });
+
+    it.each([
+      ["requiereGrua ausente", { requiereGrua: undefined }],
+      ["reclamoId vacio", { reclamoId: "   " }],
+      ["latitud fuera de rango", { latitud: 91 }],
+      ["evaluadoAt invalido", { evaluadoAt: "hoy" }]
+    ])("rechaza un payload con %s", async (_label, invalidData) => {
+      await post(
+        envelope({
+          eventId: `evt-movilidad-invalido-${String(_label)}`,
+          eventType: MOBILITY_OBSTRUCTION_TYPE,
+          data: { ...mobilityData, ...invalidData }
+        })
+      ).expect(400);
+
+      expect(processMobilityObstructionEvaluatedUseCase.execute).not.toHaveBeenCalled();
+    });
+
+    it("no vuelve a procesar el mismo eventId", async () => {
+      recorded.add("evt-movilidad-duplicado");
+
+      await post(
+        envelope({
+          eventId: "evt-movilidad-duplicado",
+          eventType: MOBILITY_OBSTRUCTION_TYPE,
+          data: mobilityData
+        })
+      ).expect(204);
+
+      expect(processMobilityObstructionEvaluatedUseCase.execute).not.toHaveBeenCalled();
+    });
+
+    it("no registra el evento si falla la logica de intervenciones", async () => {
+      processMobilityObstructionEvaluatedUseCase.execute.mockRejectedValueOnce(
+        new Error("fallo de procesamiento")
+      );
+
+      await post(
+        envelope({
+          eventId: "evt-movilidad-error",
+          eventType: MOBILITY_OBSTRUCTION_TYPE,
+          data: mobilityData
+        })
+      ).expect(500);
+
+      expect(inboundRepository.record).not.toHaveBeenCalledWith(
+        "evt-movilidad-error",
+        MOBILITY_OBSTRUCTION_TYPE
+      );
     });
   });
 
@@ -462,7 +682,9 @@ describe("CU-01 en el webhook", () => {
       upsertActive: jest.fn().mockResolvedValue(undefined),
       deactivate: jest.fn().mockResolvedValue(undefined),
       findActiveInBounds: jest.fn(),
-      findActiveWithoutCoordinatesWithZone: jest.fn()
+      findActiveWithoutCoordinatesWithZone: jest.fn(),
+    findActiveBySource: jest.fn(),
+    findActive: jest.fn()
     };
     const reactions = {
       onCreated: jest.fn().mockResolvedValue(true),
@@ -499,6 +721,17 @@ describe("CU-01 en el webhook", () => {
 
     expect(cityIncidents.upsertActive).toHaveBeenCalledTimes(1);
     expect(reactions.onCreated).toHaveBeenCalledTimes(1);
+  });
+
+  it("una cobertura preventiva no dispara las reacciones del CU-01", async () => {
+    const { useCase, reactions, cityIncidents } = build();
+
+    await expect(useCase.execute(gatewayEvent("EmergenciaCreada", {
+      emergenciaId: "EMG-2", estado: "CREADA", categoria: "PREVENTIVA", ubicacion: { barrio: "Retiro" }
+    }))).resolves.toBe("ignored");
+
+    expect(cityIncidents.upsertActive).not.toHaveBeenCalled();
+    expect(reactions.onCreated).not.toHaveBeenCalled();
   });
 
   it("acepta el sobre estilo CloudEvents y el topico con puntos", async () => {
@@ -559,6 +792,37 @@ describe("CU-01 en el webhook", () => {
     for (const [emergency] of reactions.onResolved.mock.calls) {
       expect(emergency).toMatchObject({ emergenciaId: "EMG-1", causes: [] });
     }
+  });
+
+  it("toma el contrato vigente de Emergencias: coordenadas cifradas, barrio y estadoNuevo", async () => {
+    const { useCase, reactions } = build();
+    const ubicacion = { latitud: "enc:v1:9f3a...", longitud: "enc:v1:41c2...", barrio: "Recoleta" };
+    const type = "com.citypass.emergencias.EmergenciaActualizada";
+
+    await useCase.execute(gatewayEvent("com.citypass.emergencias.EmergenciaCreada", {
+      emergenciaId: "EMG-1", estado: "CREADA", ubicacion
+    }));
+    await useCase.execute({
+      metadata: { eventId: "evt-2", eventType: type },
+      data: { emergenciaId: "EMG-1", estadoNuevo: "RESUELTA", causasRelacionadas: ["ESPACIO_PUBLICO"], ubicacion }
+    });
+
+    expect(reactions.onCreated.mock.calls[0][0]).toMatchObject({ latitude: null, zone: "Recoleta" });
+    expect(reactions.onResolved.mock.calls[0][0]).toMatchObject({ causes: ["ESPACIO_PUBLICO"], latitude: null });
+  });
+
+  it("con latitud y longitud en claro en la raiz reacciona por radio, aunque ubicacion venga cifrada", async () => {
+    const { useCase, reactions } = build();
+
+    await useCase.execute(gatewayEvent("com.citypass.emergencias.EmergenciaCreada", {
+      emergenciaId: "EMG-1",
+      estado: "CREADA",
+      latitud: -34.588,
+      longitud: -58.393,
+      ubicacion: { latitud: "enc:v1:9f3a...", longitud: "enc:v1:41c2...", barrio: "Recoleta" }
+    }));
+
+    expect(reactions.onCreated.mock.calls[0][0]).toMatchObject({ latitude: -34.588, longitude: -58.393, zone: "Recoleta" });
   });
 
   it("si la reaccion falla no registra el evento, para que el gateway reintente", async () => {

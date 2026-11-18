@@ -65,6 +65,25 @@ datos personales (ni mails ni nombres).
 Los contratos se registran con `npm run eda:register-events` (clima + estos cuatro). No se ejecuta
 solo: hay que revisar los schemas y correrlo a mano.
 
+### IntervencionFinalizada (cierre con Reclamos)
+
+`com.citypass.espacios.IntervencionFinalizada` (schemaId 59) cierra el circuito de CU-INT-01: un reclamo
+que corta la circulacion queda como intervencion pendiente (pantalla **Intervenciones** del admin,
+`GET /api/admin/interventions`). Cuando el administrador la cierra
+(`POST /api/admin/interventions/:reclamoId/finish`), se da de baja el incidente y se publica:
+
+| Campo | Tipo | Origen |
+| --- | --- | --- |
+| `reclamoId` | `string` | id del reclamo |
+| `resultado` | `string` | `RESUELTO` (intervinimos y se soluciono) o `RECHAZADO` (no hizo falta intervenir) |
+| `idAuto` | `["null","string"]` | patente, opcional |
+| `solicitadoAt` | `["null","long"]` | cuando llego el reclamo (ms epoch) |
+| `resueltoAt` | `["null","long"]` | cuando se cerro (ms epoch) |
+
+Reclamos cierra el reclamo con ese estado (su ADR 0012). Un reclamo que deja de cortar la
+circulacion (`ReclamoReclasificado`) o se cierra en Reclamos (`ReclamoActualizado`) sale de la lista
+sin publicar nada.
+
 ## Consumo
 
 El gateway entrega los eventos de otros modulos por `POST /webhooks/citypass?token=<GATEWAY_WEBHOOK_TOKEN>`

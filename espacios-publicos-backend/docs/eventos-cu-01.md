@@ -8,8 +8,12 @@ Espacios actua en dos momentos, siempre por eventos (RNI-08). Todos los eventos 
 Consume `EmergenciaCreada`. Busca reservas y eventos comunitarios activos en espacios cercanos:
 
 - Con `ubicacion {lat, lng}`, usa el radio `EMERGENCY_NEARBY_RADIUS_METERS` (500 m por defecto).
-- Tambien acepta `latitud` y `longitud` sueltas.
+- Tambien acepta `ubicacion {latitud, longitud}` y `latitud`/`longitud` en la raiz de `data`, siempre
+  numericas. Emergencias cifra `ubicacion.latitud`/`ubicacion.longitud` pero manda `latitud`/`longitud` en
+  claro en la raiz (3 decimales, ~100 m): se saltean las cifradas y se usan esas.
 - Sin coordenadas, usa `ubicacion.barrio`.
+- El incidente del plan de llegada (`city_incidents`) guarda esas mismas coordenadas, asi que se cruza
+  con el evento por radio; el barrio queda de respaldo.
 - Horario: lo que sigue en curso o empieza dentro de `EMERGENCY_WINDOW_HOURS` (2 h por defecto). Lo
   terminado no cuenta aunque este dentro de las 2 h previas, porque ya no se puede suspender.
 
@@ -19,17 +23,19 @@ afectacion en `emergency_booking_impacts`, avisa al organizador y publica `Reser
 
 ## Al resolverse la emergencia
 
-Consume `EmergenciaResuelta` y `emergencia.resuelta`. Tambien `EmergenciaCerrada`, y
-`EmergenciaEstadoActualizado` o `EmergenciaActualizada` con estado `RESUELTA` o `CERRADA`, que es lo que
-Emergencias publica hoy. Esos cierres no traen causas, asi que liberan pero no registran problematicas.
+Emergencias publica la resolucion, el cierre y la falsa alarma como `EmergenciaActualizada` con
+`estadoNuevo` en `RESUELTA`, `CERRADA`, `CANCELADA` o `DESCARTADA`, con `causasRelacionadas` y la ubicacion
+cifrada. Es lo unico que hace falta: el webhook acepta tambien `EmergenciaResuelta`, `EmergenciaCerrada`,
+`EmergenciaCancelada` y los nombres con puntos, pero no se suscriben porque Emergencias no los publica.
 
 - **A10**, aunque la causa sea otra: por espacio afectado, confirma las reservas cuyo horario sigue
   vigente, deja `A_REPROGRAMAR` las que ya pasaron y publica `EspacioLiberado`.
-- **A6**, solo con `ESPACIO_PUBLICO` en `causasRelacionadas`: registra la problematica y publica
-  `ProblematicaRegistrada`. El tipo sale de `tipoProblematica`; si falta, queda `SIN_CLASIFICAR`.
-- Sin reservas afectadas y sin esa causa, no hace nada.
+- **A6** (problematica del espacio publico): Espacios no la registra ni la deriva, aunque llegue
+  `ESPACIO_PUBLICO` en `causasRelacionadas`. El modulo solo gestiona espacios y reservas; la problematica le
+  corresponde a otro modulo (Reclamos). No se publica `ProblematicaRegistrada`.
+- Sin reservas afectadas, no hace nada.
 
-Una falsa alarma (A1) tambien libera lo suspendido y nunca registra problematicas. Se reconoce por
+Una falsa alarma (A1) tambien libera lo suspendido. Se reconoce por
 `EmergenciaCancelada`, `emergencia.cancelada` o los estados `CANCELADA` y `DESCARTADA`. El documento no lista
 a Espacios entre los consumidores de `emergencia.cancelada`; se agrego para no dejar reservas suspendidas.
 
@@ -42,7 +48,7 @@ de la resolucion no suspende nada.
 | --- | --- |
 | `com.citypass.espacios.ReservaAfectada` (`RESERVATION_AFFECTED_EVENT_FQN`) | `correlationId`, `emergenciaId`, `espacioId`, `reservaId`, `tipoReserva` (`ESPACIO`/`EVENTO`), `horario {inicio, fin}`, `accion` (`SUSPENDIDA`/`REPROGRAMADA`), `afectadaEn` |
 | `com.citypass.espacios.EspacioLiberado` (`SPACE_RELEASED_EVENT_FQN`) | `correlationId`, `emergenciaId`, `espacioId`, `reservasConfirmadas`, `reservasReprogramadas`, `liberadoEn` |
-| `com.citypass.espacios.ProblematicaRegistrada` (`PROBLEM_REGISTERED_EVENT_FQN`) | `correlationId`, `emergenciaId`, `problematicaId`, `espacioId?`, `tipo`, `latitud?`, `longitud?`, `registradaEn` |
+| `com.citypass.espacios.ProblematicaRegistrada` (`PROBLEM_REGISTERED_EVENT_FQN`), sin uso | `correlationId`, `emergenciaId`, `problematicaId`, `espacioId?`, `tipo`, `latitud?`, `longitud?`, `registradaEn` |
 
 El documento los nombra `espacios.reserva.afectada`, `espacios.espacio.liberado` y
 `espacios.problematica.registrada`. El gateway no admite esos nombres: el FQN es el topico, el evento va en
@@ -54,7 +60,7 @@ nombres con puntos y el sobre estilo CloudEvents.
 Requieren rol administrador y las acciones quedan auditadas.
 
 - `GET /api/espacios/cercanos?lat&lng&desde&hasta`
-- `GET /api/emergency-impacts`: resumen, reservas afectadas y problematicas.
+- `GET /api/emergency-impacts`: resumen y reservas afectadas.
 - `POST /api/emergency-impacts/:id/reschedule` con `{ startDate, endDate }`: valida cupo y solapamientos
   y publica `ReservaAfectada` con `accion = REPROGRAMADA`.
 
@@ -68,11 +74,13 @@ con un mail individual. Un envio que falla se loguea y no frena la emergencia ni
 
 ## Limitaciones conocidas
 
-- El documento dice que Espacios "registra y deriva" la problematica, pero no define a quien. Hoy se registra,
-  se publica `ProblematicaRegistrada` y se ve en el backoffice; no hay una accion de derivar.
+- El documento dice que Espacios "registra y deriva" la problematica. Se decidio no hacerlo: no es
+  responsabilidad de Espacios Publicos y Reservas. La tabla `public_space_problems` y el contrato de
+  `ProblematicaRegistrada` quedan sin uso, para no tocar la base ni el registro en EDA.
 - La suspension vive en `emergency_booking_impacts`: `Reservation.status` y `CommunityEvent.status` no
-  cambian. Un evento afectado muestra el aviso, pero sigue aceptando inscripciones; falta unirlo al estado
-  `SUSPENDED` que ya existe para el clima.
+  cambian, para no mezclarla con la suspension por clima. Mientras un evento esta suspendido o pendiente de
+  reprogramar por una emergencia, no acepta inscripciones nuevas.
+- Emergencias cifra latitud y longitud. Sin coordenadas, la busqueda de cercanos usa el barrio.
 - Una emergencia no bloquea reservas nuevas en el espacio.
 - Los eventos comunitarios no guardan el mail del organizador: el aviso va a
   `EMERGENCY_NOTIFICATIONS_EMAIL`, si esta definido, y siempre se ve en el backoffice.
@@ -84,8 +92,7 @@ En este orden, coordinado con el responsable de la base:
 1. Aplicar `prisma/migrations/20261104120000_cu_01_emergency_impacts`. Solo crea tablas.
 2. `npm run eda:register-events`
 3. Desplegar el backend.
-4. `npm run eda:register-subscriptions`. `EmergenciaCancelada` y `EmergenciaResuelta` van ultimos: si
-   Emergencias todavia no los registro, el script falla ahi despues de suscribir los demas.
+4. `npm run eda:register-subscriptions`.
 
 ## Prueba local
 

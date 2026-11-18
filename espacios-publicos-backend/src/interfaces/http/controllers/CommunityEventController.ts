@@ -30,7 +30,8 @@ export class CommunityEventController {
       ...request.body,
       organizerName: request.user?.name,
       organizerProfileEnabled: request.user?.role === "municipal_admin",
-      organizerSub: request.user?.id ?? null
+      organizerSub: request.user?.id ?? null,
+      organizerType: request.user?.role === "municipal_admin" ? "CIUDAD" : "CIUDADANO"
     });
     response.status(201).json(communityEvent);
   };
@@ -50,11 +51,15 @@ export class CommunityEventController {
   };
 
   suspend = async (request: Request, response: Response): Promise<void> => {
-    response.json(await this.changeSuspensionUseCase.execute(request.params.id, "suspend", request.body?.reason));
+    response.json(await this.changeSuspensionUseCase.execute(
+      request.params.id, "suspend", request.body?.reason, request.user?.id ?? null
+    ));
   };
 
   resume = async (request: Request, response: Response): Promise<void> => {
-    response.json(await this.changeSuspensionUseCase.execute(request.params.id, "resume"));
+    response.json(await this.changeSuspensionUseCase.execute(
+      request.params.id, "resume", undefined, request.user?.id ?? null
+    ));
   };
 
   list = async (request: Request, response: Response): Promise<void> => {

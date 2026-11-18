@@ -22,8 +22,15 @@ export const permissions = {
   CONFIRM_WEATHER_ALERT: "weather-alert.confirm",
   DISMISS_WEATHER_ALERT: "weather-alert.dismiss",
   FINALIZE_WEATHER_ALERT: "weather-alert.finalize",
+  VIEW_TOW_INTERVENTIONS: "tow-intervention.view",
+  REQUEST_TOW: "tow-intervention.request",
+  COMPLETE_TOW_SERVICE: "tow-intervention.complete",
+  SIMULATE_MOBILITY_OBSTRUCTION: "tow-intervention.mobility.simulate",
   VIEW_EMERGENCY_IMPACTS: "emergency-impact.view",
-  MANAGE_EMERGENCY_IMPACTS: "emergency-impact.manage"
+  MANAGE_EMERGENCY_IMPACTS: "emergency-impact.manage",
+  MANAGE_INTERVENTIONS: "intervention.manage",
+  VIEW_INTEGRATIONS: "integration.view",
+  VIEW_ANALYTICS: "analytics.view"
 } as const;
 
 export type Permission = (typeof permissions)[keyof typeof permissions];
@@ -53,8 +60,15 @@ const rolePermissions: Record<MockUserRole, ReadonlySet<Permission>> = {
     permissions.CONFIRM_WEATHER_ALERT,
     permissions.DISMISS_WEATHER_ALERT,
     permissions.FINALIZE_WEATHER_ALERT,
+    permissions.VIEW_TOW_INTERVENTIONS,
+    permissions.REQUEST_TOW,
+    permissions.COMPLETE_TOW_SERVICE,
+    permissions.SIMULATE_MOBILITY_OBSTRUCTION,
     permissions.VIEW_EMERGENCY_IMPACTS,
-    permissions.MANAGE_EMERGENCY_IMPACTS
+    permissions.MANAGE_EMERGENCY_IMPACTS,
+    permissions.MANAGE_INTERVENTIONS,
+    permissions.VIEW_INTEGRATIONS,
+    permissions.VIEW_ANALYTICS
   ])
 };
 

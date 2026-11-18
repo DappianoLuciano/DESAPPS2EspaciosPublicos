@@ -93,7 +93,9 @@ const spacesDefinitions: EventTypeDefinition[] = [
     { name: "direccion", type: "string" },
     { name: "espacioNombre", type: "string" },
     { name: "actorSub", type: nullable("string"), default: null },
-    { name: "categoria", type: nullable("string"), default: null }
+    { name: "categoria", type: nullable("string"), default: null },
+    // v3 (schemaId 91): obligatorio, pedido por Analitica para separar actividades de ciudadanos y de la ciudad.
+    { name: "organizadorTipo", type: "string", doc: "CIUDAD | CIUDADANO" }
   ]),
   record("ActividadModificada", "Cambio el estado de una actividad (evento comunitario).", [
     { name: "correlationId", type: "string", doc: "act-<actividadId>" },
@@ -128,12 +130,20 @@ const spacesDefinitions: EventTypeDefinition[] = [
     { name: "latitud", type: nullable("double"), default: null },
     { name: "longitud", type: nullable("double"), default: null },
     { name: "tipoAfectacion", type: "string", doc: "CERRADO | USO_PARCIAL | ACCESO_RESTRINGIDO" },
-    { name: "afectacionDesde", type: { type: "long", logicalType: "timestamp-millis" } },
-    { name: "afectacionHastaEstimada", type: ["null", { type: "long", logicalType: "timestamp-millis" }], default: null },
+    // v2: las fechas pasaron de timestamp-millis a texto ISO-8601 (pedido de Analitica). Es un cambio
+    // incompatible: EDA lo publica en el topico com.citypass.espacios.EspacioPublicoAfectado.v2.
+    { name: "afectacionDesde", type: "string", doc: "ISO 8601" },
+    { name: "afectacionHastaEstimada", type: nullable("string"), default: null, doc: "ISO 8601" },
     { name: "causaId", type: nullable("string"), default: null },
     { name: "causaTipo", type: nullable("string"), default: null, doc: "EVENTO_CLIMATICO | RECLAMO | INCIDENTE_VIAL" },
     { name: "correlationId", type: "string", doc: "afectacion-<afectacionId>" },
-    { name: "occurredAt", type: { type: "long", logicalType: "timestamp-millis" } }
+    { name: "occurredAt", type: "string", doc: "ISO 8601" }
+  ]),
+  record("EspacioPublicoRestaurado", "Pedido por Analitica: termino una afectacion publicada en EspacioPublicoAfectado.", [
+    { name: "afectacionId", type: "string", doc: "El mismo de EspacioPublicoAfectado" },
+    { name: "espacioId", type: "string" },
+    { name: "correlationId", type: "string", doc: "afectacion-<afectacionId>" },
+    { name: "restauradoAt", type: "string", doc: "ISO 8601" }
   ]),
   record("ReservaConfirmada", "Se confirmo la reserva de un espacio o la inscripcion a un evento.", [
     { name: "reservaId", type: "string" },
@@ -143,6 +153,31 @@ const spacesDefinitions: EventTypeDefinition[] = [
     { name: "cantidadPersonas", type: "int" },
     { name: "inicio", type: "string", doc: "ISO 8601" },
     { name: "fin", type: "string", doc: "ISO 8601" }
+  ]),
+  record("ReservaCreada", "Analitica: alta de una reserva de espacio o de una inscripcion a un evento.", [
+    { name: "reservaId", type: "string" },
+    { name: "tipoReserva", type: "string", doc: "EVENTO | ESPACIO" },
+    { name: "recursoId", type: "string", doc: "eventoId o espacioId segun tipoReserva" },
+    { name: "espacioId", type: "string" },
+    { name: "categoria", type: nullable("string"), default: null },
+    { name: "zona", type: nullable("string"), default: null },
+    { name: "latitud", type: nullable("double"), default: null },
+    { name: "longitud", type: nullable("double"), default: null },
+    { name: "fechaHora", type: "string", doc: "Inicio, ISO 8601" },
+    { name: "fechaFin", type: "string", doc: "ISO 8601" },
+    { name: "cantidadPersonas", type: "int" },
+    { name: "cupoMaximo", type: nullable("int"), default: null },
+    { name: "organizadorId", type: nullable("string"), default: null },
+    { name: "createdAt", type: "string", doc: "ISO 8601" },
+    { name: "correlationId", type: "string" }
+  ]),
+  record("ReservaActualizada", "Analitica: cambio de estado de una reserva o inscripcion.", [
+    { name: "reservaId", type: "string" },
+    { name: "estadoAnterior", type: "string", doc: "PENDIENTE | CONFIRMADA | CANCELADA" },
+    { name: "estadoNuevo", type: "string", doc: "PENDIENTE | CONFIRMADA | CANCELADA" },
+    { name: "motivo", type: nullable("string"), default: null },
+    { name: "updatedAt", type: "string", doc: "ISO 8601" },
+    { name: "correlationId", type: "string" }
   ]),
   record("ReservaAfectada", "CU-01: una reserva o evento cercano fue afectado por una emergencia.", [
     { name: "correlationId", type: "string", doc: "emergenciaId" },
@@ -174,6 +209,14 @@ const spacesDefinitions: EventTypeDefinition[] = [
     { name: "latitud", type: nullable("double"), default: null },
     { name: "longitud", type: nullable("double"), default: null },
     { name: "registradaEn", type: "string", doc: "ISO 8601" }
+  ]),
+  // Ya registrado (schemaId 59) con este esquema exacto: lo consume Reclamos para cerrar el reclamo.
+  record("IntervencionFinalizada", "CU-INT-01: Espacios termino la intervencion en la calle pedida por un reclamo.", [
+    { name: "reclamoId", type: "string" },
+    { name: "resultado", type: "string", doc: "RESUELTO | RECHAZADO (no hizo falta intervenir)" },
+    { name: "idAuto", type: nullable("string"), default: null, doc: "Patente, si hubo grua" },
+    { name: "solicitadoAt", type: nullable("long"), default: null, doc: "Milisegundos epoch" },
+    { name: "resueltoAt", type: nullable("long"), default: null, doc: "Milisegundos epoch" }
   ])
 ];
 
@@ -202,10 +245,14 @@ async function main() {
     EventoCancelado: "COMMUNITY_EVENT_CANCELLED_EVENT_FQN",
     EspacioEstadoCambiado: "PUBLIC_SPACE_STATUS_CHANGED_EVENT_FQN",
     EspacioPublicoAfectado: "PUBLIC_SPACE_AFFECTED_EVENT_FQN",
+    EspacioPublicoRestaurado: "PUBLIC_SPACE_RESTORED_EVENT_FQN",
     ReservaConfirmada: "RESERVATION_CONFIRMED_EVENT_FQN",
+    ReservaCreada: "RESERVATION_CREATED_EVENT_FQN",
+    ReservaActualizada: "RESERVATION_UPDATED_EVENT_FQN",
     ReservaAfectada: "RESERVATION_AFFECTED_EVENT_FQN",
     EspacioLiberado: "SPACE_RELEASED_EVENT_FQN",
-    ProblematicaRegistrada: "PROBLEM_REGISTERED_EVENT_FQN"
+    ProblematicaRegistrada: "PROBLEM_REGISTERED_EVENT_FQN",
+    IntervencionFinalizada: "INTERVENTION_FINISHED_EVENT_FQN"
   };
 
   for (const definition of selected) {

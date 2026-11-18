@@ -7,14 +7,17 @@ import { InboundEventRepository } from "../../domain/repositories/InboundEventRe
 import { PublicSpaceRepository } from "../../domain/repositories/PublicSpaceRepository";
 import { distanceInMeters, hasCoordinates } from "../../shared/geo/distance";
 import {
+  CLAIM_AFFECTATION_CAUSES,
   PublicSpaceAffectationCause,
   PublicSpaceAffectationType,
   PublicSpaceAffectedPublisher,
   stableAffectationId
 } from "../events/publicSpaceAffected";
 import { ValidationError } from "../../shared/errors/ValidationError";
-import { EmergencyReactions, parseEmergencyCreated, parseEmergencyResolved } from "../events/emergencyEvents";
+import { EmergencyReactions, parseEmergencyCreated, parseEmergencyLocation, parseEmergencyResolved } from "../events/emergencyEvents";
 import { logger } from "../../shared/logging/logger";
+import { MovilidadObstruccionEvaluadaInput } from "../dtos/MovilidadObstruccionEvaluadaInput";
+import { ProcessMobilityObstructionEvaluatedUseCase } from "./ProcessMobilityObstructionEvaluatedUseCase";
 
 /** Un reclamo que corta la circulacion a esta distancia o menos deja el espacio con uso parcial. */
 export const AFFECTED_SPACE_RADIUS_METERS = 1000;
@@ -29,6 +32,7 @@ export const EMERGENCY_RESOLVED_EVENT_TYPE = "com.citypass.emergencias.Emergenci
 export const OBSTRUCTION_EVALUATED_EVENT_TYPE = "com.citypass.movilidad.MovilidadObstruccionEvaluada";
 /** Reclamos publica coordenadas y afectaCirculacion recien al reclasificar (ReclamoCreado no las trae). */
 export const CLAIM_RECLASSIFIED_EVENT_TYPE = "com.citypass.reclamos.ReclamoReclasificado";
+const CLAIM_CREATED_V3_EVENT_TYPE = "com.citypass.reclamos.ReclamoCreado.v3";
 
 // Movilidad no documenta los valores de impactoCirculacion. Mientras tanto: sin impacto se ignora,
 // impacto bajo deja el espacio con uso parcial y cualquier otro valor lo restringe.
@@ -37,7 +41,7 @@ const LOW_TRAFFIC_IMPACT = /^(BAJO|LEVE|LOW|MENOR)$/i;
 
 // El gateway usa el FQN como topico; el documento del CU-01 los nombra con puntos. Se aceptan los
 // dos. Emergencias publica hoy EmergenciaEstadoActualizado y EmergenciaCerrada, sin causas ni
-// ubicacion: esos cierres liberan lo afectado, pero no pueden registrar una problematica.
+// ubicacion: esos cierres tambien liberan lo afectado.
 const EMERGENCY_CREATED_TYPES: readonly string[] = [
   "emergencia.creada",
   "com.citypass.emergencias.EmergenciaCreada"
@@ -69,8 +73,9 @@ interface IncidentTypeConfig {
   source: CityIncidentSource;
   idField: string;
   /**
-   * Solo para "created". Reclamos publica coordenadas y afectaCirculacion; Emergencias
-   * solo publica el barrio (data.ubicacion.barrio) y se ubica por zona.
+   * Solo para "created". Reclamos publica coordenadas y afectaCirculacion; Emergencias publica
+   * latitud/longitud en la raiz de data (en claro) y el barrio en data.ubicacion.barrio.
+   * "zone": se guardan las coordenadas si vienen y el barrio queda de respaldo.
    */
   location?: "coordinates" | "zone";
   /** Estados que dan el incidente por terminado. */
@@ -81,6 +86,12 @@ interface IncidentTypeConfig {
 
 const INCIDENT_TYPES: Record<string, IncidentTypeConfig> = {
   "com.citypass.reclamos.ReclamoCreado": {
+    kind: "created",
+    source: "RECLAMOS",
+    idField: "reclamoId",
+    location: "coordinates"
+  },
+  [CLAIM_CREATED_V3_EVENT_TYPE]: {
     kind: "created",
     source: "RECLAMOS",
     idField: "reclamoId",
@@ -126,14 +137,14 @@ const KNOWN_EVENT_TYPES: readonly string[] = [
 // sabe procesar. scripts/register-subscriptions.ts los da de alta a partir de esta lista.
 export const GATEWAY_SUBSCRIPTION_TOPICS: readonly string[] = [
   MOBILITY_RECOMMENDATION_EVENT_TYPE,
-  ...Object.keys(INCIDENT_TYPES),
+  ...Object.keys(INCIDENT_TYPES).filter((type) => type !== CLAIM_CREATED_V3_EVENT_TYPE),
+  CLAIM_CREATED_V3_EVENT_TYPE,
   OBSTRUCTION_EVALUATED_EVENT_TYPE,
-  CLAIM_RECLASSIFIED_EVENT_TYPE,
-  EMERGENCY_STATE_UPDATED_EVENT_TYPE,
-  EMERGENCY_CLOSED_EVENT_TYPE,
-  // Van ultimos: si G6 todavia no los registro, el script falla despues de suscribir los demas.
-  EMERGENCY_CANCELLED_EVENT_TYPE,
-  EMERGENCY_RESOLVED_EVENT_TYPE
+  CLAIM_RECLASSIFIED_EVENT_TYPE
+  // Emergencias publica solo EmergenciaCreada y EmergenciaActualizada (ya incluidas en INCIDENT_TYPES):
+  // la resolucion, el cierre y la falsa alarma llegan como estadoNuevo. EmergenciaResuelta, Cerrada,
+  // Cancelada y EstadoActualizado se siguen aceptando en el webhook, pero no se suscriben porque no
+  // estan registradas en el gateway y el script fallaria.
 ];
 
 export class ReceiveGatewayEventUseCase {
@@ -145,7 +156,11 @@ export class ReceiveGatewayEventUseCase {
     // Opcionales: sin ellos el incidente se registra igual, pero no se publica EspacioPublicoAfectado.
     private readonly publicSpaceRepository?: Pick<PublicSpaceRepository, "findAll">,
     private readonly affectedPublisher?: PublicSpaceAffectedPublisher,
-    private readonly emergencyReactions?: EmergencyReactions
+    private readonly emergencyReactions?: EmergencyReactions,
+    private readonly processMobilityObstructionEvaluatedUseCase?: Pick<
+      ProcessMobilityObstructionEvaluatedUseCase,
+      "execute"
+    >
   ) {}
 
   /** Recibe el sobre { metadata, data } que entrega el dispatcher del gateway. */
@@ -199,7 +214,7 @@ export class ReceiveGatewayEventUseCase {
   private reactsToEmergency(eventType: string, data: Record<string, unknown>): boolean {
     return (
       this.emergencyReactions !== undefined &&
-      (EMERGENCY_CREATED_TYPES.includes(eventType) ||
+      ((EMERGENCY_CREATED_TYPES.includes(eventType) && !isPreventiveCoverage(data)) ||
         EMERGENCY_RESOLVED_TYPES.includes(eventType) ||
         (EMERGENCY_UPDATED_TYPES.includes(eventType) &&
           EMERGENCY_FINISHED_STATES.includes(readState(data, EMERGENCY_STATE_FIELDS) ?? "")))
@@ -266,16 +281,16 @@ export class ReceiveGatewayEventUseCase {
       : this.processCoordinateIncidentCreated(config, data);
   }
 
-  // Emergencias: sin coordenadas ni afectaCirculacion; se ubica por barrio. No se filtra por tipo.
+  // Emergencias: sin afectaCirculacion, no se filtra por tipo. Con coordenadas el plan de llegada la
+  // cruza por radio; sin ellas, por barrio.
   private async processZoneIncidentCreated(
     config: IncidentTypeConfig,
     data: Record<string, unknown>
   ): Promise<boolean> {
     const externalId = readId(data[config.idField]);
-    const ubicacion = asRecord(data.ubicacion);
-    const barrio = ubicacion && isNonEmptyString(ubicacion.barrio) ? ubicacion.barrio.trim() : null;
+    const { latitude, longitude, zone: barrio } = parseEmergencyLocation(data);
 
-    if (!externalId || !barrio) {
+    if (!externalId || (latitude === null && !barrio)) {
       return false;
     }
 
@@ -284,12 +299,17 @@ export class ReceiveGatewayEventUseCase {
       return false;
     }
 
+    // Una cobertura preventiva (Emergencias manda personal a un evento masivo) no es un incidente.
+    if (isPreventiveCoverage(data)) {
+      return false;
+    }
+
     await this.cityIncidentRepository.upsertActive({
       source: config.source,
       externalId,
-      category: isNonEmptyString(data.tipo) ? data.tipo : null,
-      latitude: null,
-      longitude: null,
+      category: emergencyCategory(data),
+      latitude,
+      longitude,
       zone: barrio
     });
 
@@ -338,9 +358,17 @@ export class ReceiveGatewayEventUseCase {
     const reclamoId = readId(data.reclamoId);
     const { latitud, longitud } = data;
     const impacto = isNonEmptyString(data.impactoCirculacion) ? data.impactoCirculacion.trim() : "";
+    let towProcessed = false;
+
+    if (this.processMobilityObstructionEvaluatedUseCase) {
+      await this.processMobilityObstructionEvaluatedUseCase.execute(
+        parseMobilityObstruction(data)
+      );
+      towProcessed = true;
+    }
 
     if (!reclamoId || !isCoordinate(latitud, 90) || !isCoordinate(longitud, 180) || NO_TRAFFIC_IMPACT.test(impacto)) {
-      return false;
+      return towProcessed;
     }
 
     await this.cityIncidentRepository.upsertActive({
@@ -374,6 +402,7 @@ export class ReceiveGatewayEventUseCase {
         return false;
       }
       await this.cityIncidentRepository.deactivate("RECLAMOS", reclamoId);
+      await this.restoreClaimAffectations(reclamoId);
       return true;
     }
 
@@ -436,7 +465,16 @@ export class ReceiveGatewayEventUseCase {
 
     await this.cityIncidentRepository.deactivate(config.source, externalId);
 
+    if (config.source === "RECLAMOS") {
+      await this.restoreClaimAffectations(externalId);
+    }
+
     return true;
+  }
+
+  // Analitica: el reclamo dejo de cortar la calle, asi que los espacios cercanos vuelven a la normalidad.
+  private async restoreClaimAffectations(reclamoId: string): Promise<void> {
+    await this.affectedPublisher?.restore({ causaId: reclamoId, causaTipos: CLAIM_AFFECTATION_CAUSES });
   }
 }
 
@@ -482,6 +520,17 @@ function resolveEventType(type: string): string {
   return KNOWN_EVENT_TYPES.find((fqn) => fqn.endsWith(`.${type}`)) ?? type;
 }
 
+/** Emergencias informa la categoria en "categoria"; "tipo" queda como compatibilidad. */
+function emergencyCategory(data: Record<string, unknown>): string | null {
+  const value = isNonEmptyString(data.categoria) ? data.categoria : isNonEmptyString(data.tipo) ? data.tipo : null;
+  return value ? value.trim() : null;
+}
+
+/** Cobertura preventiva de un evento masivo: categoria PREVENTIVA (causaTipo EVENTO_PUBLICO, causaId = eventoId). */
+function isPreventiveCoverage(data: Record<string, unknown>): boolean {
+  return emergencyCategory(data)?.toUpperCase() === "PREVENTIVA";
+}
+
 /** Primer campo de estado con texto, en el orden configurado (ej. estado y luego estadoNuevo). */
 function readState(data: Record<string, unknown>, fields: readonly string[]): string | null {
   for (const field of fields) {
@@ -522,6 +571,76 @@ function parseRecommendation(data: Record<string, unknown>): SaveDestinationReco
     calculadaEn: calculatedAt,
     correlationId: isNonEmptyString(data.correlationId) ? data.correlationId : null
   };
+}
+
+function parseMobilityObstruction(
+  data: Record<string, unknown>
+): MovilidadObstruccionEvaluadaInput {
+  return {
+    reclamoId: requiredString(data.reclamoId, "reclamoId"),
+    correlationId: requiredString(data.correlationId, "correlationId"),
+    latitud: requiredCoordinate(data.latitud, "latitud", 90),
+    longitud: requiredCoordinate(data.longitud, "longitud", 180),
+    direccion: requiredString(data.direccion, "direccion"),
+    barrio: requiredString(data.barrio, "barrio"),
+    afectaCiclovia: requiredBoolean(data.afectaCiclovia, "afectaCiclovia"),
+    estacionesAfectadasIds: requiredStationIds(data.estacionesAfectadasIds),
+    impactoCirculacion: requiredString(data.impactoCirculacion, "impactoCirculacion"),
+    desvioSugerido: requiredString(data.desvioSugerido, "desvioSugerido"),
+    requiereIntervencionInmediata: requiredBoolean(
+      data.requiereIntervencionInmediata,
+      "requiereIntervencionInmediata"
+    ),
+    requiereGrua: requiredBoolean(data.requiereGrua, "requiereGrua"),
+    evaluadoAt: requiredTimestamp(data.evaluadoAt, "evaluadoAt")
+  };
+}
+
+function requiredString(value: unknown, field: string): string {
+  if (!isNonEmptyString(value)) {
+    throw new ValidationError(`El campo ${field} debe contener texto.`);
+  }
+
+  return value.trim();
+}
+
+function requiredBoolean(value: unknown, field: string): boolean {
+  if (typeof value !== "boolean") {
+    throw new ValidationError(`El campo ${field} debe ser booleano.`);
+  }
+
+  return value;
+}
+
+function requiredCoordinate(value: unknown, field: string, limit: number): number {
+  if (!isCoordinate(value, limit)) {
+    throw new ValidationError(`El campo ${field} no es una coordenada valida.`);
+  }
+
+  return value;
+}
+
+function requiredStationIds(value: unknown): number[] {
+  if (
+    !Array.isArray(value) ||
+    value.some((id) => !Number.isSafeInteger(id) || Number(id) < 0)
+  ) {
+    throw new ValidationError("El campo estacionesAfectadasIds no es valido.");
+  }
+
+  return [...value] as number[];
+}
+
+function requiredTimestamp(value: unknown, field: string): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    Number.isNaN(new Date(value).getTime())
+  ) {
+    throw new ValidationError(`El campo ${field} no es una fecha valida.`);
+  }
+
+  return value;
 }
 
 function readInteger(value: unknown): number | null {

@@ -206,6 +206,47 @@ export interface CommunityEventRegistration {
   createdAt: string;
 }
 
+export type TowInterventionStatus = 'PENDING' | 'TOW_REQUESTED' | 'COMPLETED';
+
+export interface TowIntervention {
+  id: string;
+  reclamoId: string;
+  correlationId: string;
+  latitud: number;
+  longitud: number;
+  direccion: string;
+  barrio: string;
+  afectaCiclovia: boolean;
+  estacionesAfectadasIds: number[];
+  impactoCirculacion: string;
+  desvioSugerido: string;
+  requiereIntervencionInmediata: boolean;
+  requiereGrua: boolean;
+  patente: string | null;
+  status: TowInterventionStatus;
+  evaluadoAt: string;
+  solicitadoAt: string | null;
+  resueltoAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SimulateMobilityObstructionPayload {
+  reclamoId: string;
+  correlationId: string;
+  latitud: number;
+  longitud: number;
+  direccion: string;
+  barrio: string;
+  afectaCiclovia: boolean;
+  estacionesAfectadasIds: number[];
+  impactoCirculacion: string;
+  desvioSugerido: string;
+  requiereIntervencionInmediata: boolean;
+  requiereGrua: boolean;
+  evaluadoAt: number;
+}
+
 async function request<T>(path: string, options?: RequestInit, isRetry = false): Promise<T> {
   const response = await fetchWithTimeout(`${API_URL}${path}`, {
     ...options,
@@ -381,6 +422,39 @@ export function updateAdminProfile(payload: UpdateAdminProfilePayload) {
     method: 'PUT',
     body: JSON.stringify(payload),
   });
+}
+
+export function listTowInterventions() {
+  return request<TowIntervention[]>('/api/admin/tow-interventions');
+}
+
+export function simulateMobilityObstruction(
+  payload: SimulateMobilityObstructionPayload
+) {
+  return request<TowIntervention>('/api/admin/tow-interventions/simulate', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function requestTow(interventionId: string, patente: string) {
+  return request<TowIntervention>(
+    `/api/admin/tow-interventions/${encodeURIComponent(interventionId)}/request`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ patente }),
+    }
+  );
+}
+
+export function completeTowService(interventionId: string) {
+  return request<TowIntervention>(
+    `/api/admin/tow-interventions/${encodeURIComponent(interventionId)}/complete`,
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }
+  );
 }
 
 export function uploadEventImage(file: File) {
@@ -700,15 +774,92 @@ export interface EventRoutePlan {
     calculatedAt: string;
   } | null;
   origin: { latitude: number; longitude: number } | null;
+  /** Estacion de bicis de la ciudad donde se retira la bici (la elige Movilidad). */
+  pickup: PickupStation | null;
+  /** A pie hasta la estacion de retiro. */
+  walkToPickupRoute: RoutePath | null;
   bikeRoute: RoutePath | null;
   walkRoute: RoutePath | null;
   warnings: string[];
 }
 
-export function getEventRoutePlan(id: string, from?: { latitude: number; longitude: number }) {
-  const query = from ? `?fromLat=${from.latitude}&fromLng=${from.longitude}` : '';
+export interface PickupStation {
+  stationName: string;
+  latitude: number;
+  longitude: number;
+  availableBikes: number | null;
+}
+
+export function getEventRoutePlan(
+  id: string,
+  from?: { latitude: number; longitude: number },
+  pickup?: PickupStation
+) {
+  const params = new URLSearchParams();
+  if (from) {
+    params.set('fromLat', String(from.latitude));
+    params.set('fromLng', String(from.longitude));
+  }
+  if (from && pickup) {
+    params.set('pickupLat', String(pickup.latitude));
+    params.set('pickupLng', String(pickup.longitude));
+    params.set('pickupName', pickup.stationName);
+    if (pickup.availableBikes !== null) params.set('pickupBikes', String(pickup.availableBikes));
+  }
+  const query = params.toString() ? `?${params}` : '';
 
   return request<EventRoutePlan>(`/api/community-events/${encodeURIComponent(id)}/route-plan${query}`);
+}
+
+// Movilidad elige la estacion de retiro segun la ubicacion del ciudadano. La consulta el navegador y no nuestro
+// backend, porque los backends de los modulos solo se comunican por eventos.
+const MOBILITY_API_URL = (
+  import.meta.env.VITE_MOBILITY_API_URL?.trim() || 'https://movilidad-backend.onrender.com'
+).replace(/\/+$/, '');
+// Movilidad corre en Render y puede estar dormido: no se espera mas que esto.
+const PICKUP_TIMEOUT_MS = 8_000;
+
+export type PickupLookup =
+  // message: la explicacion de Movilidad (por ejemplo, por que no es la estacion mas cercana).
+  | { kind: 'station'; station: PickupStation; message: string | null }
+  | { kind: 'none'; message: string }
+  | { kind: 'unavailable' };
+
+interface MobilityPickupResponse {
+  status?: string;
+  message?: string;
+  station?: { stationName?: string; latitude?: number | string; longitude?: number | string; availableBikes?: number } | null;
+}
+
+export async function findPickupStation(from: { latitude: number; longitude: number }): Promise<PickupLookup> {
+  const url = `${MOBILITY_API_URL}/api/v1/stations/recommendation?lat=${from.latitude}&lng=${from.longitude}&purpose=PICKUP`;
+
+  try {
+    const response = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(PICKUP_TIMEOUT_MS) });
+    if (!response.ok) return { kind: 'unavailable' };
+
+    const body = (await response.json()) as MobilityPickupResponse;
+    const latitude = Number(body.station?.latitude);
+    const longitude = Number(body.station?.longitude);
+
+    if (body.status === 'RECOMMENDED' && body.station?.stationName && Number.isFinite(latitude) && Number.isFinite(longitude)) {
+      return {
+        kind: 'station',
+        station: {
+          stationName: body.station.stationName,
+          latitude,
+          longitude,
+          availableBikes: typeof body.station.availableBikes === 'number' ? body.station.availableBikes : null,
+        },
+        message: body.message?.trim() || null,
+      };
+    }
+
+    return { kind: 'none', message: body.message || 'No hay estaciones con bicis disponibles cerca de tu ubicación.' };
+  } catch {
+    // Dormido, caido o bloqueado por CORS: el plan sigue sin estacion de retiro.
+    return { kind: 'unavailable' };
+  }
 }
 
 export type CancellationCauseType = 'EVENTO_CLIMATICO' | 'RECLAMO' | 'INCIDENTE_VIAL';
@@ -819,4 +970,90 @@ export interface EmergencyEventNotice {
 
 export function listEmergencyEventNotices() {
   return request<EmergencyEventNotice[]>('/api/emergency-impacts/notices');
+}
+
+export type InterventionResult = 'RESUELTO' | 'RECHAZADO';
+
+export interface PendingIntervention {
+  reclamoId: string;
+  category: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  zone: string | null;
+  reportedAt: string;
+}
+
+export function listPendingInterventions() {
+  return request<PendingIntervention[]>('/api/admin/interventions');
+}
+
+export function finishIntervention(reclamoId: string, resultado: InterventionResult, idAuto?: string) {
+  return request<Record<string, unknown>>(`/api/admin/interventions/${encodeURIComponent(reclamoId)}/finish`, {
+    method: 'POST',
+    body: JSON.stringify(idAuto ? { resultado, idAuto } : { resultado }),
+  });
+}
+
+export interface IntegrationOverview {
+  generatedAt: string;
+  events: Array<{
+    id: string;
+    title: string;
+    status: string;
+    startDate: string;
+    endDate: string;
+    space: { id: string; name: string | null; zone: string | null };
+    recommendation: {
+      estado: 'RECOMMENDED' | 'NO_RECOMMENDATION';
+      estacion: string | null;
+      lugaresLibres: number | null;
+      distanciaMetros: number | null;
+      mensaje: string;
+      descartadasPorIncidentes: number;
+      calculadaEn: string;
+    } | null;
+  }>;
+  incidents: Array<{
+    source: 'RECLAMOS' | 'EMERGENCIAS';
+    externalId: string;
+    category: string | null;
+    zone: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    reportedAt: string;
+  }>;
+  inbound: {
+    byType: Array<{ eventType: string; count: number; lastReceivedAt: string }>;
+    recent: Array<{ eventId: string; eventType: string; receivedAt: string }>;
+  };
+  outbox: {
+    byName: Array<{ name: string; published: number; pending: number; failed: number; lastCreatedAt: string | null }>;
+    problems: Array<{ id: string; name: string; status: 'PENDING' | 'FAILED'; attempts: number; lastError: string | null; createdAt: string }>;
+  };
+  metrics: IntegrationMetrics;
+}
+
+export interface IntegrationMetrics {
+  windowDays: number;
+  published: { current: number; previous: number };
+  received: { current: number; previous: number };
+  delivery: { rate: number | null; published: number; failed: number; pending: number; recoveredByRetry: number };
+  latencySeconds: { median: number | null; p95: number | null };
+  receivedByModule: Array<{ module: string; count: number }>;
+  mobility: { upcoming: number; withRecommendation: number; fresh: number; coverage: number | null };
+  daily: Array<{ date: string; published: number; received: number }>;
+}
+
+export function getIntegrationOverview() {
+  return request<IntegrationOverview>('/api/admin/integrations');
+}
+
+export interface AnalyticsDashboard {
+  /** Pagina HTML completa del tablero de Analitica, con los datos adentro. */
+  html: string;
+  generatedAt: string | null;
+}
+
+export function getAnalyticsDashboard() {
+  return request<AnalyticsDashboard>('/api/admin/analytics');
 }

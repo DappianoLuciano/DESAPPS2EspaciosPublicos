@@ -1,17 +1,10 @@
-import { randomUUID } from "crypto";
 import { EmergencyImpactRecord, EmergencyLocation } from "../../domain/entities/EmergencyImpact";
-import { PublicSpace } from "../../domain/entities/PublicSpace";
 import { EmergencyImpactRepository, ImpactRelease } from "../../domain/repositories/EmergencyImpactRepository";
-import { PublicSpaceRepository } from "../../domain/repositories/PublicSpaceRepository";
 import { EmailSender } from "../../domain/services/EmailSender";
 import { EventBus } from "../../domain/services/EventBus";
-import { buildProblemRegisteredEvent, buildSpaceReleasedEvent } from "../events/emergencyEventBuilders";
+import { buildSpaceReleasedEvent } from "../events/emergencyEventBuilders";
 import { EmergencyResolved } from "../events/emergencyEvents";
-import { nearbySpaces } from "./FindNearbyBookingsUseCase";
 import { AttendeeSource, notifyImpact } from "./emergencyNotifications";
-
-const PUBLIC_SPACE_CAUSE = "ESPACIO_PUBLICO";
-const UNCLASSIFIED_PROBLEM = "SIN_CLASIFICAR";
 
 function releaseStatus(impact: EmergencyImpactRecord, now: Date): ImpactRelease["status"] {
   if (impact.status === "REPROGRAMADA") {
@@ -28,14 +21,16 @@ const RELEASE_MESSAGES: Record<ImpactRelease["status"], (noun: string) => string
   A_REPROGRAMAR: () => "La emergencia se resolvió, pero el horario ya pasó. Vamos a contactarte para reprogramarla."
 };
 
-/** CU-01: libera lo afectado (A10) y, si la causa es el espacio publico, registra la problematica (A6). */
+/**
+ * CU-01: libera lo afectado (A10). Espacios no registra ni deriva problematicas del espacio publico:
+ * eso le corresponde a otro modulo (Reclamos).
+ */
 export class HandleEmergencyResolvedUseCase {
   constructor(
     private readonly impacts: Pick<
       EmergencyImpactRepository,
-      "findCase" | "resolveCase" | "findUnreleased" | "releaseImpacts" | "createProblem"
+      "findCase" | "resolveCase" | "findUnreleased" | "releaseImpacts"
     >,
-    private readonly publicSpaceRepository: Pick<PublicSpaceRepository, "findAll">,
     private readonly eventBus: EventBus,
     private readonly emailSender: EmailSender,
     private readonly attendees: AttendeeSource
@@ -54,10 +49,6 @@ export class HandleEmergencyResolvedUseCase {
     });
 
     await this.releaseSpaces(emergency.emergenciaId, now);
-
-    if (emergency.causes.includes(PUBLIC_SPACE_CAUSE)) {
-      await this.registerProblem(emergency, location, now);
-    }
 
     return true;
   }
@@ -102,37 +93,6 @@ export class HandleEmergencyResolvedUseCase {
           })
         );
       }
-    }
-  }
-
-  private async registerProblem(emergency: EmergencyResolved, location: EmergencyLocation, now: Date): Promise<void> {
-    const spaces: PublicSpace[] = await this.publicSpaceRepository.findAll();
-    const publicSpaceId = nearbySpaces(spaces, location)[0]?.space.id ?? null;
-    const problemId = randomUUID();
-    const type = emergency.problemType ?? UNCLASSIFIED_PROBLEM;
-    const event = buildProblemRegisteredEvent({
-      emergenciaId: emergency.emergenciaId,
-      problemId,
-      publicSpaceId,
-      type,
-      latitude: location.latitude,
-      longitude: location.longitude,
-      occurredAt: now
-    });
-    const created = await this.impacts.createProblem(
-      {
-        id: problemId,
-        emergenciaId: emergency.emergenciaId,
-        publicSpaceId,
-        type,
-        latitude: location.latitude,
-        longitude: location.longitude
-      },
-      event
-    );
-
-    if (created) {
-      await this.eventBus.publish(event);
     }
   }
 }

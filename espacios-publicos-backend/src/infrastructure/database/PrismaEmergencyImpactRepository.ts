@@ -162,6 +162,18 @@ export class PrismaEmergencyImpactRepository implements EmergencyImpactRepositor
     }));
   }
 
+  async isEventOnHold(eventId: string): Promise<boolean> {
+    const count = await prisma.emergencyBookingImpact.count({
+      where: {
+        bookingType: "COMMUNITY_EVENT",
+        bookingId: eventId,
+        OR: [{ status: "SUSPENDIDA", releasedAt: null }, { status: "A_REPROGRAMAR" }]
+      }
+    });
+
+    return count > 0;
+  }
+
   async getSummary(): Promise<EmergencyImpactSummary> {
     const [reservations, affectedBookings, released, problems] = await Promise.all([
       prisma.reservation.count({ where: { status: "CONFIRMED" } }),

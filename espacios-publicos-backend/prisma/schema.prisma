@@ -72,6 +72,12 @@ enum OutboxStatus {
   FAILED
 }
 
+enum TowInterventionStatus {
+  PENDING
+  TOW_REQUESTED
+  COMPLETED
+}
+
 enum UserRole {
   CITIZEN
   MUNICIPAL_ADMIN
@@ -264,6 +270,34 @@ model InboundEvent {
   @@map("inbound_events")
 }
 
+// Intervenciones evaluadas por Movilidad. Se persisten porque el webhook puede
+// ejecutarse en una instancia distinta de la que atiende el panel administrativo.
+model TowIntervention {
+  id                            String                @id @default(uuid())
+  reclamoId                     String                @unique
+  correlationId                 String
+  latitud                       Float
+  longitud                      Float
+  direccion                     String
+  barrio                        String
+  afectaCiclovia                Boolean
+  estacionesAfectadasIds        Int[]                 @default([])
+  impactoCirculacion            String
+  desvioSugerido                String
+  requiereIntervencionInmediata Boolean
+  requiereGrua                  Boolean
+  patente                       String?
+  status                        TowInterventionStatus @default(PENDING)
+  evaluadoAt                    DateTime
+  solicitadoAt                  DateTime?
+  resueltoAt                    DateTime?
+  createdAt                     DateTime              @default(now())
+  updatedAt                     DateTime              @updatedAt
+
+  @@index([status, updatedAt])
+  @@map("tow_interventions")
+}
+
 // Un incidente ya avisado para un evento no se vuelve a avisar, aunque llegue
 // por otro tipo de evento (por ejemplo, el mismo reclamo reclasificado).
 model EventIncidentImpact {
@@ -375,4 +409,24 @@ model PublicSpaceProblem {
   createdAt     DateTime  @default(now())
 
   @@map("public_space_problems")
+}
+
+// Afectaciones de espacios publicadas a Analitica (EspacioPublicoAfectado) que siguen vigentes.
+// Al terminar (se levanta la medida climatica, se rehabilita el espacio, se cierra el reclamo) se
+// marca restoredAt y se publica EspacioPublicoRestaurado con el mismo afectacionId.
+model PublicSpaceAffectation {
+  id             String    @id
+  publicSpaceId  String
+  tipoAfectacion String
+  causaTipo      String?
+  causaId        String?
+  correlationId  String
+  since          DateTime
+  estimatedUntil DateTime?
+  createdAt      DateTime  @default(now())
+  restoredAt     DateTime?
+
+  @@index([restoredAt, causaId])
+  @@index([restoredAt, publicSpaceId])
+  @@map("public_space_affectations")
 }

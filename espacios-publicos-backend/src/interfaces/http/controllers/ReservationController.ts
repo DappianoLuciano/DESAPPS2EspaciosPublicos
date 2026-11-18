@@ -14,7 +14,9 @@ export class ReservationController {
     const reservation = await this.requestReservationUseCase.execute({
       ...request.body,
       requesterName: request.user?.name || "",
-      requesterEmail: request.user?.email || ""
+      requesterEmail: request.user?.email || "",
+      // Despues del body: el cliente no puede elegir el sub (la ruta ademas rechaza campos extra).
+      actorSub: request.user?.id ?? null
     });
     response.status(201).json(reservation);
   };

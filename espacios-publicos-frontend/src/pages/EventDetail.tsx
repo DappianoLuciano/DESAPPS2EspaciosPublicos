@@ -135,11 +135,14 @@ export default function EventDetail() {
 
   const eventHasStarted = new Date(event.startDate) <= new Date();
   const availability = eventAvailability(event);
-  const canRegister = event.requiresRegistration && !existingRegistrationId && !eventHasStarted && event.availableCapacity > 0 && event.status === 'ACTIVE';
+  const noticeStatus = notices.get(event.id)?.status;
+  const onEmergencyHold = noticeStatus === 'SUSPENDIDA' || noticeStatus === 'A_REPROGRAMAR';
+  const canRegister = !onEmergencyHold && event.requiresRegistration && !existingRegistrationId && !eventHasStarted && event.availableCapacity > 0 && event.status === 'ACTIVE';
 
   const getRegistrationLabel = () => {
     if (existingRegistrationId) return 'Ver mi reserva';
     if (availability.unavailable) return availability.label;
+    if (onEmergencyHold) return 'Suspendido por emergencia';
     if (!event.requiresRegistration) return 'Acceso libre';
     if (eventHasStarted) return 'Inscripción cerrada';
     if (event.availableCapacity <= 0 || event.status === 'ACTIVE_FULL') return 'Sin cupos disponibles';

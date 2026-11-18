@@ -16,4 +16,7 @@ export interface CityIncidentRepository {
    * (sin tildes ni mayusculas) la hace quien llama.
    */
   findActiveWithoutCoordinatesWithZone(): Promise<CityIncidentRecord[]>;
+  /** Activos de un modulo de origen, el mas reciente primero. */
+  findActiveBySource(source: CityIncidentSource): Promise<CityIncidentRecord[]>;
+  findActive(source: CityIncidentSource, externalId: string): Promise<CityIncidentRecord | null>;
 }
