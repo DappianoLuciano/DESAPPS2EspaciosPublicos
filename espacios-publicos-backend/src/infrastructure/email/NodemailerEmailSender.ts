@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { EmailSender } from "../../domain/services/EmailSender";
+import { EmailAttachment, EmailSender } from "../../domain/services/EmailSender";
 import { logger } from "../../shared/logging/logger";
 
 export class NodemailerEmailSender implements EmailSender {
@@ -33,7 +33,7 @@ export class NodemailerEmailSender implements EmailSender {
   // No relanza: un mail de notificacion es un efecto secundario, no la
   // operacion principal (la reserva/inscripcion ya quedo guardada antes de
   // llegar aca). Mismo criterio que GeminiChatService con su servicio externo.
-  async send(to: string, subject: string, html: string, attachments?: any[]): Promise<void> {
+  async send(to: string, subject: string, html: string, attachments?: EmailAttachment[]): Promise<void> {
     try {
       await this.transporter.sendMail({
         from: this.from,
