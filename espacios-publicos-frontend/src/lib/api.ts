@@ -106,6 +106,7 @@ export interface PublicSpace {
   category?: PublicSpaceCategory | null;
   imageUrl?: string | null;
   createdAt: string;
+  weatherRestrictions?: Array<{ alertId: string; validFrom: string; validUntil: string }>;
 }
 
 export interface CommunityEventCatalogItem {

@@ -1,0 +1,22 @@
+.title { font-weight: 700; font-size: 20px; }
+.body { padding-top: 4px; }
+.applied { padding: 10px 12px; border: 1px solid var(--mantine-color-blue-1); border-radius: 8px; background: var(--mantine-color-blue-0); color: var(--mantine-color-blue-8); }
+.details { color: var(--mantine-color-gray-7); font-size: 12px; }
+.details summary { cursor: pointer; width: fit-content; }
+.selection { max-height: 36vh; overflow-y: auto; padding-right: 4px; }
+.space { padding: 14px 0; border-bottom: 1px solid var(--mantine-color-gray-2); flex-shrink: 0; }
+.space:first-child { padding-top: 2px; }
+.checkbox { flex: 1; min-width: 0; }
+.checkbox label { overflow-wrap: anywhere; }
+.hint { width: 115px; flex-shrink: 0; text-align: right; }
+.appliedBadge { flex-shrink: 0; }
+.events { margin-left: 32px; padding-left: 14px; border-left: 1px solid var(--mantine-color-gray-3); }
+.reason { padding: 12px; border-radius: 8px; background: var(--mantine-color-gray-0); }
+.footer { position: sticky; bottom: 0; z-index: 1; background: var(--mantine-color-body); padding: 12px 0 4px; border-top: 1px solid var(--mantine-color-gray-2); }
+@media (max-width: 480px) {
+  .title { font-size: 18px; }
+  .hint { width: 76px; font-size: 11px; }
+  .events { margin-left: 24px; padding-left: 10px; }
+  .selection { max-height: 40vh; }
+  .footer > button { width: 100%; }
+}

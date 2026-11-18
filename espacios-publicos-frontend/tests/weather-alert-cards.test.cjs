@@ -106,7 +106,7 @@ function renderCard(item) {
   measures.filename = measuresFile;
   measures.paths = module.paths;
   const measuresRequire = measures.require.bind(measures);
-  measures.require = id => id === '../lib/api' ? {} : id === '../lib/weatherAlertPresentation' ? loaded.exports : measuresRequire(id);
+  measures.require = id => id.endsWith('.module.css') ? { __esModule: true, default: {} } : id === '../lib/api' ? {} : id === '../lib/weatherAlertPresentation' ? loaded.exports : measuresRequire(id);
   measures._compile(ts.transpileModule(readFileSync(measuresFile, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
   }).outputText, measuresFile);

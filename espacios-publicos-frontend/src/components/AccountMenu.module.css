@@ -1,0 +1,15 @@
+.trigger { display: flex; align-items: center; gap: 10px; padding: 4px 6px; border-radius: 10px; max-width: 280px; }
+.trigger:hover { background: var(--mantine-color-gray-0); }
+.trigger:focus-visible, .link:focus-visible { outline: 2px solid var(--mantine-color-blue-5); outline-offset: 2px; }
+.name { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dropdown { max-width: calc(100vw - 24px); border-radius: 16px; padding: 0; overflow: hidden; }
+.top { padding: 10px 16px; border-bottom: 1px solid var(--mantine-color-gray-2); }
+.identity { padding: 20px 16px; }
+.text { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.details { padding: 14px 16px; background: var(--mantine-color-gray-0); border-top: 1px solid var(--mantine-color-gray-2); }
+.field { padding: 10px 12px; border: 1px solid var(--mantine-color-gray-2); border-radius: 10px; background: var(--mantine-color-body); min-width: 0; overflow-wrap: anywhere; }
+.label { display: flex; align-items: center; gap: 6px; color: var(--mantine-color-gray-6); margin-bottom: 5px; }
+.link { display: flex; align-items: center; gap: 9px; padding: 10px 16px; width: 100%; color: var(--mantine-color-gray-8); font-size: 13px; }
+.link:hover { background: var(--mantine-color-gray-0); }
+.links { padding: 4px 0; border-top: 1px solid var(--mantine-color-gray-2); }
+@media(max-width: 480px) { .name { display: none; } .trigger { gap: 5px; } }
