@@ -333,7 +333,8 @@ describe("RegisterCitizenToCommunityEventUseCase", () => {
         inscriptos: 2,
         estado: "ACTIVE",
         categoria: "Cultura",
-        correlationId: "evento-event-1"
+        correlationId: "evento-event-1",
+        barrio: "Mataderos"
       });
       expect(events[0].payload.inscriptos).toBe(1);
     });

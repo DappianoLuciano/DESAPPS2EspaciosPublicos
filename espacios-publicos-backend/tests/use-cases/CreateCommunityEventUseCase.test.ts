@@ -255,7 +255,8 @@ describe("CreateCommunityEventUseCase", () => {
       inscriptos: 0,
       estado: "ACTIVE",
       categoria: communityEvent.category,
-      correlationId: `evento-${communityEvent.id}`
+      correlationId: `evento-${communityEvent.id}`,
+      barrio: null
     });
   });
 

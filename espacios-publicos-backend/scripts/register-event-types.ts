@@ -75,7 +75,9 @@ const spacesDefinitions: EventTypeDefinition[] = [
     { name: "inscriptos", type: "int" },
     { name: "estado", type: "string", doc: "ACTIVE | ACTIVE_FULL | CANCELLED" },
     { name: "categoria", type: "string" },
-    { name: "correlationId", type: "string", doc: "evento-<eventoId>" }
+    { name: "correlationId", type: "string", doc: "evento-<eventoId>" },
+    // Agregado al final y con default: cambio compatible, se aplica en el mismo topico.
+    { name: "barrio", type: nullable("string"), default: null, doc: "Mismo valor que zona; lo lee Emergencias." }
   ]),
   record("ActividadCreada", "E1 squad 3: se creo una actividad (evento comunitario) en un espacio publico.", [
     // Opcional: el contrato ya estaba registrado sin este campo y un campo obligatorio sin default

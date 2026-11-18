@@ -16,6 +16,24 @@ import BikeRoutePlanner from '../components/BikeRoutePlanner';
 import { markerIconConfig } from '../components/LocationPicker';
 import { getCommunityEvent, listMyCommunityEventRegistrations, registerToCommunityEvent } from '../lib/api';
 import type { CommunityEventCatalogItem } from '../lib/api';
+import { createAddressSearch } from '../lib/addressSearch';
+
+const searchAddress = createAddressSearch();
+// Una consulta por direccion, compartida: el doble montaje de StrictMode o volver al mismo evento no
+// repiten la busqueda ni chocan con el limite de una consulta por segundo de Nominatim.
+const geocoded = new Map<string, Promise<[number, number] | null>>();
+
+function geocode(address: string): Promise<[number, number] | null> {
+  let pending = geocoded.get(address);
+  if (!pending) {
+    pending = searchAddress(address)
+      .then((matches): [number, number] | null => (matches[0] ? [matches[0].latitude, matches[0].longitude] : null))
+      // Si no se puede ubicar la direccion se muestra la imagen de respaldo; no es un error para el usuario.
+      .catch(() => null);
+    geocoded.set(address, pending);
+  }
+  return pending;
+}
 
 export default function EventDetail() {
   const navigate = useNavigate();
@@ -40,26 +58,28 @@ export default function EventDetail() {
       : null;
   const hasStoredCoordinates = storedCoordinates !== null;
 
+  const address = event?.publicSpace?.address;
+
   useEffect(() => {
-    if (!hasStoredCoordinates && event?.publicSpace?.address) {
-      setMapLoading(true);
-      fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(event.publicSpace.address)}&format=json`, {
-        headers: {
-          'User-Agent': 'DesarrolloApp2/1.0 (local@example.com)'
-        }
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data && data.length > 0) {
-            setMapCoordinates([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
-          }
-        })
-        .catch(console.error)
-        .finally(() => setMapLoading(false));
-    }
-  }, [event?.publicSpace?.address, hasStoredCoordinates]);
+    if (hasStoredCoordinates || !address) return;
+
+    let active = true;
+    setMapLoading(true);
+    // Mismo cliente que el formulario de espacios: valida la respuesta y respeta el limite de Nominatim.
+    geocode(address).then((coordinates) => {
+      if (!active) return;
+      setMapCoordinates(coordinates);
+      setMapLoading(false);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [address, hasStoredCoordinates]);
 
   const displayCoordinates = storedCoordinates ?? mapCoordinates;
+  // Sin direccion no hay nada que geocodificar: se muestra la imagen de respaldo, no un skeleton eterno.
+  const showMapSkeleton = !hasStoredCoordinates && Boolean(address) && mapLoading;
 
   useEffect(() => {
     if (!id) {
@@ -303,7 +323,7 @@ export default function EventDetail() {
 
             <Title order={3} mt={40} mb="md">Ubicación</Title>
             <Card withBorder radius="md" p={0} h={250} style={{ overflow: 'hidden', position: 'relative', zIndex: 1 }}>
-              {mapLoading && !hasStoredCoordinates ? (
+              {showMapSkeleton ? (
                 <Skeleton height="100%" width="100%" />
               ) : displayCoordinates ? (
                 <Box h="100%">

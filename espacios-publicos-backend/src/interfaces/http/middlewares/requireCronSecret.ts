@@ -1,7 +1,7 @@
-import { timingSafeEqual } from "crypto";
 import { NextFunction, Request, Response } from "express";
 import { AppError } from "../../../shared/errors/AppError";
 import { UnauthorizedError } from "../../../shared/errors/UnauthorizedError";
+import { safeEqual } from "../../../shared/security/safeEqual";
 
 export function requireCronSecret(request: Request, _response: Response, next: NextFunction): void {
   const secret = process.env.CRON_SECRET;
@@ -10,13 +10,8 @@ export function requireCronSecret(request: Request, _response: Response, next: N
     return;
   }
 
-  const received = request.header("authorization") || "";
-  const expected = `Bearer ${secret}`;
-  const valid =
-    received.length === expected.length &&
-    timingSafeEqual(Buffer.from(received), Buffer.from(expected));
-
-  if (!valid) {
+  // safeEqual compara hashes: un header con otro largo en bytes da 401, no una excepcion (500).
+  if (!safeEqual(request.header("authorization"), `Bearer ${secret}`)) {
     next(new UnauthorizedError("La invocacion programada no esta autorizada."));
     return;
   }
