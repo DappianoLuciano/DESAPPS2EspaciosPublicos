@@ -175,4 +175,18 @@ describe("CancelCommunityEventUseCase", () => {
     await expect(useCase.execute("event-1", "Motivo")).rejects.toThrow("ya termino");
     expect(updateStatus).not.toHaveBeenCalled();
   });
+
+  it("CU-01: con allowEnded cancela un evento terminado y publica igual", async () => {
+    const { useCase, updateStatus, published } = build(
+      buildEvent({
+        startDate: new Date(Date.now() - 5 * 3600_000),
+        endDate: new Date(Date.now() - 3600_000)
+      })
+    );
+
+    await useCase.execute("event-1", "No se pudo hacer", { allowEnded: true });
+
+    expect(updateStatus).toHaveBeenCalled();
+    expect(published.map((event) => event.name)).toHaveLength(2);
+  });
 });

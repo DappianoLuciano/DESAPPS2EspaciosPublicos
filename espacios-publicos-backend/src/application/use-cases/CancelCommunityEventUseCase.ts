@@ -16,6 +16,11 @@ export interface CancelCommunityEventOptions {
   causaTipo?: unknown;
   causaId?: unknown;
   actorSub?: string | null;
+  /**
+   * CU-01: el backoffice da de baja un evento que no se pudo hacer por una emergencia y cuyo horario ya paso.
+   * Por defecto un evento terminado no se puede cancelar.
+   */
+  allowEnded?: boolean;
 }
 
 function isBlank(value: unknown): boolean {
@@ -70,7 +75,7 @@ export class CancelCommunityEventUseCase {
       throw new ValidationError("El evento ya se encuentra cancelado.");
     }
 
-    if (communityEvent.endDate.getTime() <= Date.now()) {
+    if (!options.allowEnded && communityEvent.endDate.getTime() <= Date.now()) {
       throw new ValidationError("El evento ya termino y no puede cancelarse.");
     }
 

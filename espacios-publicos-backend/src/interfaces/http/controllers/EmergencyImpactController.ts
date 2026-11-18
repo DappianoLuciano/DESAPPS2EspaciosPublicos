@@ -87,6 +87,14 @@ export class EmergencyImpactController {
     }));
   };
 
+  dismiss = async (request: Request, response: Response): Promise<void> => {
+    response.json(await this.cancelAffectedEvent.dismiss({
+      impactId: request.params.id,
+      reason: request.body?.reason,
+      actorSub: request.user?.id ?? null
+    }));
+  };
+
   watchStatus = async (request: Request, response: Response): Promise<void> => {
     response.json(await this.watchEvent.status(request.params.eventId, request.user?.email ?? ""));
   };
