@@ -16,6 +16,11 @@ export class PrismaPublicSpaceRepository implements PublicSpaceRepository {
       where: {
         status: filters?.status
       },
+      include: { weatherRestrictions: {
+        where: { releasedAt: null, validUntil: { gt: new Date() } },
+        select: { alertId: true, validFrom: true, validUntil: true },
+        orderBy: { validFrom: 'asc' }
+      } },
       orderBy: { createdAt: "desc" }
     });
   }

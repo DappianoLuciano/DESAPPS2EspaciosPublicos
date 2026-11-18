@@ -1,6 +1,6 @@
-import { Alert, Badge, Box, Button, Card, Flex, Group, Modal, NumberInput, Select, Table, Text, TextInput, Textarea, Title, Container } from '@mantine/core';
+import { Alert, Box, Button, Flex, Modal, NumberInput, Select, Text, TextInput, Textarea, Title, Container } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconEdit, IconMapPin, IconPhoto, IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconMapPin, IconPhoto, IconPlus } from '@tabler/icons-react';
 import { Dropzone } from '@mantine/dropzone';
 import { useEffect, useRef, useState } from 'react';
 import { createPublicSpace, deletePublicSpace, listPublicSpaces, PUBLIC_SPACE_CATEGORY_LABELS, updatePublicSpace, uploadPublicSpaceImage } from '../lib/api';
@@ -9,6 +9,7 @@ import LocationPicker from '../components/LocationPicker';
 import type { Coordinates } from '../components/LocationPicker';
 import { createAddressSearch } from '../lib/addressSearch';
 import type { AddressMatch } from '../lib/addressSearch';
+import PublicSpacesTable from '../components/PublicSpacesTable';
 
 const searchAddress = createAddressSearch();
 
@@ -348,7 +349,7 @@ export default function PublicSpaceManagement() {
         </Flex>
       </Modal>
 
-      <Flex justify="space-between" align="center" mb="xl">
+      <Flex justify="space-between" align="center" mb="xl" wrap="wrap" gap="md">
         <Box>
           <Title order={1} fz={32}>Espacios Públicos</Title>
           <Text c="dimmed">Administrá ubicaciones disponibles para eventos comunitarios.</Text>
@@ -364,76 +365,8 @@ export default function PublicSpaceManagement() {
         </Alert>
       )}
 
-      <Card shadow="sm" radius="md" withBorder p={0}>
-        <Table.ScrollContainer minWidth={640}>
-        <Table verticalSpacing="md" horizontalSpacing="xl" striped>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Nombre</Table.Th>
-              <Table.Th>Dirección</Table.Th>
-              <Table.Th>Zona</Table.Th>
-              <Table.Th>Capacidad</Table.Th>
-              <Table.Th>Estado</Table.Th>
-              <Table.Th>Categoría</Table.Th>
-              <Table.Th>Exposición</Table.Th>
-              <Table.Th>Acciones</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {loading && (
-              <Table.Tr>
-                <Table.Td colSpan={7}>Cargando espacios...</Table.Td>
-              </Table.Tr>
-            )}
-            {!loading && spaces.length === 0 && (
-              <Table.Tr>
-                <Table.Td colSpan={7}>Todavía no hay espacios públicos cargados.</Table.Td>
-              </Table.Tr>
-            )}
-            {spaces.map((space) => (
-              <Table.Tr key={space.id}>
-                <Table.Td>
-                  <Group gap="xs">
-                    <IconMapPin size="1rem" color="gray" />
-                    <Text fw={600}>{space.name}</Text>
-                  </Group>
-                </Table.Td>
-                <Table.Td>
-                  {space.address}
-                  {(space.latitude == null || space.longitude == null) && (
-                    <Badge color="orange" variant="light" size="sm" ml="xs">Sin ubicación</Badge>
-                  )}
-                </Table.Td>
-                <Table.Td>{space.zone || '-'}</Table.Td>
-                <Table.Td>{space.capacity}</Table.Td>
-                <Table.Td>
-                  <Badge color={space.status === 'ENABLED' ? 'green' : 'red'} variant="light">
-                    {space.status === 'ENABLED' ? 'Habilitado' : 'Deshabilitado'}
-                  </Badge>
-                </Table.Td>
-                <Table.Td>{space.category ? PUBLIC_SPACE_CATEGORY_LABELS[space.category] : '-'}</Table.Td>
-                <Table.Td>
-                  {space.exposure === 'INDOOR' ? 'Interior' : space.exposure === 'OUTDOOR' ? 'Exterior' : 'Mixto'}
-                </Table.Td>
-                <Table.Td>
-                  <Flex gap="xs">
-                    <Button size="xs" variant="light" leftSection={<IconEdit size="0.9rem" />} onClick={() => openEditModal(space)}>
-                      Editar
-                    </Button>
-                    <Button size="xs" variant="light" color={space.status === 'ENABLED' ? 'red' : 'green'} onClick={() => handleToggleStatus(space)}>
-                      {space.status === 'ENABLED' ? 'Deshabilitar' : 'Habilitar'}
-                    </Button>
-                    <Button size="xs" variant="subtle" color="red" leftSection={<IconTrash size="0.9rem" />} onClick={() => handleDelete(space)}>
-                      Eliminar
-                    </Button>
-                  </Flex>
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-        </Table.ScrollContainer>
-      </Card>
+      <PublicSpacesTable spaces={spaces} loading={loading} onEdit={openEditModal}
+        onToggle={handleToggleStatus} onDelete={handleDelete} onRefresh={loadSpaces} />
     </Container>
   );
 }

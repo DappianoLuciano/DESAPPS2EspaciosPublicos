@@ -17,6 +17,7 @@ export interface PublicSpace {
   category?: PublicSpaceCategory | null;
   imageUrl?: string | null;
   createdAt: Date;
+  weatherRestrictions?: Array<{ alertId: string; validFrom: Date; validUntil: Date }>;
 }
 
 export interface CreatePublicSpaceData {
