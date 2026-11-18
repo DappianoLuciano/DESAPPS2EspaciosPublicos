@@ -3,11 +3,20 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getCommunityEvent, listMyCommunityEventRegistrations } from '../lib/api';
+import type { EmergencyEventNotice } from '../lib/api';
 import { useEmergencyNotices } from '../lib/useEmergencyNotices';
 import EmergencyNotice from './EmergencyNotice';
 
 const VISIBLE_STATUSES = new Set(['SUSPENDIDA', 'EN_CURSO', 'A_REPROGRAMAR', 'REPROGRAMADA']);
 const NONE = new Set<string>();
+
+/**
+ * Un evento que ya termino no necesita aviso: la emergencia puede seguir abierta del lado de Emergencias, pero
+ * al ciudadano ya no le cambia nada. Excepcion: "pendiente de reprogramacion", que se resuelve despues.
+ */
+function isStillRelevant(notice: EmergencyEventNotice, now: number) {
+  return notice.status === 'A_REPROGRAMAR' || new Date(notice.endDate).getTime() > now;
+}
 
 interface AffectedEvent {
   id: string;
@@ -28,7 +37,9 @@ export default function HomeEmergencyAlerts() {
   // Solo un ciudadano tiene inscripciones: para el resto no hay ninguna.
   const registered = isCitizen ? myRegistrations : NONE;
 
-  const visible = [...notices.values()].filter((notice) => VISIBLE_STATUSES.has(notice.status));
+  // Se calcula una vez al montar: el Home no necesita re-renderizarse cuando termina un evento.
+  const [now] = useState(() => Date.now());
+  const visible = [...notices.values()].filter((notice) => VISIBLE_STATUSES.has(notice.status) && isStillRelevant(notice, now));
   const visibleKey = visible.map((notice) => notice.eventId).join(',');
 
   useEffect(() => {
