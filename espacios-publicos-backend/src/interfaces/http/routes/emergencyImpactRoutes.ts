@@ -52,6 +52,14 @@ export function createEmergencyImpactRoutes(controller: EmergencyImpactControlle
     allowBodyFields(["reason"]),
     asyncHandler(controller.cancel)
   );
+  // Cierra sin reprogramar lo que quedo "A reprogramar" (el horario ya paso).
+  router.post(
+    "/:id/dismiss",
+    requirePermission(permissions.MANAGE_EMERGENCY_IMPACTS),
+    auditAction(permissions.MANAGE_EMERGENCY_IMPACTS, "emergency-impact"),
+    allowBodyFields(["reason"]),
+    asyncHandler(controller.dismiss)
+  );
 
   return router;
 }

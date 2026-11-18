@@ -7,8 +7,15 @@ import { nullableText, requireText } from "../../shared/validation/inputValidati
 import { CancelCommunityEventUseCase } from "./CancelCommunityEventUseCase";
 import { AttendeeSource, notifyImpact, notifyWatchers, WatcherSource } from "./emergencyNotifications";
 
-const CANCELABLE: readonly string[] = ["SUSPENDIDA", "EN_CURSO", "A_REPROGRAMAR", "REPROGRAMADA"];
+const CANCELABLE: readonly string[] = ["SUSPENDIDA", "EN_CURSO", "REPROGRAMADA"];
 const DEFAULT_REASON = "Cancelado por una emergencia cercana.";
+const DEFAULT_DISMISS_REASON = "No se pudo hacer por una emergencia cercana y no se va a reprogramar.";
+
+function optionalReason(value: unknown, fallback: string): string {
+  return (typeof value === "string" && value.trim()
+    ? nullableText(value, "El motivo", 500)
+    : null) ?? fallback;
+}
 
 export interface CancelAffectedEventInput {
   impactId: unknown;
@@ -32,9 +39,7 @@ export class CancelAffectedEventUseCase {
 
   async execute(input: CancelAffectedEventInput): Promise<EmergencyImpactRecord> {
     const impactId = requireText(input.impactId, "La reserva afectada", 128);
-    const reason = (typeof input.reason === "string" && input.reason.trim()
-      ? nullableText(input.reason, "El motivo de la cancelacion", 500)
-      : null) ?? DEFAULT_REASON;
+    const reason = optionalReason(input.reason, DEFAULT_REASON);
     const impact = await this.impacts.findImpactById(impactId);
 
     if (!impact) {
@@ -46,9 +51,15 @@ export class CancelAffectedEventUseCase {
     }
 
     if (!CANCELABLE.includes(impact.status)) {
-      throw new ValidationError(impact.status === "CANCELADA"
-        ? "El evento ya fue cancelado."
-        : "La emergencia ya se resolvió y el evento quedó confirmado.");
+      throw new ValidationError(
+        impact.status === "CANCELADA" ? "El evento ya fue cancelado."
+          : impact.status === "A_REPROGRAMAR" ? "El horario ya pasó: reprogramalo o dalo de baja."
+            : "La emergencia ya se resolvió y el evento quedó confirmado."
+      );
+    }
+
+    if (impact.endDate.getTime() <= Date.now()) {
+      throw new ValidationError("El evento ya terminó y no puede cancelarse.");
     }
 
     await this.cancelCommunityEvent.execute(impact.bookingId, reason, { actorSub: input.actorSub ?? null });
@@ -64,5 +75,44 @@ export class CancelAffectedEventUseCase {
     });
 
     return cancelled;
+  }
+
+  /**
+   * CU-01: cierra sin reprogramar algo que quedo "A reprogramar" (el horario paso durante la emergencia).
+   * Un evento comunitario se cancela con la cancelacion de siempre, aunque ya haya terminado, para que
+   * Analitica sepa que no se hizo. Una reserva de espacio no tiene cancelacion: solo se cierra la afectacion.
+   */
+  async dismiss(input: CancelAffectedEventInput): Promise<EmergencyImpactRecord> {
+    const impactId = requireText(input.impactId, "La reserva afectada", 128);
+    const reason = optionalReason(input.reason, DEFAULT_DISMISS_REASON);
+    const impact = await this.impacts.findImpactById(impactId);
+
+    if (!impact) {
+      throw new NotFoundError("La reserva afectada indicada no existe.");
+    }
+
+    if (impact.status !== "A_REPROGRAMAR") {
+      throw new ValidationError("Solo se puede dar de baja lo que quedó pendiente de reprogramar.");
+    }
+
+    if (impact.bookingType === "COMMUNITY_EVENT") {
+      await this.cancelCommunityEvent.execute(impact.bookingId, reason, {
+        actorSub: input.actorSub ?? null,
+        allowEnded: true
+      });
+    }
+
+    const dismissed = await this.impacts.cancelImpact(impact.id, new Date());
+
+    await notifyImpact(this.emailSender, this.attendees, dismissed, (noun) => ({
+      subject: `Tu ${noun} no se va a reprogramar`,
+      message: `Por la emergencia cercana el horario ya había pasado y se decidió no reprogramarla. Motivo: ${reason}`
+    }));
+    await notifyWatchers(this.emailSender, this.watchers, dismissed, {
+      subject: "El evento no se va a reprogramar",
+      message: `El evento no se pudo hacer por una emergencia cercana y no se va a reprogramar. Motivo: ${reason}`
+    });
+
+    return dismissed;
   }
 }

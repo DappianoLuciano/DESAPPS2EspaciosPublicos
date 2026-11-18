@@ -86,6 +86,59 @@ describe("CancelAffectedEventUseCase", () => {
   });
 });
 
+describe("CancelAffectedEventUseCase: horario ya pasado", () => {
+  const past = { startDate: new Date(Date.now() - 7_200_000), endDate: new Date(Date.now() - 3_600_000) };
+
+  it("no deja cancelar lo que quedo A_REPROGRAMAR: hay que reprogramarlo o darlo de baja", async () => {
+    const { useCase, cancelCommunityEvent } = setupCancel(impact({ ...past, status: "A_REPROGRAMAR" }));
+
+    await expect(useCase.execute({ impactId: "imp-1" })).rejects.toThrow("reprogramalo o dalo de baja");
+    expect(cancelCommunityEvent.execute).not.toHaveBeenCalled();
+  });
+
+  it("no cancela un reprogramado que ya termino", async () => {
+    const { useCase } = setupCancel(impact({ ...past, status: "REPROGRAMADA" }));
+
+    await expect(useCase.execute({ impactId: "imp-1" })).rejects.toThrow("ya terminó");
+  });
+
+  it("da de baja un evento: lo cancela aunque haya terminado, cierra la afectacion y avisa", async () => {
+    const { useCase, impacts, cancelCommunityEvent, emailSender, watchers } =
+      setupCancel(impact({ ...past, status: "A_REPROGRAMAR" }));
+
+    const result = await useCase.dismiss({ impactId: "imp-1", actorSub: "admin-1" });
+
+    expect(result.status).toBe("CANCELADA");
+    expect(cancelCommunityEvent.execute).toHaveBeenCalledWith(
+      "evento-1",
+      "No se pudo hacer por una emergencia cercana y no se va a reprogramar.",
+      { actorSub: "admin-1", allowEnded: true }
+    );
+    expect(impacts.cancelImpact.mock.calls[0][0]).toBe("imp-1");
+    expect(emailSender.send.mock.calls.map(([to]) => to)).toEqual(["org@test.com", "ana@test.com", "caro@test.com"]);
+    expect(emailSender.send.mock.calls[0][1]).toContain("no se va a reprogramar");
+    expect(watchers.markWatchersNotified.mock.calls[0][0]).toEqual(["w1"]);
+  });
+
+  it("da de baja una reserva de espacio sin cancelar ningun evento", async () => {
+    const { useCase, impacts, cancelCommunityEvent, emailSender } =
+      setupCancel(impact({ ...past, status: "A_REPROGRAMAR", bookingType: "RESERVATION" }));
+
+    await useCase.dismiss({ impactId: "imp-1", reason: "El organizador no quiere otra fecha" });
+
+    expect(cancelCommunityEvent.execute).not.toHaveBeenCalled();
+    expect(impacts.cancelImpact).toHaveBeenCalled();
+    expect(emailSender.send.mock.calls[0][2]).toContain("El organizador no quiere otra fecha");
+  });
+
+  it("solo da de baja lo pendiente de reprogramar", async () => {
+    await expect(setupCancel(impact({ status: "SUSPENDIDA" })).useCase.dismiss({ impactId: "imp-1" }))
+      .rejects.toThrow("pendiente de reprogramar");
+    await expect(setupCancel(impact({ status: "CANCELADA" })).useCase.dismiss({ impactId: "imp-1" }))
+      .rejects.toThrow("pendiente de reprogramar");
+  });
+});
+
 describe("WatchEmergencyEventUseCase", () => {
   function setupWatch(onHold: boolean) {
     const impacts = {

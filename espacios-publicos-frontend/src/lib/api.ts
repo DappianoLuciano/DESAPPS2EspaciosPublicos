@@ -921,6 +921,8 @@ export interface EmergencyImpact {
   bookingType: 'RESERVATION' | 'COMMUNITY_EVENT';
   bookingId: string;
   publicSpaceId: string;
+  /** Titulo del evento y espacio ("Festival, Plaza Houssay") o "Reserva en <espacio>". */
+  bookingLabel: string;
   startDate: string;
   endDate: string;
   status: EmergencyImpactStatus;
@@ -964,6 +966,13 @@ export function rescheduleEmergencyImpact(id: string, startDate: string, endDate
 
 export function cancelEmergencyImpact(id: string, reason?: string) {
   return request<EmergencyImpact>(`/api/emergency-impacts/${encodeURIComponent(id)}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify(reason ? { reason } : {}),
+  });
+}
+
+export function dismissEmergencyImpact(id: string, reason?: string) {
+  return request<EmergencyImpact>(`/api/emergency-impacts/${encodeURIComponent(id)}/dismiss`, {
     method: 'POST',
     body: JSON.stringify(reason ? { reason } : {}),
   });

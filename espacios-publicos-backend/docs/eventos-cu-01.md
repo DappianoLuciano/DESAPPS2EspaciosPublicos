@@ -76,6 +76,12 @@ Requieren rol administrador y las acciones quedan auditadas.
 - `POST /api/emergency-impacts/:id/cancel` con `{ reason? }`: solo eventos comunitarios. Usa la cancelacion
   de siempre (publica `EventoCancelado` y `ActividadModificada`) y avisa por mail al organizador, a los
   inscriptos y a los interesados. Las reservas de espacio no tienen cancelacion: se reprograman.
+- `POST /api/emergency-impacts/:id/dismiss` con `{ reason? }`: "Dar de baja". Solo para lo que quedo
+  `A_REPROGRAMAR` (el horario paso durante la emergencia) y no se va a reprogramar. Un evento comunitario se
+  cancela con la cancelacion de siempre aunque ya haya terminado (para que Analitica sepa que no se hizo); una
+  reserva de espacio solo cierra la afectacion. Avisa por mail igual que la cancelacion.
+- En la pantalla Emergencias: **Pendientes** (suspendidas, en curso y a reprogramar) e **Historial** (el resto).
+  Cancelar solo aparece mientras el evento no termino.
 
 `GET /api/emergency-impacts/notices` es publica, como el catalogo: devuelve los eventos afectados, sin datos
 personales, para mostrar el aviso en Mis Reservas y en el detalle del evento.

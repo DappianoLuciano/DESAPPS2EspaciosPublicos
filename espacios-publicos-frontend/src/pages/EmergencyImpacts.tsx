@@ -1,6 +1,6 @@
 import { Alert, Badge, Box, Button, Group, Modal, Stack, Table, Text, Textarea, TextInput, Title } from '@mantine/core';
 import { useCallback, useEffect, useState } from 'react';
-import { cancelEmergencyImpact, getEmergencyImpacts, rescheduleEmergencyImpact } from '../lib/api';
+import { cancelEmergencyImpact, dismissEmergencyImpact, getEmergencyImpacts, rescheduleEmergencyImpact } from '../lib/api';
 import type { EmergencyImpact, EmergencyImpactStatus, EmergencyImpactsResponse } from '../lib/api';
 
 const STATUS: Record<EmergencyImpactStatus, { label: string; color: string }> = {
@@ -12,11 +12,25 @@ const STATUS: Record<EmergencyImpactStatus, { label: string; color: string }> = 
   CANCELADA: { label: 'Cancelada', color: 'gray' },
 };
 
-const CLOSED: readonly EmergencyImpactStatus[] = ['CONFIRMADA', 'CANCELADA'];
+// Pendiente: requiere una decision del backoffice.
+const PENDING: readonly EmergencyImpactStatus[] = ['SUSPENDIDA', 'EN_CURSO', 'A_REPROGRAMAR'];
 
-// Solo los eventos comunitarios se pueden cancelar: las reservas de espacio se reprograman.
+const isPending = (impact: EmergencyImpact) => PENDING.includes(impact.status);
+const notEnded = (impact: EmergencyImpact) => new Date(impact.endDate).getTime() > Date.now();
+
+// Lo que quedo A_REPROGRAMAR ya paso: se reprograma o se da de baja. Lo reprogramado se puede volver a mover
+// mientras no haya terminado.
+const canReschedule = (impact: EmergencyImpact) =>
+  impact.status === 'A_REPROGRAMAR'
+  || ((impact.status === 'SUSPENDIDA' || impact.status === 'EN_CURSO' || impact.status === 'REPROGRAMADA') && notEnded(impact));
+
+// Solo los eventos comunitarios que no terminaron se pueden cancelar: las reservas de espacio se reprograman.
 const canCancel = (impact: EmergencyImpact) =>
-  impact.bookingType === 'COMMUNITY_EVENT' && !CLOSED.includes(impact.status);
+  impact.bookingType === 'COMMUNITY_EVENT'
+  && (impact.status === 'SUSPENDIDA' || impact.status === 'EN_CURSO' || impact.status === 'REPROGRAMADA')
+  && notEnded(impact);
+
+const canDismiss = (impact: EmergencyImpact) => impact.status === 'A_REPROGRAMAR';
 
 const formatDate = (date: string) => new Intl.DateTimeFormat('es-AR', {
   dateStyle: 'short',
@@ -32,6 +46,8 @@ export default function EmergencyImpacts() {
   const [saving, setSaving] = useState(false);
   const [cancelling, setCancelling] = useState<EmergencyImpact | null>(null);
   const [reason, setReason] = useState('');
+  const [dismissing, setDismissing] = useState<EmergencyImpact | null>(null);
+  const [dismissReason, setDismissReason] = useState('');
 
   const load = useCallback(() => {
     getEmergencyImpacts()
@@ -59,6 +75,11 @@ export default function EmergencyImpacts() {
     }
   };
 
+  const closeDismiss = () => {
+    setDismissing(null);
+    setDismissReason('');
+  };
+
   const closeCancel = () => {
     setCancelling(null);
     setReason('');
@@ -70,6 +91,62 @@ export default function EmergencyImpacts() {
     setEndDate('');
   };
 
+  const pending = data?.impacts.filter(isPending) ?? [];
+  const history = data?.impacts.filter((impact) => !isPending(impact)) ?? [];
+
+  const renderTable = (title: string, description: string, impacts: EmergencyImpact[], empty: string) => (
+    <Box mb="xl">
+      <Title order={2} fz="lg">{title}</Title>
+      <Text c="dimmed" size="sm" mb="sm">{description}</Text>
+      {data && impacts.length === 0 ? <Text c="dimmed">{empty}</Text> : (
+        <Table.ScrollContainer minWidth={980}>
+          <Table>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Reserva</Table.Th>
+                <Table.Th>Reserva</Table.Th>
+                <Table.Th>Tipo</Table.Th>
+                <Table.Th>Organizador</Table.Th>
+                <Table.Th>Horario</Table.Th>
+                <Table.Th>Estado</Table.Th>
+                <Table.Th />
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {impacts.map((impact) => (
+                <Table.Tr key={impact.id}>
+                  <Table.Td fw={500}>{impact.bookingLabel}</Table.Td>
+                  <Table.Td><Text size="xs" c="dimmed" style={{ wordBreak: 'break-all' }}>{impact.emergenciaId}</Text></Table.Td>
+                  <Table.Td>{impact.bookingType === 'RESERVATION' ? 'Reserva' : 'Evento'}</Table.Td>
+                  <Table.Td>{impact.organizerName}</Table.Td>
+                  <Table.Td>{formatDate(impact.startDate)} a {formatDate(impact.endDate)}</Table.Td>
+                  <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                    <Badge color={STATUS[impact.status].color} variant="light" styles={{ label: { overflow: 'visible' } }}>
+                      {STATUS[impact.status].label}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    <Group gap="xs" wrap="nowrap" justify="flex-end">
+                      {canReschedule(impact) && (
+                        <Button size="xs" variant="light" onClick={() => setRescheduling(impact)}>Reprogramar</Button>
+                      )}
+                      {canCancel(impact) && (
+                        <Button size="xs" variant="light" color="red" onClick={() => setCancelling(impact)}>Cancelar</Button>
+                      )}
+                      {canDismiss(impact) && (
+                        <Button size="xs" variant="light" color="gray" onClick={() => setDismissing(impact)}>Dar de baja</Button>
+                      )}
+                    </Group>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
+      )}
+    </Box>
+  );
+
   return (
     <Box p={{ base: 'md', sm: 40 }}>
       <Title order={1} fz={32}>Emergencias</Title>
@@ -77,43 +154,9 @@ export default function EmergencyImpacts() {
 
       {error && <Alert color="red" mb="md">{error}</Alert>}
 
-      <Title order={2} fz="lg" mb="sm">Reservas afectadas</Title>
-      <Table.ScrollContainer minWidth={760} mb="xl">
-        <Table>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Emergencia</Table.Th>
-              <Table.Th>Tipo</Table.Th>
-              <Table.Th>Organizador</Table.Th>
-              <Table.Th>Horario</Table.Th>
-              <Table.Th>Estado</Table.Th>
-              <Table.Th />
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {data?.impacts.map((impact) => (
-              <Table.Tr key={impact.id}>
-                <Table.Td>{impact.emergenciaId}</Table.Td>
-                <Table.Td>{impact.bookingType === 'RESERVATION' ? 'Reserva' : 'Evento'}</Table.Td>
-                <Table.Td>{impact.organizerName}</Table.Td>
-                <Table.Td>{formatDate(impact.startDate)} a {formatDate(impact.endDate)}</Table.Td>
-                <Table.Td><Badge color={STATUS[impact.status].color} variant="light">{STATUS[impact.status].label}</Badge></Table.Td>
-                <Table.Td>
-                  <Group gap="xs" wrap="nowrap">
-                    {!CLOSED.includes(impact.status) && (
-                      <Button size="xs" variant="light" onClick={() => setRescheduling(impact)}>Reprogramar</Button>
-                    )}
-                    {canCancel(impact) && (
-                      <Button size="xs" variant="light" color="red" onClick={() => setCancelling(impact)}>Cancelar</Button>
-                    )}
-                  </Group>
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      </Table.ScrollContainer>
-      {data?.impacts.length === 0 && <Text c="dimmed">No hay reservas afectadas.</Text>}
+      {renderTable('Pendientes', 'Suspendidas, en curso durante la emergencia o pendientes de reprogramar.',
+        pending, 'No hay reservas pendientes.')}
+      {renderTable('Historial', 'Confirmadas, reprogramadas o canceladas.', history, 'Todavía no hay historial.')}
 
       <Modal opened={rescheduling !== null} onClose={closeReschedule} title="Reprogramar reserva">
         <Stack>
@@ -154,6 +197,33 @@ export default function EmergencyImpacts() {
               onClick={() => cancelling && save(() => cancelEmergencyImpact(cancelling.id, reason.trim()), closeCancel)}
             >
               Cancelar evento
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal opened={dismissing !== null} onClose={closeDismiss} title="Dar de baja sin reprogramar">
+        <Stack>
+          <Text size="sm">
+            El horario ya pasó durante la emergencia. Se cierra sin reprogramar
+            {dismissing?.bookingType === 'COMMUNITY_EVENT' ? ', el evento queda cancelado' : ''} y se avisa por mail al
+            organizador{dismissing?.bookingType === 'COMMUNITY_EVENT' ? ', a cada inscripto y a quienes pidieron enterarse' : ''}.
+          </Text>
+          <Textarea
+            label="Motivo (opcional)"
+            placeholder="No se pudo hacer por una emergencia cercana y no se va a reprogramar."
+            maxLength={500}
+            value={dismissReason}
+            onChange={(event) => setDismissReason(event.currentTarget.value)}
+          />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={closeDismiss}>Volver</Button>
+            <Button
+              color="red"
+              loading={saving}
+              onClick={() => dismissing && save(() => dismissEmergencyImpact(dismissing.id, dismissReason.trim()), closeDismiss)}
+            >
+              Dar de baja
             </Button>
           </Group>
         </Stack>
