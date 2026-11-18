@@ -401,7 +401,8 @@ export class ReceiveGatewayEventUseCase {
       if (data.afectaCirculacionAnterior !== true) {
         return false;
       }
-      await this.cityIncidentRepository.deactivate("RECLAMOS", reclamoId);
+      // Deja de cortar la circulacion pero el reclamo sigue abierto: puede volver a cortarla.
+      await this.cityIncidentRepository.deactivateUntilReactivated("RECLAMOS", reclamoId);
       await this.restoreClaimAffectations(reclamoId);
       return true;
     }

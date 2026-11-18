@@ -11,6 +11,8 @@ export interface CityIncidentRecord {
   /** Barrio informado por el modulo de origen, tal como llego. */
   zone: string | null;
   active: boolean;
+  /** Cierre definitivo: despues de esto un alta no lo reactiva. */
+  closedAt?: Date | null;
   reportedAt: Date;
   updatedAt: Date;
 }

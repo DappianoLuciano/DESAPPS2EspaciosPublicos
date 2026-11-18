@@ -37,7 +37,7 @@ function createScenario() {
   };
   const cityIncidents: CityIncidentRepository = {
     upsertActive: jest.fn(),
-    deactivate: jest.fn(),
+    deactivate: jest.fn(), deactivateUntilReactivated: jest.fn().mockResolvedValue(undefined),
     findActiveInBounds: jest.fn(),
     findActiveWithoutCoordinatesWithZone: jest.fn(),
     findActiveBySource: jest.fn(),

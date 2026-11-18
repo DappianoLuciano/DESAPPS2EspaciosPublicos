@@ -36,7 +36,7 @@ describe("POST /webhooks/citypass", () => {
   };
   const cityIncidentRepository = {
     upsertActive: jest.fn().mockResolvedValue(undefined),
-    deactivate: jest.fn().mockResolvedValue(undefined),
+    deactivate: jest.fn(), deactivateUntilReactivated: jest.fn().mockResolvedValue(undefined).mockResolvedValue(undefined),
     findActiveInBounds: jest.fn(),
     findActiveWithoutCoordinatesWithZone: jest.fn(),
     findActiveBySource: jest.fn(),
@@ -680,7 +680,7 @@ describe("CU-01 en el webhook", () => {
   function build() {
     const cityIncidents = {
       upsertActive: jest.fn().mockResolvedValue(undefined),
-      deactivate: jest.fn().mockResolvedValue(undefined),
+      deactivate: jest.fn(), deactivateUntilReactivated: jest.fn().mockResolvedValue(undefined).mockResolvedValue(undefined),
       findActiveInBounds: jest.fn(),
       findActiveWithoutCoordinatesWithZone: jest.fn(),
     findActiveBySource: jest.fn(),

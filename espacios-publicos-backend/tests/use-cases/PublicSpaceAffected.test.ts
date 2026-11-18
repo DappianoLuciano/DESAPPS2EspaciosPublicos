@@ -112,7 +112,7 @@ describe("EspacioPublicoAfectado", () => {
         { exists: jest.fn().mockResolvedValue(false), record: jest.fn() },
         {
           upsertActive: jest.fn(),
-          deactivate: jest.fn(),
+          deactivate: jest.fn(), deactivateUntilReactivated: jest.fn().mockResolvedValue(undefined),
           findActiveInBounds: jest.fn(),
           findActiveWithoutCoordinatesWithZone: jest.fn(),
     findActiveBySource: jest.fn(),

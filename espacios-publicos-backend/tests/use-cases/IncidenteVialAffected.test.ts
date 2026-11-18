@@ -12,7 +12,7 @@ const far: PublicSpace = { ...near, id: "space-lejos", latitude: -34.70, longitu
 function build() {
   const saved: DomainEvent[] = [];
   const recorded = new Set<string>();
-  const cityIncidents = { upsertActive: jest.fn(), deactivate: jest.fn(), findActiveInBounds: jest.fn(), findActiveWithoutCoordinatesWithZone: jest.fn(),
+  const cityIncidents = { upsertActive: jest.fn(), deactivate: jest.fn(), deactivateUntilReactivated: jest.fn().mockResolvedValue(undefined), findActiveInBounds: jest.fn(), findActiveWithoutCoordinatesWithZone: jest.fn(),
     findActiveBySource: jest.fn(),
     findActive: jest.fn() };
   const useCase = new ReceiveGatewayEventUseCase(
@@ -100,12 +100,14 @@ describe("ReclamoReclasificado", () => {
     expect(saved[0].payload).toEqual(expect.objectContaining({ tipoAfectacion: "USO_PARCIAL", causaTipo: "RECLAMO", causaId: "rec-3" }));
   });
 
-  it("si deja de cortarla cierra el incidente sin publicar", async () => {
+  it("si deja de cortarla da de baja el incidente sin cerrarlo y sin publicar", async () => {
     const { useCase, saved, cityIncidents } = build();
 
     await useCase.execute(reclassified("evt-8", { afectaCirculacionAnterior: true, afectaCirculacionNueva: false }));
 
-    expect(cityIncidents.deactivate).toHaveBeenCalledWith("RECLAMOS", "rec-3");
+    // El reclamo sigue abierto y puede volver a cortar la calle: no es un cierre definitivo.
+    expect(cityIncidents.deactivateUntilReactivated).toHaveBeenCalledWith("RECLAMOS", "rec-3");
+    expect(cityIncidents.deactivate).not.toHaveBeenCalled();
     expect(saved).toHaveLength(0);
   });
 

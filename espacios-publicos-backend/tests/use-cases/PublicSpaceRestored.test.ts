@@ -107,7 +107,7 @@ describe("EspacioPublicoRestaurado", () => {
       const useCase = new ReceiveGatewayEventUseCase(
         { exists: jest.fn().mockResolvedValue(false), record: jest.fn() },
         {
-          upsertActive: jest.fn(), deactivate: jest.fn(), findActiveInBounds: jest.fn(),
+          upsertActive: jest.fn(), deactivate: jest.fn(), deactivateUntilReactivated: jest.fn().mockResolvedValue(undefined), findActiveInBounds: jest.fn(),
           findActiveWithoutCoordinatesWithZone: jest.fn(), findActiveBySource: jest.fn(), findActive: jest.fn()
         },
         { findByEventId: jest.fn(), saveIfNewer: jest.fn() } as never,
