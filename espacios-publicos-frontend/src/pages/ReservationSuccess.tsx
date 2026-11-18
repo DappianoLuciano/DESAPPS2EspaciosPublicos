@@ -12,6 +12,7 @@ export default function ReservationSuccess() {
   const event = location.state?.event as CommunityEventCatalogItem | undefined;
   const registration = location.state?.registration as { id: string; citizenName: string } | undefined;
   const [qrCodeDataUri, setQrCodeDataUri] = useState<string>('');
+  const [qrFailed, setQrFailed] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
@@ -19,7 +20,7 @@ export default function ReservationSuccess() {
       // Mismo QR que el del mail y la pagina del ticket.
       QRCode.toDataURL(getTicketUrl(registration.id), { width: 360, margin: 1 })
         .then(url => setQrCodeDataUri(url))
-        .catch(console.error);
+        .catch(() => setQrFailed(true));
     }
   }, [registration?.id]);
 
@@ -107,6 +108,10 @@ export default function ReservationSuccess() {
           <Center p="xl" style={{ flexDirection: 'column' }}>
             {qrCodeDataUri ? (
               <Image src={qrCodeDataUri} alt="Código QR de la entrada" w={180} h={180} fit="contain" mb="lg" />
+            ) : qrFailed ? (
+              <Text c="dimmed" ta="center" w={220} mb="lg">
+                No pudimos mostrar el código QR acá. Lo tenés en el mail de confirmación y en la entrada en PDF.
+              </Text>
             ) : (
               <Box w={180} h={180} bg="gray.2" mb="lg" />
             )}

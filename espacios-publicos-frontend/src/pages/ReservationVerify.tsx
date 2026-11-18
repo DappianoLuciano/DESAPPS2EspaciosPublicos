@@ -26,8 +26,8 @@ export default function ReservationVerify() {
         if (space) {
           setPublicSpace(space);
         }
-      } catch (err: any) {
-        setError(err.message || 'Error al obtener la reserva.');
+      } catch (err) {
+        setError(err instanceof Error && err.message ? err.message : 'Error al obtener la reserva.');
       } finally {
         setLoading(false);
       }
