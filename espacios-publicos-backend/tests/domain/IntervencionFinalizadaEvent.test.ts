@@ -6,7 +6,6 @@ import { TowIntervention } from "../../src/domain/entities/TowIntervention";
 const baseIntervention: TowIntervention = {
   id: "intervencion-1",
   reclamoId: "reclamo-1",
-  correlationId: "correlation-1",
   latitud: -34.6037,
   longitud: -58.3816,
   direccion: "Av. Corrientes 1000",

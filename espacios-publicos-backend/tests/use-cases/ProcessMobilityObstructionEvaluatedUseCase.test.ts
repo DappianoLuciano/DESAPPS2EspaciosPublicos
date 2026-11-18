@@ -4,7 +4,6 @@ import { DomainEvent } from "../../src/domain/entities/DomainEvent";
 
 const input = {
   reclamoId: "reclamo-1",
-  correlationId: "correlation-1",
   latitud: -34.6037,
   longitud: -58.3816,
   direccion: "Av. Corrientes 1000",
@@ -41,27 +40,12 @@ describe("ProcessMobilityObstructionEvaluatedUseCase", () => {
 
     expect(intervention).toMatchObject({
       reclamoId: "reclamo-1",
-      correlationId: "correlation-1",
       requiereGrua: true,
       status: "PENDING",
       solicitadoAt: null,
       resueltoAt: null
     });
     expect(outbox).toHaveLength(0);
-  });
-
-  it("usa reclamoId como correlacion cuando Movilidad no la envia", async () => {
-    const { useCase } = createUseCase();
-    const { correlationId: _correlationId, ...inputWithoutCorrelationId } = input;
-
-    const intervention = await useCase.execute(inputWithoutCorrelationId);
-
-    expect(intervention).toMatchObject({
-      reclamoId: "reclamo-1",
-      correlationId: "reclamo-1",
-      requiereGrua: true,
-      status: "PENDING"
-    });
   });
 
   it("finaliza automaticamente una intervencion que no requiere grua", async () => {

@@ -3,7 +3,6 @@ export type TowInterventionStatus = "PENDING" | "TOW_REQUESTED" | "COMPLETED";
 export interface TowIntervention {
   id: string;
   reclamoId: string;
-  correlationId: string;
   latitud: number;
   longitud: number;
   direccion: string;
@@ -25,7 +24,6 @@ export interface TowIntervention {
 
 export interface CreateTowInterventionData {
   reclamoId: string;
-  correlationId: string;
   latitud: number;
   longitud: number;
   direccion: string;

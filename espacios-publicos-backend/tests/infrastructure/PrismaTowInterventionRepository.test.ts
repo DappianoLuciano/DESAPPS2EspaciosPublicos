@@ -49,7 +49,6 @@ describe("PrismaTowInterventionRepository", () => {
 
     const created = await repository.create({
       reclamoId: row.reclamoId,
-      correlationId: row.correlationId,
       latitud: row.latitud,
       longitud: row.longitud,
       direccion: row.direccion,
@@ -66,6 +65,7 @@ describe("PrismaTowInterventionRepository", () => {
     expect(delegate.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         reclamoId: "reclamo-1",
+        correlationId: "reclamo-1",
         estacionesAfectadasIds: [10, 11]
       })
     });
@@ -74,6 +74,7 @@ describe("PrismaTowInterventionRepository", () => {
       status: "PENDING",
       estacionesAfectadasIds: [10, 11]
     }));
+    expect(created).not.toHaveProperty("correlationId");
   });
 
   it("lista por ultima actualizacion y devuelve copias de las fechas", async () => {

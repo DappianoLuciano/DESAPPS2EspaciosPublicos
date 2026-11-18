@@ -18,7 +18,6 @@ resolverse automáticamente.
   },
   "data": {
     "reclamoId": "reclamo-uuid",
-    "correlationId": "correlation-uuid",
     "latitud": -34.6037,
     "longitud": -58.3816,
     "direccion": "Av. Corrientes 1000",
@@ -39,7 +38,6 @@ resolverse automáticamente.
 | Campo | Tipo | Obligatorio | Uso |
 | --- | --- | --- | --- |
 | `reclamoId` | string | Sí | Identifica el reclamo original. |
-| `correlationId` | string | Sí | Permite seguir el recorrido entre módulos. |
 | `latitud` | number | Sí | Latitud de la obstrucción, entre -90 y 90. |
 | `longitud` | number | Sí | Longitud de la obstrucción, entre -180 y 180. |
 | `direccion` | string | Sí | Dirección informada por Movilidad. |
@@ -65,7 +63,8 @@ se registra como procesado.
 - `metadata.eventId` se registra después de completar el procesamiento. Una
   reentrega con el mismo identificador no vuelve a ejecutar la operación.
 - `reclamoId` también evita crear más de una intervención para el mismo
-  reclamo.
+  reclamo y se conserva en `IntervencionFinalizada` para que Reclamos cierre
+  el caso correcto.
 
 Las intervenciones se guardan en `tow_interventions`. El panel administrativo
 lee esa tabla, por lo que el caso continúa disponible aunque el webhook y el

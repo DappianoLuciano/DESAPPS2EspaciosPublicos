@@ -3,7 +3,6 @@ import { createApp } from "../../src/app";
 
 const mobilityEvent = {
   reclamoId: "reclamo-listado-1",
-  correlationId: "correlation-listado-1",
   latitud: -34.6037,
   longitud: -58.3816,
   direccion: "Av. Corrientes 1000",
@@ -35,7 +34,6 @@ describe("listado administrativo de intervenciones de grua", () => {
     expect(response.body).toHaveLength(1);
     expect(response.body[0]).toMatchObject({
       reclamoId: "reclamo-listado-1",
-      correlationId: "correlation-listado-1",
       requiereGrua: true,
       status: "PENDING"
     });

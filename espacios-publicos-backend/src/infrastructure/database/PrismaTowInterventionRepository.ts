@@ -21,6 +21,8 @@ export class PrismaTowInterventionRepository implements TowInterventionRepositor
       const created = await this.client.towIntervention.create({
         data: {
           ...data,
+          // Columna heredada: se conserva sin exponerla en el dominio ni en los eventos.
+          correlationId: data.reclamoId,
           estacionesAfectadasIds: [...data.estacionesAfectadasIds]
         }
       });
@@ -76,8 +78,9 @@ export class PrismaTowInterventionRepository implements TowInterventionRepositor
 }
 
 function toDomain(row: PrismaTowIntervention): TowIntervention {
+  const { correlationId: _legacyCorrelationId, ...domainRow } = row;
   return {
-    ...row,
+    ...domainRow,
     status: toDomainStatus(row.status),
     estacionesAfectadasIds: [...row.estacionesAfectadasIds],
     evaluadoAt: new Date(row.evaluadoAt),

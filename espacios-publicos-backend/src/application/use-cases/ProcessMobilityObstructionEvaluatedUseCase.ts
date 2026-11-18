@@ -21,13 +21,6 @@ export class ProcessMobilityObstructionEvaluatedUseCase {
     input: MovilidadObstruccionEvaluadaInput
   ): Promise<TowIntervention> {
     const reclamoId = requireText(input.reclamoId, "El reclamo", 128);
-    const correlationId = input.correlationId
-      ? requireText(
-          input.correlationId,
-          "El identificador de correlacion",
-          128
-        )
-      : reclamoId;
 
     const existingIntervention = await this.repository.findByReclamoId(reclamoId);
 
@@ -54,7 +47,6 @@ export class ProcessMobilityObstructionEvaluatedUseCase {
 
     const intervention = await this.repository.create({
       reclamoId,
-      correlationId,
       latitud: input.latitud,
       longitud: input.longitud,
       direccion: requireText(input.direccion, "La direccion", 240),
